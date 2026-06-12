@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<routes>
+  <vType id="car" accel="2.6" decel="4.5" sigma="0.5" length="5.0" maxSpeed="13.9"/>
+
+  <route id="clockwise" edges="A0B0 B0B1 B1A1 A1A0"/>
+  <route id="counterclockwise" edges="A1B1 B1B0 B0A0 A0A1"/>
+
+  <vehicle id="cw_0" type="car" route="clockwise" depart="0"/>
+  <vehicle id="ccw_0" type="car" route="counterclockwise" depart="2"/>
+  <vehicle id="cw_1" type="car" route="clockwise" depart="4"/>
+  <vehicle id="ccw_1" type="car" route="counterclockwise" depart="6"/>
+  <vehicle id="cw_2" type="car" route="clockwise" depart="8"/>
+  <vehicle id="ccw_2" type="car" route="counterclockwise" depart="10"/>
+</routes>

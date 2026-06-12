@@ -47,6 +47,36 @@ Open:
 http://127.0.0.1:8765
 ```
 
+## Quick Demo
+
+This repository includes a public minimal paired SUMO example:
+
+```text
+examples/minimal-paired/
+  baseline.sumocfg
+  variant.sumocfg
+  grid.net.xml
+  demand.rou.xml
+```
+
+Headless smoke run:
+
+```powershell
+sumo -c examples\minimal-paired\baseline.sumocfg
+sumo -c examples\minimal-paired\variant.sumocfg
+```
+
+Then open the sidecar, run Config Pair Preflight on the two configs, and inspect:
+
+```text
+examples\minimal-paired\outputs\baseline\summary.xml
+examples\minimal-paired\outputs\baseline\tripinfo.xml
+examples\minimal-paired\outputs\variant\summary.xml
+examples\minimal-paired\outputs\variant\tripinfo.xml
+```
+
+The example is intentionally a workflow demo, not a controller-performance claim.
+
 ## Codex Bridge
 
 Codex can interact with the sidecar in two ways:

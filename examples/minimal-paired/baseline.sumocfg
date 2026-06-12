@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+  <input>
+    <net-file value="grid.net.xml"/>
+    <route-files value="demand.rou.xml"/>
+  </input>
+  <time>
+    <begin value="0"/>
+    <end value="120"/>
+  </time>
+  <output>
+    <summary-output value="outputs/baseline/summary.xml"/>
+    <tripinfo-output value="outputs/baseline/tripinfo.xml"/>
+  </output>
+  <report>
+    <no-step-log value="true"/>
+  </report>
+</configuration>

@@ -11,3 +11,5 @@ runs/
 .env
 .DS_Store
 Thumbs.db
+examples/minimal-paired/outputs/**/*.xml
+!examples/minimal-paired/outputs/**/.gitkeep
