@@ -1,5 +1,7 @@
 from pathlib import Path
+from shutil import which
 
+import pytest
 from fastapi.testclient import TestClient
 
 from sumo_sidecar.server import create_app
@@ -35,6 +37,27 @@ def test_minimal_demo_metadata_api_returns_usable_paths(tmp_path: Path) -> None:
     assert Path(body["baseline_tripinfo"]).parent.exists()
     assert Path(body["variant_summary"]).parent.exists()
     assert Path(body["variant_tripinfo"]).parent.exists()
+
+
+def test_minimal_demo_headless_api_runs_and_returns_output_inspection(tmp_path: Path) -> None:
+    if which("sumo") is None:
+        pytest.skip("sumo binary is not available on PATH")
+
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+
+    response = client.post("/api/examples/minimal-paired/run-headless")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["name"] == "minimal-paired"
+    assert body["status"] == "pass"
+    assert all(command["returncode"] == 0 for command in body["commands"])
+    assert body["output_inspection"]["status"] == "pass"
+    assert body["output_inspection"]["baseline"]["summary"]["completion_ratio"] == 1.0
+    assert body["output_inspection"]["variant"]["summary"]["completion_ratio"] == 1.0
+    assert body["output_inspection"]["baseline"]["tripinfo"]["trip_count"] == 6
+    assert body["output_inspection"]["variant"]["tripinfo"]["trip_count"] == 6
 
 
 def test_config_preflight_api_reports_pair_risks(tmp_path: Path) -> None:

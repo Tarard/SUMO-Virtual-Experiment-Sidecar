@@ -9,6 +9,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from .config_preflight import preflight_pair
+from .demo_runner import minimal_paired_metadata, run_minimal_paired_headless
 from .models import (
     ConfigPreflightRequest,
     CreateSessionRequest,
@@ -37,23 +38,17 @@ def create_app(
 
     @app.get("/api/examples/minimal-paired")
     def api_minimal_paired_example() -> dict[str, Any]:
-        example_root = repo_root / "examples" / "minimal-paired"
-        if not example_root.exists():
+        metadata = minimal_paired_metadata(repo_root)
+        if not Path(metadata["root"]).exists():
             raise HTTPException(status_code=404, detail="minimal paired example is not available")
-        return {
-            "name": "minimal-paired",
-            "root": str(example_root),
-            "baseline_config": str(example_root / "baseline.sumocfg"),
-            "variant_config": str(example_root / "variant.sumocfg"),
-            "baseline_summary": str(example_root / "outputs" / "baseline" / "summary.xml"),
-            "baseline_tripinfo": str(example_root / "outputs" / "baseline" / "tripinfo.xml"),
-            "variant_summary": str(example_root / "outputs" / "variant" / "summary.xml"),
-            "variant_tripinfo": str(example_root / "outputs" / "variant" / "tripinfo.xml"),
-            "headless_commands": [
-                "sumo -c examples\\minimal-paired\\baseline.sumocfg",
-                "sumo -c examples\\minimal-paired\\variant.sumocfg",
-            ],
-        }
+        return metadata
+
+    @app.post("/api/examples/minimal-paired/run-headless")
+    def api_run_minimal_paired_headless() -> dict[str, Any]:
+        try:
+            return run_minimal_paired_headless(repo_root)
+        except RuntimeError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     @app.post("/api/config/preflight")
     def api_config_preflight(request: ConfigPreflightRequest) -> dict[str, Any]:

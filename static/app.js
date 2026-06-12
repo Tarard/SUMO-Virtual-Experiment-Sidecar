@@ -115,6 +115,23 @@ function applyMinimalDemo(body) {
   ].join("\n");
 }
 
+function renderHeadlessDemo(body) {
+  applyMinimalDemo(body);
+  renderOutputInspection(body.output_inspection);
+  const commandLines = (body.commands || []).map((item) => {
+    const command = Array.isArray(item.command) ? item.command.join(" ") : item.command;
+    return `${item.returncode === 0 ? "PASS" : "FAIL"} ${command}`;
+  });
+  el("configPreflightOutput").textContent = [
+    `Minimal demo headless run: ${body.status}`,
+    "",
+    "commands:",
+    ...commandLines,
+    "",
+    "Output evidence has been loaded below.",
+  ].join("\n");
+}
+
 function outputInspectionPayload() {
   const payload = {};
   if (el("baselineSummary").value.trim()) payload.baseline_summary = el("baselineSummary").value.trim();
@@ -230,6 +247,16 @@ el("loadDemoBtn").addEventListener("click", async () => {
     log("Loaded minimal demo", body);
   } catch (error) {
     log(`Load demo failed: ${error.message}`);
+  }
+});
+
+el("runDemoBtn").addEventListener("click", async () => {
+  try {
+    const body = await api("/api/examples/minimal-paired/run-headless", { method: "POST" });
+    renderHeadlessDemo(body);
+    log("Ran minimal demo headless", body);
+  } catch (error) {
+    log(`Run demo failed: ${error.message}`);
   }
 });
 

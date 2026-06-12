@@ -79,6 +79,8 @@ The example is intentionally a workflow demo, not a controller-performance claim
 
 The web page also has a `Load Minimal Demo` button that fills these paths automatically.
 
+Use `Run Demo Headless` to run the bundled baseline and variant with `sumo` and load their output evidence in one step.
+
 ## Codex Bridge
 
 Codex can interact with the sidecar in two ways:
