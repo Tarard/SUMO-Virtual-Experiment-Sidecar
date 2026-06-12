@@ -19,6 +19,24 @@ def test_preflight_reports_available_fields(tmp_path: Path) -> None:
     assert "traci_available" in body
 
 
+def test_minimal_demo_metadata_api_returns_usable_paths(tmp_path: Path) -> None:
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+
+    response = client.get("/api/examples/minimal-paired")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["name"] == "minimal-paired"
+    assert Path(body["baseline_config"]).exists()
+    assert Path(body["variant_config"]).exists()
+    assert Path(body["root"]).exists()
+    assert Path(body["baseline_summary"]).parent.exists()
+    assert Path(body["baseline_tripinfo"]).parent.exists()
+    assert Path(body["variant_summary"]).parent.exists()
+    assert Path(body["variant_tripinfo"]).parent.exists()
+
+
 def test_config_preflight_api_reports_pair_risks(tmp_path: Path) -> None:
     baseline = tmp_path / "baseline.sumocfg"
     variant = tmp_path / "variant.sumocfg"

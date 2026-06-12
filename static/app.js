@@ -91,6 +91,30 @@ function setOutputPath(id, value) {
   }
 }
 
+function fillOutputPath(id, value) {
+  el(id).value = value || "";
+}
+
+function applyMinimalDemo(body) {
+  el("sessionName").value = "minimal-paired-demo";
+  el("baselineConfig").value = body.baseline_config;
+  el("variantConfig").value = body.variant_config;
+  fillOutputPath("baselineSummary", body.baseline_summary);
+  fillOutputPath("baselineTripinfo", body.baseline_tripinfo);
+  fillOutputPath("variantSummary", body.variant_summary);
+  fillOutputPath("variantTripinfo", body.variant_tripinfo);
+  el("configPreflightOutput").textContent = [
+    "Minimal demo paths loaded.",
+    "",
+    "Next:",
+    "1. Run Check Config Pair.",
+    "2. Run the headless SUMO commands or create a paired GUI session.",
+    "3. Inspect Outputs after summary/tripinfo files exist.",
+    "",
+    ...(body.headless_commands || []),
+  ].join("\n");
+}
+
 function outputInspectionPayload() {
   const payload = {};
   if (el("baselineSummary").value.trim()) payload.baseline_summary = el("baselineSummary").value.trim();
@@ -196,6 +220,16 @@ el("preflightBtn").addEventListener("click", async () => {
     log("Preflight", body);
   } catch (error) {
     log(`Preflight failed: ${error.message}`);
+  }
+});
+
+el("loadDemoBtn").addEventListener("click", async () => {
+  try {
+    const body = await api("/api/examples/minimal-paired");
+    applyMinimalDemo(body);
+    log("Loaded minimal demo", body);
+  } catch (error) {
+    log(`Load demo failed: ${error.message}`);
   }
 });
 

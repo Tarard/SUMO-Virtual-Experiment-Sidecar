@@ -31,6 +31,14 @@ body {
   background: #eef4e7;
 }
 
+.top-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 h1,
 h2,
 h3,
@@ -195,6 +203,15 @@ code {
 @media (max-width: 900px) {
   .layout {
     grid-template-columns: 1fr;
+  }
+
+  .topbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .top-actions {
+    justify-content: flex-start;
   }
 
   .config-preflight,

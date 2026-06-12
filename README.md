@@ -77,6 +77,8 @@ examples\minimal-paired\outputs\variant\tripinfo.xml
 
 The example is intentionally a workflow demo, not a controller-performance claim.
 
+The web page also has a `Load Minimal Demo` button that fills these paths automatically.
+
 ## Codex Bridge
 
 Codex can interact with the sidecar in two ways:

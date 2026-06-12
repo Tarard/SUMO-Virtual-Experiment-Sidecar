@@ -35,6 +35,26 @@ def create_app(
     def api_preflight() -> dict[str, Any]:
         return preflight()
 
+    @app.get("/api/examples/minimal-paired")
+    def api_minimal_paired_example() -> dict[str, Any]:
+        example_root = repo_root / "examples" / "minimal-paired"
+        if not example_root.exists():
+            raise HTTPException(status_code=404, detail="minimal paired example is not available")
+        return {
+            "name": "minimal-paired",
+            "root": str(example_root),
+            "baseline_config": str(example_root / "baseline.sumocfg"),
+            "variant_config": str(example_root / "variant.sumocfg"),
+            "baseline_summary": str(example_root / "outputs" / "baseline" / "summary.xml"),
+            "baseline_tripinfo": str(example_root / "outputs" / "baseline" / "tripinfo.xml"),
+            "variant_summary": str(example_root / "outputs" / "variant" / "summary.xml"),
+            "variant_tripinfo": str(example_root / "outputs" / "variant" / "tripinfo.xml"),
+            "headless_commands": [
+                "sumo -c examples\\minimal-paired\\baseline.sumocfg",
+                "sumo -c examples\\minimal-paired\\variant.sumocfg",
+            ],
+        }
+
     @app.post("/api/config/preflight")
     def api_config_preflight(request: ConfigPreflightRequest) -> dict[str, Any]:
         try:
