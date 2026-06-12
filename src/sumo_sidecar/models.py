@@ -20,6 +20,13 @@ class ConfigPreflightRequest(BaseModel):
     variant_config: Path
 
 
+class OutputInspectionRequest(BaseModel):
+    baseline_summary: Path | None = None
+    baseline_tripinfo: Path | None = None
+    variant_summary: Path | None = None
+    variant_tripinfo: Path | None = None
+
+
 class StepRequest(BaseModel):
     count: int = Field(default=1, ge=1)
 
@@ -91,4 +98,45 @@ class PairConfigPreflightReport(BaseModel):
     status: str
     baseline: ConfigPreflightReport
     variant: ConfigPreflightReport
+    paired_warnings: list[str]
+
+
+class SummaryMetrics(BaseModel):
+    path: Path
+    exists: bool
+    valid_xml: bool
+    last_time: float | None
+    loaded: int | None
+    inserted: int | None
+    arrived: int | None
+    running: int | None
+    waiting: int | None
+    teleports: int | None
+    completion_ratio: float | None
+    warnings: list[str]
+
+
+class TripinfoMetrics(BaseModel):
+    path: Path
+    exists: bool
+    valid_xml: bool
+    trip_count: int
+    mean_duration: float | None
+    mean_waiting_time: float | None
+    mean_time_loss: float | None
+    warnings: list[str]
+
+
+class RunOutputInspection(BaseModel):
+    role: str
+    status: str
+    summary: SummaryMetrics | None
+    tripinfo: TripinfoMetrics | None
+    warnings: list[str]
+
+
+class PairOutputInspectionReport(BaseModel):
+    status: str
+    baseline: RunOutputInspection
+    variant: RunOutputInspection
     paired_warnings: list[str]

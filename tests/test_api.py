@@ -70,6 +70,43 @@ def test_config_preflight_api_reports_pair_risks(tmp_path: Path) -> None:
     assert any("shared output path" in warning for warning in body["paired_warnings"])
 
 
+def test_output_inspection_api_reports_completion_difference(tmp_path: Path) -> None:
+    baseline_summary = tmp_path / "baseline-summary.xml"
+    variant_summary = tmp_path / "variant-summary.xml"
+    baseline_summary.write_text(
+        """<summary>
+  <step time="100" loaded="4" inserted="4" running="0" waiting="0" arrived="4" teleports="0"/>
+</summary>
+""",
+        encoding="utf-8",
+    )
+    variant_summary.write_text(
+        """<summary>
+  <step time="100" loaded="4" inserted="4" running="1" waiting="0" arrived="3" teleports="1"/>
+</summary>
+""",
+        encoding="utf-8",
+    )
+
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+
+    response = client.post(
+        "/api/outputs/inspect",
+        json={
+            "baseline_summary": str(baseline_summary),
+            "variant_summary": str(variant_summary),
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "warn"
+    assert body["baseline"]["summary"]["completion_ratio"] == 1.0
+    assert body["variant"]["summary"]["completion_ratio"] == 0.75
+    assert any("completion differs" in warning for warning in body["paired_warnings"])
+
+
 def test_session_api_lifecycle(tmp_path: Path) -> None:
     baseline = tmp_path / "baseline.sumocfg"
     variant = tmp_path / "variant.sumocfg"

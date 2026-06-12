@@ -87,6 +87,30 @@
         <pre id="configPreflightOutput">Run config preflight before opening paired SUMO GUI sessions.</pre>
       </section>
 
+      <section class="panel output-evidence">
+        <h2>Output Evidence</h2>
+        <div class="output-grid">
+          <label>
+            Baseline summary.xml
+            <input id="baselineSummary" placeholder="C:\path\to\baseline-summary.xml">
+          </label>
+          <label>
+            Baseline tripinfo.xml
+            <input id="baselineTripinfo" placeholder="C:\path\to\baseline-tripinfo.xml">
+          </label>
+          <label>
+            Variant summary.xml
+            <input id="variantSummary" placeholder="C:\path\to\variant-summary.xml">
+          </label>
+          <label>
+            Variant tripinfo.xml
+            <input id="variantTripinfo" placeholder="C:\path\to\variant-tripinfo.xml">
+          </label>
+        </div>
+        <button id="inspectOutputsBtn" type="button">Inspect Outputs</button>
+        <pre id="outputEvidenceOutput">Load SUMO output files to inspect completion before performance metrics.</pre>
+      </section>
+
       <section class="panel state">
         <h2>Live State</h2>
         <div class="twins">

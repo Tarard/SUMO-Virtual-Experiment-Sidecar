@@ -9,7 +9,15 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from .config_preflight import preflight_pair
-from .models import ConfigPreflightRequest, CreateSessionRequest, RunUntilRequest, ScreenshotRequest, StepRequest
+from .models import (
+    ConfigPreflightRequest,
+    CreateSessionRequest,
+    OutputInspectionRequest,
+    RunUntilRequest,
+    ScreenshotRequest,
+    StepRequest,
+)
+from .output_inspection import inspect_output_pair
 from .session_manager import AdapterFactory, SessionManager
 from .sumo_adapter import preflight
 
@@ -31,6 +39,18 @@ def create_app(
     def api_config_preflight(request: ConfigPreflightRequest) -> dict[str, Any]:
         try:
             return preflight_pair(request.baseline_config, request.variant_config).model_dump(mode="json")
+        except OSError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @app.post("/api/outputs/inspect")
+    def api_outputs_inspect(request: OutputInspectionRequest) -> dict[str, Any]:
+        try:
+            return inspect_output_pair(
+                baseline_summary=request.baseline_summary,
+                baseline_tripinfo=request.baseline_tripinfo,
+                variant_summary=request.variant_summary,
+                variant_tripinfo=request.variant_tripinfo,
+            ).model_dump(mode="json")
         except OSError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 

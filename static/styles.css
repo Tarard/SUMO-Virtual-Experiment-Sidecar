@@ -73,6 +73,7 @@ p {
 }
 
 .config-preflight,
+.output-evidence,
 .state,
 .evidence,
 .log {
@@ -157,6 +158,12 @@ button:disabled {
   align-items: end;
 }
 
+.output-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
 .twins {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -191,6 +198,7 @@ code {
   }
 
   .config-preflight,
+  .output-evidence,
   .state,
   .evidence,
   .log {
@@ -198,6 +206,7 @@ code {
   }
 
   .twins,
+  .output-grid,
   .control-grid {
     grid-template-columns: 1fr;
   }

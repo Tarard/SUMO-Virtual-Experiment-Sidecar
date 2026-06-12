@@ -49,6 +49,23 @@ Invoke-RestMethod `
 
 Use this to catch missing input files, missing output folders, mismatched route files, and shared output paths before opening SUMO GUI windows.
 
+After a run, Codex can inspect paired SUMO output evidence:
+
+```powershell
+Invoke-RestMethod `
+  -Uri http://127.0.0.1:8765/api/outputs/inspect `
+  -Method Post `
+  -ContentType "application/json" `
+  -Body '{
+    "baseline_summary": "C:\\path\\to\\baseline-summary.xml",
+    "baseline_tripinfo": "C:\\path\\to\\baseline-tripinfo.xml",
+    "variant_summary": "C:\\path\\to\\variant-summary.xml",
+    "variant_tripinfo": "C:\\path\\to\\variant-tripinfo.xml"
+  }'
+```
+
+The output inspection report follows the completion-first rule: check arrived, running, waiting-for-insertion, and teleports before interpreting travel-time or waiting-time averages.
+
 ## API Workflow
 
 Codex can call the local API from the same machine:

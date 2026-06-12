@@ -61,8 +61,9 @@ Typical workflow:
 2. Run environment preflight and config-pair preflight.
 3. Create a paired baseline/variant session in the web page.
 4. Step, run, and capture screenshots while watching the SUMO GUI windows.
-5. Ask Codex to inspect the evidence folder or call the local API.
-6. Use the generated `comparison.md` as visual diagnostic evidence, then pair it with SUMO output files before making formal claims.
+5. Inspect `summary.xml` and `tripinfo.xml` output evidence before interpreting performance metrics.
+6. Ask Codex to inspect the evidence folder or call the local API.
+7. Use the generated `comparison.md` as visual diagnostic evidence, then pair it with SUMO output files before making formal claims.
 
 See [docs/codex-bridge.md](docs/codex-bridge.md) for exact prompts and API examples.
 
@@ -71,6 +72,7 @@ Useful endpoints:
 ```text
 GET  /api/preflight
 POST /api/config/preflight
+POST /api/outputs/inspect
 POST /api/session/create
 POST /api/session/{id}/step
 POST /api/session/{id}/run-until
@@ -109,6 +111,15 @@ Before opening SUMO GUI sessions, the sidecar can inspect the two `.sumocfg` fil
 - shared output paths that may overwrite one controller's results with another.
 
 This is a construction check, not a scientific validity proof. A passing config preflight means the declared files are locally coherent enough to start visual inspection.
+
+## Output Evidence Inspection
+
+The sidecar can inspect paired SUMO outputs:
+
+- `summary.xml`: final loaded, inserted, arrived, running, waiting, teleports, and completion ratio;
+- `tripinfo.xml`: arrived-vehicle count and mean duration, waiting time, and time loss.
+
+Completion is reported before performance means. If one controller leaves more vehicles unfinished, the sidecar warns before comparing arrived-only averages.
 
 ## Architecture
 

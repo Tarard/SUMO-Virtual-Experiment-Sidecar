@@ -72,6 +72,76 @@ function renderConfigPreflight(body) {
   el("configPreflightOutput").textContent = lines.join("\n");
 }
 
+function outputInspectionPayload() {
+  const payload = {};
+  if (el("baselineSummary").value.trim()) payload.baseline_summary = el("baselineSummary").value.trim();
+  if (el("baselineTripinfo").value.trim()) payload.baseline_tripinfo = el("baselineTripinfo").value.trim();
+  if (el("variantSummary").value.trim()) payload.variant_summary = el("variantSummary").value.trim();
+  if (el("variantTripinfo").value.trim()) payload.variant_tripinfo = el("variantTripinfo").value.trim();
+  return payload;
+}
+
+function renderOutputInspection(body) {
+  const lines = [
+    `status: ${body.status}`,
+    "",
+    "paired_warnings:",
+    ...(body.paired_warnings || []).map((warning) => `- ${warning}`),
+    ...(body.paired_warnings || []).length ? "" : "- none",
+    "",
+    sectionForOutputRun(body.baseline),
+    "",
+    sectionForOutputRun(body.variant),
+  ];
+  el("outputEvidenceOutput").textContent = lines.join("\n");
+}
+
+function sectionForOutputRun(run) {
+  return [
+    `${run.role}: ${run.status}`,
+    "warnings:",
+    formatList(run.warnings),
+    "",
+    "summary:",
+    summaryBlock(run.summary),
+    "",
+    "tripinfo:",
+    tripinfoBlock(run.tripinfo),
+  ].join("\n");
+}
+
+function summaryBlock(summary) {
+  if (!summary) return "  - not provided";
+  return [
+    `  path: ${summary.path}`,
+    `  valid_xml: ${summary.valid_xml}`,
+    `  last_time: ${summary.last_time}`,
+    `  loaded: ${summary.loaded}`,
+    `  inserted: ${summary.inserted}`,
+    `  arrived: ${summary.arrived}`,
+    `  running: ${summary.running}`,
+    `  waiting: ${summary.waiting}`,
+    `  teleports: ${summary.teleports}`,
+    `  completion_ratio: ${summary.completion_ratio}`,
+  ].join("\n");
+}
+
+function tripinfoBlock(tripinfo) {
+  if (!tripinfo) return "  - not provided";
+  return [
+    `  path: ${tripinfo.path}`,
+    `  valid_xml: ${tripinfo.valid_xml}`,
+    `  trip_count: ${tripinfo.trip_count}`,
+    `  mean_duration: ${tripinfo.mean_duration}`,
+    `  mean_waiting_time: ${tripinfo.mean_waiting_time}`,
+    `  mean_time_loss: ${tripinfo.mean_time_loss}`,
+  ].join("\n");
+}
+
+function formatList(items) {
+  return items.length ? items.map((item) => `- ${item}`).join("\n") : "- none";
+}
+
 function sectionForConfig(report) {
   const missingInputs = report.missing_inputs.length
     ? report.missing_inputs.map((item) => `  - ${item}`).join("\n")
@@ -120,6 +190,19 @@ el("configPreflightBtn").addEventListener("click", async () => {
     log("Config preflight", body);
   } catch (error) {
     log(`Config preflight failed: ${error.message}`);
+  }
+});
+
+el("inspectOutputsBtn").addEventListener("click", async () => {
+  try {
+    const body = await api("/api/outputs/inspect", {
+      method: "POST",
+      body: JSON.stringify(outputInspectionPayload()),
+    });
+    renderOutputInspection(body);
+    log("Output inspection", body);
+  } catch (error) {
+    log(`Output inspection failed: ${error.message}`);
   }
 });
 
