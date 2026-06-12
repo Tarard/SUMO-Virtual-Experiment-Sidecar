@@ -15,6 +15,7 @@ function setControls(enabled) {
     "stepBtn",
     "runUntilBtn",
     "screenshotBtn",
+    "templateCheckpointBtn",
     "firstCheckpointBtn",
     "stateBtn",
     "evidenceBtn",
@@ -428,6 +429,23 @@ el("firstCheckpointBtn").addEventListener("click", async () => {
     log("Captured first checkpoint", body.screenshot);
   } catch (error) {
     log(`First checkpoint failed: ${error.message}`);
+  }
+});
+
+el("templateCheckpointBtn").addEventListener("click", async () => {
+  try {
+    const note = el("checkpointNote").value.trim();
+    const body = await api(`/api/session/${state.sessionId}/checkpoint/template`, {
+      method: "POST",
+      body: JSON.stringify({
+        template: el("checkpointTemplate").value,
+        note: note || null,
+      }),
+    });
+    renderEvidence(body.evidence);
+    log("Captured template checkpoint", body.screenshot);
+  } catch (error) {
+    log(`Template checkpoint failed: ${error.message}`);
   }
 });
 

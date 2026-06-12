@@ -57,6 +57,14 @@ def _safe_label(value: str) -> str:
     return cleaned or "snapshot"
 
 
+CHECKPOINT_TEMPLATES = {
+    "before-change": "Before controller or parameter change",
+    "after-change": "After controller or parameter change",
+    "queue-build-up": "Queue build-up observation",
+    "final-state": "Final visual state",
+}
+
+
 def _default_adapter_factory(role: str, config_path: Path, session_dir: Path, options: dict[str, Any]) -> SumoRun:
     return TraCISumoRun(role=role, config_path=config_path, session_dir=session_dir, options=options)
 
@@ -153,11 +161,18 @@ class SessionManager:
         session.variant.run_until(target_time)
         return self.state(session_id)
 
-    def screenshot(self, session_id: str, label: str = "snapshot") -> ScreenshotEvidence:
+    def screenshot(
+        self,
+        session_id: str,
+        label: str = "snapshot",
+        template: str | None = None,
+        note: str | None = None,
+    ) -> ScreenshotEvidence:
         session = self.get(session_id)
         state = self.state(session_id)
         time_value = float(state.baseline.get("time", 0.0))
         safe_label = _safe_label(label)
+        clean_note = note.strip() if note and note.strip() else None
         file_stem = f"t{time_value:g}-{safe_label}"
         baseline_path = session.session_dir / "baseline" / "screenshots" / f"{file_stem}.png"
         variant_path = session.session_dir / "variant" / "screenshots" / f"{file_stem}.png"
@@ -169,12 +184,21 @@ class SessionManager:
             time=time_value,
             baseline_screenshot=baseline_path,
             variant_screenshot=variant_path,
+            template=template,
+            note=clean_note,
         )
         session.evidence.append(evidence)
         session.manifest["evidence"] = [item.model_dump(mode="json") for item in session.evidence]
         self._write_manifest(session)
         self._write_comparison(session)
         return evidence
+
+    def checkpoint(self, session_id: str, template: str, note: str | None = None) -> ScreenshotEvidence:
+        safe_template = _safe_label(template)
+        if safe_template not in CHECKPOINT_TEMPLATES:
+            allowed = ", ".join(sorted(CHECKPOINT_TEMPLATES))
+            raise ValueError(f"unknown checkpoint template: {template}. Allowed templates: {allowed}")
+        return self.screenshot(session_id, safe_template, template=safe_template, note=note)
 
     def evidence(self, session_id: str) -> EvidenceResponse:
         session = self.get(session_id)
@@ -324,11 +348,14 @@ class SessionManager:
                         f"### {item.label}",
                         "",
                         f"- Time: `{item.time}`",
+                        f"- Template: `{item.template or 'manual'}`",
                         f"- Baseline screenshot: `{item.baseline_screenshot}`",
                         f"- Variant screenshot: `{item.variant_screenshot}`",
                         "",
                     ]
                 )
+                if item.note:
+                    lines.extend([f"- Note: {item.note}", ""])
         path.write_text("\n".join(lines), encoding="utf-8")
 
     def _build_timeline(self, session: PairedSession) -> dict[str, Any]:
@@ -340,6 +367,8 @@ class SessionManager:
                 "simulation_time": None,
                 "wall_time": session.manifest.get("created_at"),
                 "status": "created",
+                "template": None,
+                "note": None,
                 "artifacts": ["manifest.json", "comparison.md"],
             }
         ]
@@ -352,6 +381,8 @@ class SessionManager:
                     "simulation_time": item.time,
                     "wall_time": None,
                     "status": "diagnostic",
+                    "template": item.template,
+                    "note": item.note,
                     "artifacts": [
                         self._relative_artifact(session, item.baseline_screenshot),
                         self._relative_artifact(session, item.variant_screenshot),
@@ -368,6 +399,8 @@ class SessionManager:
                     "simulation_time": None,
                     "wall_time": inspection.get("updated_at"),
                     "status": inspection.get("status", "unknown"),
+                    "template": None,
+                    "note": None,
                     "artifacts": [
                         self._relative_artifact(session, inspection.get("json", "")),
                         self._relative_artifact(session, inspection.get("markdown", "")),
@@ -384,6 +417,8 @@ class SessionManager:
                     "simulation_time": None,
                     "wall_time": packet.get("updated_at"),
                     "status": "exported",
+                    "template": None,
+                    "note": None,
                     "artifacts": [self._relative_artifact(session, packet.get("path", ""))],
                 }
             )
@@ -400,16 +435,20 @@ class SessionManager:
             "",
             "This timeline aligns visual checkpoints, output evidence, and exported agent packets. It is an evidence index, not a validity certificate.",
             "",
-            "| # | Kind | Label | SUMO time | Status | Artifacts |",
-            "|---:|---|---|---:|---|---|",
+            "| # | Kind | Label | SUMO time | Status | Note | Artifacts |",
+            "|---:|---|---|---:|---|---|---|",
         ]
         for event in timeline["events"]:
             simulation_time = "" if event["simulation_time"] is None else str(event["simulation_time"])
+            note = self._markdown_table_cell(event.get("note") or "")
             artifacts = "<br>".join(f"`{artifact}`" for artifact in event["artifacts"] if artifact)
             lines.append(
-                f"| {event['sequence']} | {event['kind']} | {event['label']} | {simulation_time} | {event['status']} | {artifacts} |"
+                f"| {event['sequence']} | {event['kind']} | {event['label']} | {simulation_time} | {event['status']} | {note} | {artifacts} |"
             )
         return "\n".join(lines)
+
+    def _markdown_table_cell(self, value: str) -> str:
+        return value.replace("\n", " ").replace("|", "\\|")
 
     def _relative_artifact(self, session: PairedSession, path_value: str | Path) -> str:
         if not path_value:

@@ -39,6 +39,11 @@ class ScreenshotRequest(BaseModel):
     label: str = "snapshot"
 
 
+class TemplateCheckpointRequest(BaseModel):
+    template: str = "before-change"
+    note: str | None = None
+
+
 class SessionState(BaseModel):
     id: str
     name: str
@@ -54,6 +59,8 @@ class ScreenshotEvidence(BaseModel):
     time: float
     baseline_screenshot: Path
     variant_screenshot: Path
+    template: str | None = None
+    note: str | None = None
 
 
 class EvidenceArtifact(BaseModel):

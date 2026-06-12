@@ -13,6 +13,7 @@ MVP focus:
 - step or run both sessions from a local web page;
 - capture paired screenshots from the SUMO GUI view;
 - capture a fixed first visual checkpoint into the evidence bundle;
+- capture named `before-change`, `after-change`, `queue-build-up`, and `final-state` checkpoints with notes;
 - write `manifest.json` and `comparison.md` for Codex to inspect.
 
 Not in this release:
@@ -90,6 +91,8 @@ Use `Launch Guided GUI` to run the guided demo first, then open a paired GUI ses
 
 After a GUI session is active, use `Capture First Checkpoint` to write the first paired visual checkpoint and refresh the Codex evidence panel immediately.
 
+Use `Capture Template Checkpoint` for before/after work. The built-in templates are `before-change`, `after-change`, `queue-build-up`, and `final-state`. The optional note is written into `comparison.md` and `timeline.md`.
+
 ## Codex Bridge
 
 Codex can interact with the sidecar in two ways:
@@ -108,7 +111,7 @@ Typical workflow:
 1. Start this sidecar locally.
 2. Run environment preflight and config-pair preflight.
 3. Create a paired baseline/variant session in the web page.
-4. Capture the first paired checkpoint, then step, run, and capture more screenshots while watching the SUMO GUI windows.
+4. Capture the first paired checkpoint, then capture named before/after checkpoints while watching the SUMO GUI windows.
 5. Inspect `summary.xml` and `tripinfo.xml` output evidence before interpreting performance metrics.
 6. Export a run timeline to align checkpoints, output inspection, and packet evidence.
 7. Export a Codex packet when the session has enough screenshots and output evidence.
@@ -134,6 +137,7 @@ POST /api/session/{id}/step
 POST /api/session/{id}/run-until
 POST /api/session/{id}/screenshot
 POST /api/session/{id}/checkpoint/first
+POST /api/session/{id}/checkpoint/template
 GET  /api/session/{id}/state
 GET  /api/session/{id}/evidence
 GET  /api/session/{id}/artifact/{path}
@@ -167,7 +171,7 @@ The web page renders PNG artifacts as screenshot previews through a session-scop
 
 `codex-packet.md` is a single Markdown entrypoint for agent review. It lists the session, artifacts, comparison notes, output inspection when available, and the claim boundary. It is an index over evidence, not an automatic scientific conclusion.
 
-`timeline.md` aligns session creation, screenshot checkpoints, output inspection, and exported Codex packets. This is the quickest way to see what evidence was produced before and after a controller or configuration change.
+`timeline.md` aligns session creation, screenshot checkpoints, notes, output inspection, and exported Codex packets. This is the quickest way to see what evidence was produced before and after a controller or configuration change.
 
 ## Config Pair Preflight
 
@@ -228,5 +232,5 @@ The tests use fake SUMO adapters so they can run without launching a GUI.
 
 The MVP is a local visual sidecar. The next targets are:
 
-- support named checkpoint templates for before/after controller changes;
-- add user notes to timeline events so Codex can connect screenshots to experiment intent.
+- add before/after visual diff helpers for paired checkpoint templates;
+- add user-authored timeline events that do not require screenshots.

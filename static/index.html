@@ -81,6 +81,20 @@
             <input id="screenshotLabel" value="checkpoint">
           </label>
           <button id="screenshotBtn" type="button" disabled>Screenshot Pair</button>
+          <label>
+            Checkpoint template
+            <select id="checkpointTemplate">
+              <option value="before-change">before-change</option>
+              <option value="after-change">after-change</option>
+              <option value="queue-build-up">queue-build-up</option>
+              <option value="final-state">final-state</option>
+            </select>
+          </label>
+          <button id="templateCheckpointBtn" type="button" disabled>Capture Template Checkpoint</button>
+          <label>
+            Checkpoint note
+            <input id="checkpointNote" placeholder="What changed or what should Codex compare?">
+          </label>
         </div>
         <div class="row">
           <button id="firstCheckpointBtn" type="button" disabled>Capture First Checkpoint</button>

@@ -273,6 +273,52 @@ def test_timeline_export_aligns_checkpoints_outputs_and_packet(tmp_path: Path) -
     assert "codex-packet.md" in body["timeline_markdown"]
 
 
+def test_template_checkpoint_records_note_in_evidence_and_timeline(tmp_path: Path) -> None:
+    baseline = tmp_path / "baseline.sumocfg"
+    variant = tmp_path / "variant.sumocfg"
+    baseline.write_text("<configuration/>", encoding="utf-8")
+    variant.write_text("<configuration/>", encoding="utf-8")
+
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+
+    create_response = client.post(
+        "/api/session/create",
+        json={
+            "name": "template-demo",
+            "baseline_config": str(baseline),
+            "variant_config": str(variant),
+        },
+    )
+    session_id = create_response.json()["id"]
+
+    response = client.post(
+        f"/api/session/{session_id}/checkpoint/template",
+        json={
+            "template": "before-change",
+            "note": "Before changing the signal controller parameters.",
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["screenshot"]["label"] == "before-change"
+    assert body["screenshot"]["template"] == "before-change"
+    assert body["screenshot"]["note"] == "Before changing the signal controller parameters."
+    assert "Before changing the signal controller parameters." in body["evidence"]["comparison_markdown"]
+
+    timeline_response = client.post(f"/api/session/{session_id}/timeline/export")
+
+    assert timeline_response.status_code == 200
+    timeline_body = timeline_response.json()
+    checkpoint_events = [
+        event for event in timeline_body["timeline"]["events"] if event["kind"] == "screenshot-checkpoint"
+    ]
+    assert checkpoint_events[0]["template"] == "before-change"
+    assert checkpoint_events[0]["note"] == "Before changing the signal controller parameters."
+    assert "Before changing the signal controller parameters." in timeline_body["timeline_markdown"]
+
+
 def test_config_preflight_api_reports_pair_risks(tmp_path: Path) -> None:
     baseline = tmp_path / "baseline.sumocfg"
     variant = tmp_path / "variant.sumocfg"
