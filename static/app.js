@@ -120,6 +120,10 @@ async function refreshState() {
 async function loadEvidence() {
   const body = await api(`/api/session/${state.sessionId}/evidence`);
   el("sessionDir").textContent = body.session_dir;
+  const artifacts = (body.artifacts || [])
+    .map((item) => `${item.relative_path}  (${item.size_bytes} bytes)`)
+    .join("\n");
+  el("artifactList").textContent = artifacts || "No artifacts found.";
   el("evidencePreview").textContent = body.comparison_markdown;
   log("Loaded evidence", { session_dir: body.session_dir });
 }

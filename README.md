@@ -51,6 +51,7 @@ Codex can interact with the sidecar in two ways:
 
 1. HTTP API on `127.0.0.1:8765`.
 2. Evidence folders under `runs/<session_id>/`.
+3. Artifact listings returned by `/api/session/{id}/evidence`.
 
 This is intentionally not a VS Code extension. The bridge is designed for the Codex app or any local agent that can call localhost APIs and read files from the same machine.
 
@@ -92,6 +93,8 @@ runs/<session_id>/
 ```
 
 `comparison.md` is intentionally written for agent review. It records the paired screenshot checkpoints and reminds the agent not to treat GUI evidence as a formal performance claim.
+
+The evidence API also returns an artifact list for every file in the session folder. Codex can use that list to decide which screenshots, Markdown notes, manifests, or future SUMO output files need inspection.
 
 ## Architecture
 

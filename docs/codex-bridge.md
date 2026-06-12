@@ -73,6 +73,17 @@ Load the evidence:
 Invoke-RestMethod http://127.0.0.1:8765/api/session/<session_id>/evidence
 ```
 
+The response includes:
+
+```text
+session_dir
+manifest
+comparison_markdown
+artifacts
+```
+
+`artifacts` lists all files currently stored in the session folder, including screenshot files and any SUMO outputs later copied or generated there.
+
 ## Evidence Boundary
 
 GUI screenshots are useful for noticing obvious changes, such as queue spillback, phase mismatch, deadlock, unexpected teleport patterns, or controller timing behavior.

@@ -9,7 +9,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Callable, Protocol
 
-from .models import CreateSessionRequest, EvidenceResponse, ScreenshotEvidence, SessionState
+from .models import CreateSessionRequest, EvidenceArtifact, EvidenceResponse, ScreenshotEvidence, SessionState
 from .sumo_adapter import TraCISumoRun
 
 
@@ -178,6 +178,7 @@ class SessionManager:
             session_dir=session.session_dir,
             manifest=manifest,
             comparison_markdown=comparison,
+            artifacts=self._list_artifacts(session),
         )
 
     def close(self, session_id: str) -> None:
@@ -218,3 +219,19 @@ class SessionManager:
                     ]
                 )
         path.write_text("\n".join(lines), encoding="utf-8")
+
+    def _list_artifacts(self, session: PairedSession) -> list[EvidenceArtifact]:
+        artifacts: list[EvidenceArtifact] = []
+        for path in sorted(session.session_dir.rglob("*")):
+            if not path.is_file():
+                continue
+            stat = path.stat()
+            artifacts.append(
+                EvidenceArtifact(
+                    path=path,
+                    relative_path=path.relative_to(session.session_dir).as_posix(),
+                    size_bytes=stat.st_size,
+                    modified_at=datetime.fromtimestamp(stat.st_mtime, UTC).isoformat(),
+                )
+            )
+        return artifacts

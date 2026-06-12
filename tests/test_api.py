@@ -57,7 +57,10 @@ def test_session_api_lifecycle(tmp_path: Path) -> None:
 
     evidence_response = client.get(f"/api/session/{session_id}/evidence")
     assert evidence_response.status_code == 200
-    assert "phase-change" in evidence_response.json()["comparison_markdown"]
+    evidence_body = evidence_response.json()
+    assert "phase-change" in evidence_body["comparison_markdown"]
+    assert any(item["relative_path"] == "comparison.md" for item in evidence_body["artifacts"])
+    assert any(item["relative_path"].endswith(".png") for item in evidence_body["artifacts"])
 
     close_response = client.post(f"/api/session/{session_id}/close")
     assert close_response.status_code == 200

@@ -102,6 +102,20 @@ def test_screenshot_writes_paired_evidence(tmp_path: Path) -> None:
     assert "queue-check" in comparison.read_text(encoding="utf-8")
 
 
+def test_evidence_lists_session_artifacts(tmp_path: Path) -> None:
+    manager = SessionManager(adapter_factory=FakeAdapterFactory())
+    session = manager.create(make_request(tmp_path))
+    manager.screenshot(session.id, label="queue-check")
+
+    evidence = manager.evidence(session.id)
+    relative_paths = {item.relative_path.replace("\\", "/") for item in evidence.artifacts}
+
+    assert "manifest.json" in relative_paths
+    assert "comparison.md" in relative_paths
+    assert any(path.startswith("baseline/screenshots/") for path in relative_paths)
+    assert any(path.startswith("variant/screenshots/") for path in relative_paths)
+
+
 def test_screenshot_sanitizes_label_for_file_paths(tmp_path: Path) -> None:
     manager = SessionManager(adapter_factory=FakeAdapterFactory())
     session = manager.create(make_request(tmp_path))

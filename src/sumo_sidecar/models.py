@@ -44,8 +44,16 @@ class ScreenshotEvidence(BaseModel):
     variant_screenshot: Path
 
 
+class EvidenceArtifact(BaseModel):
+    path: Path
+    relative_path: str
+    size_bytes: int
+    modified_at: str
+
+
 class EvidenceResponse(BaseModel):
     session_id: str
     session_dir: Path
     manifest: dict[str, Any]
     comparison_markdown: str
+    artifacts: list[EvidenceArtifact]
