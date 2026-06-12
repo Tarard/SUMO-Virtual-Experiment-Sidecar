@@ -12,6 +12,7 @@ MVP focus:
 - keep runs paired by configuration, command, and evidence folder;
 - step or run both sessions from a local web page;
 - capture paired screenshots from the SUMO GUI view;
+- capture a fixed first visual checkpoint into the evidence bundle;
 - write `manifest.json` and `comparison.md` for Codex to inspect.
 
 Not in this release:
@@ -87,6 +88,8 @@ Use `Launch Demo GUI` to open the same bundled baseline and variant as a paired 
 
 Use `Launch Guided GUI` to run the guided demo first, then open a paired GUI session with the output inspection report already written into the session evidence bundle.
 
+After a GUI session is active, use `Capture First Checkpoint` to write the first paired visual checkpoint and refresh the Codex evidence panel immediately.
+
 ## Codex Bridge
 
 Codex can interact with the sidecar in two ways:
@@ -102,7 +105,7 @@ Typical workflow:
 1. Start this sidecar locally.
 2. Run environment preflight and config-pair preflight.
 3. Create a paired baseline/variant session in the web page.
-4. Step, run, and capture screenshots while watching the SUMO GUI windows.
+4. Capture the first paired checkpoint, then step, run, and capture more screenshots while watching the SUMO GUI windows.
 5. Inspect `summary.xml` and `tripinfo.xml` output evidence before interpreting performance metrics.
 6. Ask Codex to inspect the evidence folder or call the local API.
 7. Use the generated `comparison.md` as visual diagnostic evidence, then pair it with SUMO output files before making formal claims.
@@ -125,6 +128,7 @@ POST /api/session/create
 POST /api/session/{id}/step
 POST /api/session/{id}/run-until
 POST /api/session/{id}/screenshot
+POST /api/session/{id}/checkpoint/first
 GET  /api/session/{id}/state
 GET  /api/session/{id}/evidence
 POST /api/session/{id}/close
@@ -207,8 +211,7 @@ The tests use fake SUMO adapters so they can run without launching a GUI.
 
 The MVP is a local visual sidecar. The next targets are:
 
-- load SUMO output files next to screenshots;
-- compare baseline/variant metrics in the same session folder;
-- add a preflight checker for config, route, detector, and output paths;
+- preview captured screenshots directly inside the web page;
 - export a Codex-ready experiment packet for the Simulation Helper Skill for Eclipse SUMO;
-- support repeated checkpoints for before/after controller changes.
+- support named checkpoint templates for before/after controller changes;
+- add a lightweight run timeline that aligns visual checkpoints with output evidence.

@@ -168,6 +168,18 @@ def create_app(
         except KeyError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
 
+    @app.post("/api/session/{session_id}/checkpoint/first")
+    def first_checkpoint(session_id: str) -> dict[str, Any]:
+        try:
+            screenshot_evidence = manager.screenshot(session_id, "first-checkpoint")
+            evidence = manager.evidence(session_id)
+            return {
+                "screenshot": screenshot_evidence.model_dump(mode="json"),
+                "evidence": evidence.model_dump(mode="json"),
+            }
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+
     @app.get("/api/session/{session_id}/state")
     def get_state(session_id: str) -> dict[str, Any]:
         try:

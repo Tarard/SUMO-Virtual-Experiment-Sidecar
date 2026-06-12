@@ -116,6 +116,44 @@ def test_minimal_demo_launch_guided_gui_api_persists_output_evidence(tmp_path: P
     assert "output-inspection.md" in artifact_paths
 
 
+def test_first_checkpoint_api_captures_pair_and_returns_refreshed_evidence(tmp_path: Path) -> None:
+    baseline = tmp_path / "baseline.sumocfg"
+    variant = tmp_path / "variant.sumocfg"
+    baseline.write_text("<configuration/>", encoding="utf-8")
+    variant.write_text("<configuration/>", encoding="utf-8")
+
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+
+    create_response = client.post(
+        "/api/session/create",
+        json={
+            "name": "checkpoint-demo",
+            "baseline_config": str(baseline),
+            "variant_config": str(variant),
+        },
+    )
+    session_id = create_response.json()["id"]
+
+    response = client.post(f"/api/session/{session_id}/checkpoint/first")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["screenshot"]["label"] == "first-checkpoint"
+    assert Path(body["screenshot"]["baseline_screenshot"]).exists()
+    assert Path(body["screenshot"]["variant_screenshot"]).exists()
+    assert "first-checkpoint" in body["evidence"]["comparison_markdown"]
+    artifact_paths = {item["relative_path"] for item in body["evidence"]["artifacts"]}
+    assert any(
+        path.startswith("baseline/screenshots/") and path.endswith("first-checkpoint.png")
+        for path in artifact_paths
+    )
+    assert any(
+        path.startswith("variant/screenshots/") and path.endswith("first-checkpoint.png")
+        for path in artifact_paths
+    )
+
+
 def test_config_preflight_api_reports_pair_risks(tmp_path: Path) -> None:
     baseline = tmp_path / "baseline.sumocfg"
     variant = tmp_path / "variant.sumocfg"

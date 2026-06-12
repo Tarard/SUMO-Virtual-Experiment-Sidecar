@@ -11,7 +11,15 @@ function log(message, payload = null) {
 }
 
 function setControls(enabled) {
-  for (const id of ["stepBtn", "runUntilBtn", "screenshotBtn", "stateBtn", "evidenceBtn", "closeBtn"]) {
+  for (const id of [
+    "stepBtn",
+    "runUntilBtn",
+    "screenshotBtn",
+    "firstCheckpointBtn",
+    "stateBtn",
+    "evidenceBtn",
+    "closeBtn",
+  ]) {
     el(id).disabled = !enabled;
   }
 }
@@ -408,6 +416,16 @@ el("screenshotBtn").addEventListener("click", async () => {
     await loadEvidence();
   } catch (error) {
     log(`Screenshot failed: ${error.message}`);
+  }
+});
+
+el("firstCheckpointBtn").addEventListener("click", async () => {
+  try {
+    const body = await api(`/api/session/${state.sessionId}/checkpoint/first`, { method: "POST" });
+    renderEvidence(body.evidence);
+    log("Captured first checkpoint", body.screenshot);
+  } catch (error) {
+    log(`First checkpoint failed: ${error.message}`);
   }
 });
 
