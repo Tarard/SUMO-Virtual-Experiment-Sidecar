@@ -293,6 +293,18 @@ el("guidedDemoBtn").addEventListener("click", async () => {
   }
 });
 
+el("launchDemoGuiBtn").addEventListener("click", async () => {
+  try {
+    const demo = await api("/api/examples/minimal-paired");
+    applyMinimalDemo(demo);
+    const body = await api("/api/examples/minimal-paired/launch-gui", { method: "POST" });
+    renderState(body);
+    log("Launched minimal demo GUI session", body);
+  } catch (error) {
+    log(`Launch demo GUI failed: ${error.message}`);
+  }
+});
+
 el("configPreflightBtn").addEventListener("click", async () => {
   try {
     const body = await api("/api/config/preflight", {

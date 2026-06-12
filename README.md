@@ -83,6 +83,8 @@ Use `Run Demo Headless` to run the bundled baseline and variant with `sumo` and 
 
 Use `Run Guided Demo` to run config preflight, headless SUMO execution, output inspection, and next-action guidance in one step.
 
+Use `Launch Demo GUI` to open the same bundled baseline and variant as a paired SUMO GUI session. This starts two `sumo-gui` windows.
+
 ## Codex Bridge
 
 Codex can interact with the sidecar in two ways:
@@ -112,6 +114,7 @@ GET  /api/preflight
 GET  /api/examples/minimal-paired
 POST /api/examples/minimal-paired/run-headless
 POST /api/examples/minimal-paired/run-guided
+POST /api/examples/minimal-paired/launch-gui
 POST /api/config/preflight
 POST /api/outputs/inspect
 POST /api/session/{id}/outputs/inspect

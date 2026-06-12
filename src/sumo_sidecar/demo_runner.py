@@ -24,6 +24,7 @@ def minimal_paired_metadata(repo_root: Path) -> dict[str, Any]:
             "sumo -c examples\\minimal-paired\\baseline.sumocfg",
             "sumo -c examples\\minimal-paired\\variant.sumocfg",
         ],
+        "gui_session_name": "minimal-paired-gui",
     }
 
 
@@ -84,6 +85,7 @@ def run_minimal_paired_guided(repo_root: Path, timeout_seconds: int = 60) -> dic
             "Review config preflight warnings before changing claims.",
             "Review completion-first output evidence before comparing performance metrics.",
             "Click Create Paired Session to open paired SUMO GUI windows for visual inspection.",
+            "Or click Launch Demo GUI to open the bundled paired GUI session directly.",
             "Treat GUI screenshots as diagnostic evidence unless paired outputs support the claim.",
         ],
     }

@@ -80,6 +80,21 @@ def test_minimal_demo_guided_api_runs_preflight_headless_and_returns_next_action
     assert any("Create Paired Session" in action for action in body["next_actions"])
 
 
+def test_minimal_demo_launch_gui_api_creates_paired_session_with_demo_configs(tmp_path: Path) -> None:
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+
+    response = client.post("/api/examples/minimal-paired/launch-gui")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["name"] == "minimal-paired-gui"
+    assert body["evidence_count"] == 0
+    assert body["session_dir"].startswith(str(tmp_path / "runs"))
+    assert Path(body["baseline"]["config_path"]).name == "baseline.sumocfg"
+    assert Path(body["variant"]["config_path"]).name == "variant.sumocfg"
+
+
 def test_config_preflight_api_reports_pair_risks(tmp_path: Path) -> None:
     baseline = tmp_path / "baseline.sumocfg"
     variant = tmp_path / "variant.sumocfg"

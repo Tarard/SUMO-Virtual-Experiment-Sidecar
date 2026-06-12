@@ -57,6 +57,23 @@ def create_app(
         except RuntimeError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
+    @app.post("/api/examples/minimal-paired/launch-gui")
+    def api_launch_minimal_paired_gui() -> dict[str, Any]:
+        metadata = minimal_paired_metadata(repo_root)
+        try:
+            session = manager.create(
+                CreateSessionRequest(
+                    name=metadata["gui_session_name"],
+                    baseline_config=Path(metadata["baseline_config"]),
+                    variant_config=Path(metadata["variant_config"]),
+                    start=False,
+                    quit_on_end=False,
+                )
+            )
+            return manager.state(session.id).model_dump(mode="json")
+        except (FileNotFoundError, RuntimeError) as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
     @app.post("/api/config/preflight")
     def api_config_preflight(request: ConfigPreflightRequest) -> dict[str, Any]:
         try:
