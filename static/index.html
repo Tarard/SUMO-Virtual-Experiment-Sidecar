@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>SUMO Virtual Experiment Sidecar</title>
+    <link rel="stylesheet" href="/static/styles.css">
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <h1>SUMO Virtual Experiment Sidecar</h1>
+        <p>Paired visual feedback for SUMO/TraCI experiments.</p>
+      </div>
+      <button id="preflightBtn" type="button">Preflight</button>
+    </header>
+
+    <main class="layout">
+      <section class="panel setup">
+        <h2>Session</h2>
+        <label>
+          Name
+          <input id="sessionName" value="visual-comparison">
+        </label>
+        <label>
+          Baseline .sumocfg
+          <input id="baselineConfig" placeholder="C:\path\to\baseline.sumocfg">
+        </label>
+        <label>
+          Variant .sumocfg
+          <input id="variantConfig" placeholder="C:\path\to\variant.sumocfg">
+        </label>
+        <label>
+          Evidence output folder
+          <input id="outputRoot" placeholder="runs">
+        </label>
+        <label>
+          sumo-gui binary
+          <input id="sumoGuiBinary" placeholder="auto-detect from PATH">
+        </label>
+        <div class="row">
+          <label class="toggle">
+            <input id="autoStart" type="checkbox" checked>
+            Start GUI immediately
+          </label>
+          <label class="toggle">
+            <input id="quitOnEnd" type="checkbox">
+            Quit on end
+          </label>
+        </div>
+        <button id="createBtn" type="button">Create Paired Session</button>
+      </section>
+
+      <section class="panel controls">
+        <h2>Control</h2>
+        <div class="session-id">
+          <span>Active session</span>
+          <strong id="sessionId">none</strong>
+        </div>
+        <div class="control-grid">
+          <label>
+            Step count
+            <input id="stepCount" type="number" min="1" value="1">
+          </label>
+          <button id="stepBtn" type="button" disabled>Step Both</button>
+          <label>
+            Run until time
+            <input id="targetTime" type="number" min="0" value="100">
+          </label>
+          <button id="runUntilBtn" type="button" disabled>Run Until</button>
+          <label>
+            Screenshot label
+            <input id="screenshotLabel" value="checkpoint">
+          </label>
+          <button id="screenshotBtn" type="button" disabled>Screenshot Pair</button>
+        </div>
+        <div class="row">
+          <button id="stateBtn" type="button" disabled>Refresh State</button>
+          <button id="evidenceBtn" type="button" disabled>Load Evidence</button>
+          <button id="closeBtn" type="button" disabled>Close Session</button>
+        </div>
+      </section>
+
+      <section class="panel state">
+        <h2>Live State</h2>
+        <div class="twins">
+          <article>
+            <h3>Baseline</h3>
+            <pre id="baselineState">{}</pre>
+          </article>
+          <article>
+            <h3>Variant</h3>
+            <pre id="variantState">{}</pre>
+          </article>
+        </div>
+      </section>
+
+      <section class="panel evidence">
+        <h2>Codex Evidence</h2>
+        <div class="evidence-path">
+          <span>Session folder</span>
+          <code id="sessionDir">not created</code>
+        </div>
+        <pre id="evidencePreview">Evidence preview will appear here.</pre>
+      </section>
+
+      <section class="panel log">
+        <h2>Event Log</h2>
+        <pre id="logOutput"></pre>
+      </section>
+    </main>
+
+    <script src="/static/app.js"></script>
+  </body>
+</html>

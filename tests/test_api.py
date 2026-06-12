@@ -1,0 +1,64 @@
+from pathlib import Path
+
+from fastapi.testclient import TestClient
+
+from sumo_sidecar.server import create_app
+from tests.test_session_manager import FakeAdapterFactory
+
+
+def test_preflight_reports_available_fields(tmp_path: Path) -> None:
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+
+    response = client.get("/api/preflight")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert "python_version" in body
+    assert "sumo_gui_binary" in body
+    assert "traci_available" in body
+
+
+def test_session_api_lifecycle(tmp_path: Path) -> None:
+    baseline = tmp_path / "baseline.sumocfg"
+    variant = tmp_path / "variant.sumocfg"
+    baseline.write_text("<configuration/>", encoding="utf-8")
+    variant.write_text("<configuration/>", encoding="utf-8")
+
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+
+    create_response = client.post(
+        "/api/session/create",
+        json={
+            "name": "api-demo",
+            "baseline_config": str(baseline),
+            "variant_config": str(variant),
+        },
+    )
+    assert create_response.status_code == 200
+    session_id = create_response.json()["id"]
+
+    step_response = client.post(f"/api/session/{session_id}/step", json={"count": 2})
+    assert step_response.status_code == 200
+    assert step_response.json()["baseline"]["time"] == 2
+    assert step_response.json()["variant"]["time"] == 2
+
+    run_response = client.post(f"/api/session/{session_id}/run-until", json={"target_time": 7})
+    assert run_response.status_code == 200
+    assert run_response.json()["baseline"]["time"] == 7
+
+    screenshot_response = client.post(
+        f"/api/session/{session_id}/screenshot",
+        json={"label": "phase-change"},
+    )
+    assert screenshot_response.status_code == 200
+    assert Path(screenshot_response.json()["baseline_screenshot"]).exists()
+
+    evidence_response = client.get(f"/api/session/{session_id}/evidence")
+    assert evidence_response.status_code == 200
+    assert "phase-change" in evidence_response.json()["comparison_markdown"]
+
+    close_response = client.post(f"/api/session/{session_id}/close")
+    assert close_response.status_code == 200
+    assert close_response.json()["status"] == "closed"
