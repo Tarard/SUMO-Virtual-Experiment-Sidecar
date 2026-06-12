@@ -60,6 +60,26 @@ def test_minimal_demo_headless_api_runs_and_returns_output_inspection(tmp_path: 
     assert body["output_inspection"]["variant"]["tripinfo"]["trip_count"] == 6
 
 
+def test_minimal_demo_guided_api_runs_preflight_headless_and_returns_next_actions(tmp_path: Path) -> None:
+    if which("sumo") is None:
+        pytest.skip("sumo binary is not available on PATH")
+
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+
+    response = client.post("/api/examples/minimal-paired/run-guided")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["name"] == "minimal-paired"
+    assert body["status"] == "pass"
+    assert body["claim_status"] == "diagnostic-demo"
+    assert body["config_preflight"]["status"] == "pass"
+    assert body["headless_run"]["status"] == "pass"
+    assert body["output_inspection"]["status"] == "pass"
+    assert any("Create Paired Session" in action for action in body["next_actions"])
+
+
 def test_config_preflight_api_reports_pair_risks(tmp_path: Path) -> None:
     baseline = tmp_path / "baseline.sumocfg"
     variant = tmp_path / "variant.sumocfg"

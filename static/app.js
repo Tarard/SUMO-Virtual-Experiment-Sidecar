@@ -132,6 +132,29 @@ function renderHeadlessDemo(body) {
   ].join("\n");
 }
 
+function renderGuidedDemo(body) {
+  applyMinimalDemo(body);
+  renderOutputInspection(body.output_inspection);
+  const commandLines = ((body.headless_run && body.headless_run.commands) || []).map((item) => {
+    const command = Array.isArray(item.command) ? item.command.join(" ") : item.command;
+    return `${item.returncode === 0 ? "PASS" : "FAIL"} ${command}`;
+  });
+  el("configPreflightOutput").textContent = [
+    `Guided demo: ${body.status}`,
+    `claim_status: ${body.claim_status}`,
+    "",
+    `config_preflight: ${body.config_preflight.status}`,
+    `headless_run: ${body.headless_run.status}`,
+    `output_inspection: ${body.output_inspection.status}`,
+    "",
+    "commands:",
+    ...commandLines,
+    "",
+    "next_actions:",
+    ...((body.next_actions || []).map((item) => `- ${item}`)),
+  ].join("\n");
+}
+
 function outputInspectionPayload() {
   const payload = {};
   if (el("baselineSummary").value.trim()) payload.baseline_summary = el("baselineSummary").value.trim();
@@ -257,6 +280,16 @@ el("runDemoBtn").addEventListener("click", async () => {
     log("Ran minimal demo headless", body);
   } catch (error) {
     log(`Run demo failed: ${error.message}`);
+  }
+});
+
+el("guidedDemoBtn").addEventListener("click", async () => {
+  try {
+    const body = await api("/api/examples/minimal-paired/run-guided", { method: "POST" });
+    renderGuidedDemo(body);
+    log("Ran guided demo", body);
+  } catch (error) {
+    log(`Guided demo failed: ${error.message}`);
   }
 });
 

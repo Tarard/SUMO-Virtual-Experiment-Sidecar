@@ -9,7 +9,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from .config_preflight import preflight_pair
-from .demo_runner import minimal_paired_metadata, run_minimal_paired_headless
+from .demo_runner import minimal_paired_metadata, run_minimal_paired_guided, run_minimal_paired_headless
 from .models import (
     ConfigPreflightRequest,
     CreateSessionRequest,
@@ -47,6 +47,13 @@ def create_app(
     def api_run_minimal_paired_headless() -> dict[str, Any]:
         try:
             return run_minimal_paired_headless(repo_root)
+        except RuntimeError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @app.post("/api/examples/minimal-paired/run-guided")
+    def api_run_minimal_paired_guided() -> dict[str, Any]:
+        try:
+            return run_minimal_paired_guided(repo_root)
         except RuntimeError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
