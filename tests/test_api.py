@@ -95,6 +95,27 @@ def test_minimal_demo_launch_gui_api_creates_paired_session_with_demo_configs(tm
     assert Path(body["variant"]["config_path"]).name == "variant.sumocfg"
 
 
+def test_minimal_demo_launch_guided_gui_api_persists_output_evidence(tmp_path: Path) -> None:
+    if which("sumo") is None:
+        pytest.skip("sumo binary is not available on PATH")
+
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+
+    response = client.post("/api/examples/minimal-paired/launch-guided-gui")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "pass"
+    assert body["guided_demo"]["status"] == "pass"
+    assert body["session"]["name"] == "minimal-paired-gui"
+    assert body["output_inspection"]["status"] == "pass"
+    assert body["evidence"]["manifest"]["output_inspection"]["status"] == "pass"
+    artifact_paths = {item["relative_path"] for item in body["evidence"]["artifacts"]}
+    assert "output-inspection.json" in artifact_paths
+    assert "output-inspection.md" in artifact_paths
+
+
 def test_config_preflight_api_reports_pair_risks(tmp_path: Path) -> None:
     baseline = tmp_path / "baseline.sumocfg"
     variant = tmp_path / "variant.sumocfg"

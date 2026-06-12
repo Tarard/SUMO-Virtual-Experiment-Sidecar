@@ -155,6 +155,20 @@ function renderGuidedDemo(body) {
   ].join("\n");
 }
 
+function renderGuidedGuiLaunch(body) {
+  applyMinimalDemo(body.guided_demo);
+  renderGuidedDemo(body.guided_demo);
+  renderState(body.session);
+  renderOutputInspection(body.output_inspection);
+  renderEvidence(body.evidence);
+  el("configPreflightOutput").textContent += [
+    "",
+    "paired_gui_session:",
+    `- ${body.session.id}`,
+    "- output inspection persisted into session evidence",
+  ].join("\n");
+}
+
 function outputInspectionPayload() {
   const payload = {};
   if (el("baselineSummary").value.trim()) payload.baseline_summary = el("baselineSummary").value.trim();
@@ -305,6 +319,16 @@ el("launchDemoGuiBtn").addEventListener("click", async () => {
   }
 });
 
+el("launchGuidedGuiBtn").addEventListener("click", async () => {
+  try {
+    const body = await api("/api/examples/minimal-paired/launch-guided-gui", { method: "POST" });
+    renderGuidedGuiLaunch(body);
+    log("Launched guided demo GUI session", body);
+  } catch (error) {
+    log(`Launch guided GUI failed: ${error.message}`);
+  }
+});
+
 el("configPreflightBtn").addEventListener("click", async () => {
   try {
     const body = await api("/api/config/preflight", {
@@ -395,13 +419,17 @@ async function refreshState() {
 
 async function loadEvidence() {
   const body = await api(`/api/session/${state.sessionId}/evidence`);
+  renderEvidence(body);
+  log("Loaded evidence", { session_dir: body.session_dir });
+}
+
+function renderEvidence(body) {
   el("sessionDir").textContent = body.session_dir;
   const artifacts = (body.artifacts || [])
     .map((item) => `${item.relative_path}  (${item.size_bytes} bytes)`)
     .join("\n");
   el("artifactList").textContent = artifacts || "No artifacts found.";
   el("evidencePreview").textContent = body.comparison_markdown;
-  log("Loaded evidence", { session_dir: body.session_dir });
 }
 
 el("stateBtn").addEventListener("click", async () => {
