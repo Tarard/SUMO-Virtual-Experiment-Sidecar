@@ -19,6 +19,7 @@ function setControls(enabled) {
     "stateBtn",
     "evidenceBtn",
     "exportPacketBtn",
+    "exportTimelineBtn",
     "closeBtn",
   ]) {
     el(id).disabled = !enabled;
@@ -508,6 +509,17 @@ el("exportPacketBtn").addEventListener("click", async () => {
     log("Exported Codex packet", { packet_path: body.packet_path });
   } catch (error) {
     log(`Packet export failed: ${error.message}`);
+  }
+});
+
+el("exportTimelineBtn").addEventListener("click", async () => {
+  try {
+    const body = await api(`/api/session/${state.sessionId}/timeline/export`, { method: "POST" });
+    renderEvidence(body.evidence);
+    el("timelinePreview").textContent = body.timeline_markdown;
+    log("Exported run timeline", { timeline_markdown_path: body.timeline_markdown_path });
+  } catch (error) {
+    log(`Timeline export failed: ${error.message}`);
   }
 });
 

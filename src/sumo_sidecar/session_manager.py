@@ -214,6 +214,8 @@ class SessionManager:
     def export_packet(self, session_id: str) -> dict[str, Any]:
         session = self.get(session_id)
         evidence = self.evidence(session_id)
+        timeline = self._build_timeline(session)
+        timeline_markdown = self._render_timeline_markdown(timeline)
         output_inspection_path = session.session_dir / "output-inspection.md"
         output_inspection = (
             output_inspection_path.read_text(encoding="utf-8") if output_inspection_path.exists() else "Not exported yet."
@@ -238,6 +240,10 @@ class SessionManager:
             "",
             *artifact_lines,
             "",
+            "## Run Timeline",
+            "",
+            timeline_markdown,
+            "",
             "## Comparison Notes",
             "",
             evidence.comparison_markdown or "No comparison notes exported yet.",
@@ -261,6 +267,28 @@ class SessionManager:
         return {
             "packet_path": packet_path,
             "packet_markdown": packet_markdown,
+            "evidence": self.evidence(session_id),
+        }
+
+    def export_timeline(self, session_id: str) -> dict[str, Any]:
+        session = self.get(session_id)
+        timeline = self._build_timeline(session)
+        timeline_markdown = self._render_timeline_markdown(timeline)
+        json_path = session.session_dir / "timeline.json"
+        markdown_path = session.session_dir / "timeline.md"
+        json_path.write_text(json.dumps(timeline, indent=2), encoding="utf-8")
+        markdown_path.write_text(timeline_markdown, encoding="utf-8")
+        session.manifest["timeline"] = {
+            "json": str(json_path),
+            "markdown": str(markdown_path),
+            "updated_at": _utc_now(),
+        }
+        self._write_manifest(session)
+        return {
+            "timeline": timeline,
+            "timeline_json_path": json_path,
+            "timeline_markdown_path": markdown_path,
+            "timeline_markdown": timeline_markdown,
             "evidence": self.evidence(session_id),
         }
 
@@ -302,6 +330,95 @@ class SessionManager:
                     ]
                 )
         path.write_text("\n".join(lines), encoding="utf-8")
+
+    def _build_timeline(self, session: PairedSession) -> dict[str, Any]:
+        events: list[dict[str, Any]] = [
+            {
+                "sequence": 1,
+                "kind": "session-created",
+                "label": "Session created",
+                "simulation_time": None,
+                "wall_time": session.manifest.get("created_at"),
+                "status": "created",
+                "artifacts": ["manifest.json", "comparison.md"],
+            }
+        ]
+        for item in session.evidence:
+            events.append(
+                {
+                    "sequence": len(events) + 1,
+                    "kind": "screenshot-checkpoint",
+                    "label": item.label,
+                    "simulation_time": item.time,
+                    "wall_time": None,
+                    "status": "diagnostic",
+                    "artifacts": [
+                        self._relative_artifact(session, item.baseline_screenshot),
+                        self._relative_artifact(session, item.variant_screenshot),
+                    ],
+                }
+            )
+        if "output_inspection" in session.manifest:
+            inspection = session.manifest["output_inspection"]
+            events.append(
+                {
+                    "sequence": len(events) + 1,
+                    "kind": "output-inspection",
+                    "label": "Output inspection",
+                    "simulation_time": None,
+                    "wall_time": inspection.get("updated_at"),
+                    "status": inspection.get("status", "unknown"),
+                    "artifacts": [
+                        self._relative_artifact(session, inspection.get("json", "")),
+                        self._relative_artifact(session, inspection.get("markdown", "")),
+                    ],
+                }
+            )
+        if "codex_packet" in session.manifest:
+            packet = session.manifest["codex_packet"]
+            events.append(
+                {
+                    "sequence": len(events) + 1,
+                    "kind": "codex-packet",
+                    "label": "Codex packet",
+                    "simulation_time": None,
+                    "wall_time": packet.get("updated_at"),
+                    "status": "exported",
+                    "artifacts": [self._relative_artifact(session, packet.get("path", ""))],
+                }
+            )
+        return {
+            "session_id": session.id,
+            "session_name": session.name,
+            "session_dir": str(session.session_dir),
+            "events": events,
+        }
+
+    def _render_timeline_markdown(self, timeline: dict[str, Any]) -> str:
+        lines = [
+            f"# SUMO Run Timeline: {timeline['session_name']}",
+            "",
+            "This timeline aligns visual checkpoints, output evidence, and exported agent packets. It is an evidence index, not a validity certificate.",
+            "",
+            "| # | Kind | Label | SUMO time | Status | Artifacts |",
+            "|---:|---|---|---:|---|---|",
+        ]
+        for event in timeline["events"]:
+            simulation_time = "" if event["simulation_time"] is None else str(event["simulation_time"])
+            artifacts = "<br>".join(f"`{artifact}`" for artifact in event["artifacts"] if artifact)
+            lines.append(
+                f"| {event['sequence']} | {event['kind']} | {event['label']} | {simulation_time} | {event['status']} | {artifacts} |"
+            )
+        return "\n".join(lines)
+
+    def _relative_artifact(self, session: PairedSession, path_value: str | Path) -> str:
+        if not path_value:
+            return ""
+        path = Path(path_value)
+        try:
+            return path.resolve().relative_to(session.session_dir.resolve()).as_posix()
+        except ValueError:
+            return path.as_posix()
 
     def _list_artifacts(self, session: PairedSession) -> list[EvidenceArtifact]:
         artifacts: list[EvidenceArtifact] = []

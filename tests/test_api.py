@@ -219,6 +219,60 @@ def test_codex_packet_export_writes_single_markdown_entrypoint(tmp_path: Path) -
     assert "comparison.md" in body["packet_markdown"]
 
 
+def test_timeline_export_aligns_checkpoints_outputs_and_packet(tmp_path: Path) -> None:
+    baseline = tmp_path / "baseline.sumocfg"
+    variant = tmp_path / "variant.sumocfg"
+    baseline.write_text("<configuration/>", encoding="utf-8")
+    variant.write_text("<configuration/>", encoding="utf-8")
+
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+
+    create_response = client.post(
+        "/api/session/create",
+        json={
+            "name": "timeline-demo",
+            "baseline_config": str(baseline),
+            "variant_config": str(variant),
+        },
+    )
+    session_id = create_response.json()["id"]
+    client.post(f"/api/session/{session_id}/checkpoint/first")
+
+    baseline_summary = tmp_path / "baseline-summary.xml"
+    variant_summary = tmp_path / "variant-summary.xml"
+    baseline_summary.write_text(
+        '<summary><step time="10" loaded="2" inserted="2" running="0" waiting="0" arrived="2" teleports="0"/></summary>',
+        encoding="utf-8",
+    )
+    variant_summary.write_text(
+        '<summary><step time="10" loaded="2" inserted="2" running="0" waiting="0" arrived="2" teleports="0"/></summary>',
+        encoding="utf-8",
+    )
+    client.post(
+        f"/api/session/{session_id}/outputs/inspect",
+        json={
+            "baseline_summary": str(baseline_summary),
+            "variant_summary": str(variant_summary),
+        },
+    )
+    client.post(f"/api/session/{session_id}/packet/export")
+
+    response = client.post(f"/api/session/{session_id}/timeline/export")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert Path(body["timeline_json_path"]).exists()
+    assert Path(body["timeline_markdown_path"]).exists()
+    event_kinds = [event["kind"] for event in body["timeline"]["events"]]
+    assert event_kinds[:2] == ["session-created", "screenshot-checkpoint"]
+    assert "output-inspection" in event_kinds
+    assert "codex-packet" in event_kinds
+    assert "first-checkpoint" in body["timeline_markdown"]
+    assert "output-inspection.md" in body["timeline_markdown"]
+    assert "codex-packet.md" in body["timeline_markdown"]
+
+
 def test_config_preflight_api_reports_pair_risks(tmp_path: Path) -> None:
     baseline = tmp_path / "baseline.sumocfg"
     variant = tmp_path / "variant.sumocfg"

@@ -219,6 +219,20 @@ def create_app(
         except KeyError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
 
+    @app.post("/api/session/{session_id}/timeline/export")
+    def export_timeline(session_id: str) -> dict[str, Any]:
+        try:
+            timeline = manager.export_timeline(session_id)
+            return {
+                "timeline": timeline["timeline"],
+                "timeline_json_path": str(timeline["timeline_json_path"]),
+                "timeline_markdown_path": str(timeline["timeline_markdown_path"]),
+                "timeline_markdown": timeline["timeline_markdown"],
+                "evidence": timeline["evidence"].model_dump(mode="json"),
+            }
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+
     @app.post("/api/session/{session_id}/close")
     def close_session(session_id: str) -> dict[str, str]:
         try:

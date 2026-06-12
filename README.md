@@ -99,6 +99,7 @@ Codex can interact with the sidecar in two ways:
 3. Artifact listings returned by `/api/session/{id}/evidence`.
 4. Session-scoped artifact files returned by `/api/session/{id}/artifact/{path}`.
 5. A single Codex-readable packet written by `/api/session/{id}/packet/export`.
+6. A run timeline written by `/api/session/{id}/timeline/export`.
 
 This is intentionally not a VS Code extension. The bridge is designed for the Codex app or any local agent that can call localhost APIs and read files from the same machine.
 
@@ -109,9 +110,10 @@ Typical workflow:
 3. Create a paired baseline/variant session in the web page.
 4. Capture the first paired checkpoint, then step, run, and capture more screenshots while watching the SUMO GUI windows.
 5. Inspect `summary.xml` and `tripinfo.xml` output evidence before interpreting performance metrics.
-6. Export a Codex packet when the session has enough screenshots and output evidence.
-7. Ask Codex to inspect the evidence folder, the packet, or the local API.
-8. Use the generated `comparison.md` and `codex-packet.md` as diagnostic evidence indexes, then pair them with SUMO output files before making formal claims.
+6. Export a run timeline to align checkpoints, output inspection, and packet evidence.
+7. Export a Codex packet when the session has enough screenshots and output evidence.
+8. Ask Codex to inspect the evidence folder, the packet, timeline, or local API.
+9. Use the generated `comparison.md`, `timeline.md`, and `codex-packet.md` as diagnostic evidence indexes, then pair them with SUMO output files before making formal claims.
 
 See [docs/codex-bridge.md](docs/codex-bridge.md) for exact prompts and API examples.
 
@@ -136,6 +138,7 @@ GET  /api/session/{id}/state
 GET  /api/session/{id}/evidence
 GET  /api/session/{id}/artifact/{path}
 POST /api/session/{id}/packet/export
+POST /api/session/{id}/timeline/export
 POST /api/session/{id}/close
 ```
 
@@ -148,6 +151,8 @@ runs/<session_id>/
   manifest.json
   comparison.md
   codex-packet.md
+  timeline.json
+  timeline.md
   baseline/
     screenshots/
   variant/
@@ -161,6 +166,8 @@ The evidence API also returns an artifact list for every file in the session fol
 The web page renders PNG artifacts as screenshot previews through a session-scoped artifact endpoint. The endpoint serves files only from the active session folder; it is not a general local file browser.
 
 `codex-packet.md` is a single Markdown entrypoint for agent review. It lists the session, artifacts, comparison notes, output inspection when available, and the claim boundary. It is an index over evidence, not an automatic scientific conclusion.
+
+`timeline.md` aligns session creation, screenshot checkpoints, output inspection, and exported Codex packets. This is the quickest way to see what evidence was produced before and after a controller or configuration change.
 
 ## Config Pair Preflight
 
@@ -222,4 +229,4 @@ The tests use fake SUMO adapters so they can run without launching a GUI.
 The MVP is a local visual sidecar. The next targets are:
 
 - support named checkpoint templates for before/after controller changes;
-- add a lightweight run timeline that aligns visual checkpoints with output evidence.
+- add user notes to timeline events so Codex can connect screenshots to experiment intent.
