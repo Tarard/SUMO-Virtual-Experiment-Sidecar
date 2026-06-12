@@ -34,6 +34,21 @@ It does not embed Codex inside SUMO, and it does not require VS Code. The user k
    Tell me what visual differences are supported by the evidence, and what still needs SUMO output metrics.
    ```
 
+Before creating a session, Codex can also inspect the paired `.sumocfg` files:
+
+```powershell
+Invoke-RestMethod `
+  -Uri http://127.0.0.1:8765/api/config/preflight `
+  -Method Post `
+  -ContentType "application/json" `
+  -Body '{
+    "baseline_config": "C:\\path\\to\\baseline.sumocfg",
+    "variant_config": "C:\\path\\to\\variant.sumocfg"
+  }'
+```
+
+Use this to catch missing input files, missing output folders, mismatched route files, and shared output paths before opening SUMO GUI windows.
+
 ## API Workflow
 
 Codex can call the local API from the same machine:

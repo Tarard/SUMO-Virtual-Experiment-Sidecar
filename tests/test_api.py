@@ -19,6 +19,57 @@ def test_preflight_reports_available_fields(tmp_path: Path) -> None:
     assert "traci_available" in body
 
 
+def test_config_preflight_api_reports_pair_risks(tmp_path: Path) -> None:
+    baseline = tmp_path / "baseline.sumocfg"
+    variant = tmp_path / "variant.sumocfg"
+    baseline.write_text(
+        """<configuration>
+  <input>
+    <net-file value="network.net.xml"/>
+    <route-files value="routes.rou.xml"/>
+  </input>
+  <output>
+    <tripinfo-output value="shared/tripinfo.xml"/>
+  </output>
+</configuration>
+""",
+        encoding="utf-8",
+    )
+    variant.write_text(
+        """<configuration>
+  <input>
+    <net-file value="network.net.xml"/>
+    <route-files value="routes.rou.xml"/>
+  </input>
+  <output>
+    <tripinfo-output value="shared/tripinfo.xml"/>
+  </output>
+</configuration>
+""",
+        encoding="utf-8",
+    )
+    (tmp_path / "network.net.xml").write_text("<net/>", encoding="utf-8")
+    (tmp_path / "routes.rou.xml").write_text("<routes/>", encoding="utf-8")
+    (tmp_path / "shared").mkdir()
+
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+
+    response = client.post(
+        "/api/config/preflight",
+        json={
+            "baseline_config": str(baseline),
+            "variant_config": str(variant),
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "warn"
+    assert body["baseline"]["status"] == "pass"
+    assert any("shared output path" in warning for warning in body["paired_warnings"])
+
+
 def test_session_api_lifecycle(tmp_path: Path) -> None:
     baseline = tmp_path / "baseline.sumocfg"
     variant = tmp_path / "variant.sumocfg"

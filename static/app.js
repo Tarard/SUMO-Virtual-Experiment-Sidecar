@@ -50,12 +50,76 @@ function sessionPayload() {
   return payload;
 }
 
+function configPreflightPayload() {
+  return {
+    baseline_config: el("baselineConfig").value,
+    variant_config: el("variantConfig").value,
+  };
+}
+
+function renderConfigPreflight(body) {
+  const lines = [
+    `status: ${body.status}`,
+    "",
+    "paired_warnings:",
+    ...(body.paired_warnings || []).map((warning) => `- ${warning}`),
+    ...(body.paired_warnings || []).length ? "" : "- none",
+    "",
+    sectionForConfig(body.baseline),
+    "",
+    sectionForConfig(body.variant),
+  ];
+  el("configPreflightOutput").textContent = lines.join("\n");
+}
+
+function sectionForConfig(report) {
+  const missingInputs = report.missing_inputs.length
+    ? report.missing_inputs.map((item) => `  - ${item}`).join("\n")
+    : "  - none";
+  const missingOutputParents = report.missing_output_parents.length
+    ? report.missing_output_parents.map((item) => `  - ${item}`).join("\n")
+    : "  - none";
+  const declaredOutputs = report.declared_outputs.length
+    ? report.declared_outputs.map((item) => `  - ${item}`).join("\n")
+    : "  - none";
+  const warnings = report.warnings.length
+    ? report.warnings.map((item) => `  - ${item}`).join("\n")
+    : "  - none";
+
+  return [
+    `${report.role}: ${report.status}`,
+    `config: ${report.config_path}`,
+    `valid_xml: ${report.valid_xml}`,
+    "missing_inputs:",
+    missingInputs,
+    "missing_output_parents:",
+    missingOutputParents,
+    "declared_outputs:",
+    declaredOutputs,
+    "warnings:",
+    warnings,
+  ].join("\n");
+}
+
 el("preflightBtn").addEventListener("click", async () => {
   try {
     const body = await api("/api/preflight");
     log("Preflight", body);
   } catch (error) {
     log(`Preflight failed: ${error.message}`);
+  }
+});
+
+el("configPreflightBtn").addEventListener("click", async () => {
+  try {
+    const body = await api("/api/config/preflight", {
+      method: "POST",
+      body: JSON.stringify(configPreflightPayload()),
+    });
+    renderConfigPreflight(body);
+    log("Config preflight", body);
+  } catch (error) {
+    log(`Config preflight failed: ${error.message}`);
   }
 });
 

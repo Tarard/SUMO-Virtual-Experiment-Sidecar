@@ -15,6 +15,11 @@ class CreateSessionRequest(BaseModel):
     extra_args: list[str] = Field(default_factory=list)
 
 
+class ConfigPreflightRequest(BaseModel):
+    baseline_config: Path
+    variant_config: Path
+
+
 class StepRequest(BaseModel):
     count: int = Field(default=1, ge=1)
 
@@ -57,3 +62,33 @@ class EvidenceResponse(BaseModel):
     manifest: dict[str, Any]
     comparison_markdown: str
     artifacts: list[EvidenceArtifact]
+
+
+class ConfigReference(BaseModel):
+    role: str
+    kind: str
+    option: str
+    value: str
+    resolved_path: Path
+    exists: bool
+    parent_exists: bool
+
+
+class ConfigPreflightReport(BaseModel):
+    role: str
+    config_path: Path
+    config_exists: bool
+    valid_xml: bool
+    status: str
+    references: list[ConfigReference]
+    missing_inputs: list[str]
+    missing_output_parents: list[str]
+    declared_outputs: list[str]
+    warnings: list[str]
+
+
+class PairConfigPreflightReport(BaseModel):
+    status: str
+    baseline: ConfigPreflightReport
+    variant: ConfigPreflightReport
+    paired_warnings: list[str]

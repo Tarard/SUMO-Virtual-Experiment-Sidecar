@@ -58,10 +58,11 @@ This is intentionally not a VS Code extension. The bridge is designed for the Co
 Typical workflow:
 
 1. Start this sidecar locally.
-2. Create a paired baseline/variant session in the web page.
-3. Step, run, and capture screenshots while watching the SUMO GUI windows.
-4. Ask Codex to inspect the evidence folder or call the local API.
-5. Use the generated `comparison.md` as visual diagnostic evidence, then pair it with SUMO output files before making formal claims.
+2. Run environment preflight and config-pair preflight.
+3. Create a paired baseline/variant session in the web page.
+4. Step, run, and capture screenshots while watching the SUMO GUI windows.
+5. Ask Codex to inspect the evidence folder or call the local API.
+6. Use the generated `comparison.md` as visual diagnostic evidence, then pair it with SUMO output files before making formal claims.
 
 See [docs/codex-bridge.md](docs/codex-bridge.md) for exact prompts and API examples.
 
@@ -69,6 +70,7 @@ Useful endpoints:
 
 ```text
 GET  /api/preflight
+POST /api/config/preflight
 POST /api/session/create
 POST /api/session/{id}/step
 POST /api/session/{id}/run-until
@@ -95,6 +97,18 @@ runs/<session_id>/
 `comparison.md` is intentionally written for agent review. It records the paired screenshot checkpoints and reminds the agent not to treat GUI evidence as a formal performance claim.
 
 The evidence API also returns an artifact list for every file in the session folder. Codex can use that list to decide which screenshots, Markdown notes, manifests, or future SUMO output files need inspection.
+
+## Config Pair Preflight
+
+Before opening SUMO GUI sessions, the sidecar can inspect the two `.sumocfg` files and report:
+
+- missing `net-file`, `route-files`, `additional-files`, or other referenced input files;
+- missing parent folders for declared SUMO outputs;
+- declared output types such as `summary-output` and `tripinfo-output`;
+- baseline/variant route or network mismatches;
+- shared output paths that may overwrite one controller's results with another.
+
+This is a construction check, not a scientific validity proof. A passing config preflight means the declared files are locally coherent enough to start visual inspection.
 
 ## Architecture
 

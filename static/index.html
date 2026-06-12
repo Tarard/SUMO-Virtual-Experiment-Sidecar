@@ -48,6 +48,7 @@
             Quit on end
           </label>
         </div>
+        <button id="configPreflightBtn" type="button">Check Config Pair</button>
         <button id="createBtn" type="button">Create Paired Session</button>
       </section>
 
@@ -79,6 +80,11 @@
           <button id="evidenceBtn" type="button" disabled>Load Evidence</button>
           <button id="closeBtn" type="button" disabled>Close Session</button>
         </div>
+      </section>
+
+      <section class="panel config-preflight">
+        <h2>Construction Preflight</h2>
+        <pre id="configPreflightOutput">Run config preflight before opening paired SUMO GUI sessions.</pre>
       </section>
 
       <section class="panel state">

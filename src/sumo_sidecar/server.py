@@ -8,7 +8,8 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from .models import CreateSessionRequest, RunUntilRequest, ScreenshotRequest, StepRequest
+from .config_preflight import preflight_pair
+from .models import ConfigPreflightRequest, CreateSessionRequest, RunUntilRequest, ScreenshotRequest, StepRequest
 from .session_manager import AdapterFactory, SessionManager
 from .sumo_adapter import preflight
 
@@ -25,6 +26,13 @@ def create_app(
     @app.get("/api/preflight")
     def api_preflight() -> dict[str, Any]:
         return preflight()
+
+    @app.post("/api/config/preflight")
+    def api_config_preflight(request: ConfigPreflightRequest) -> dict[str, Any]:
+        try:
+            return preflight_pair(request.baseline_config, request.variant_config).model_dump(mode="json")
+        except OSError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     @app.post("/api/session/create")
     def create_session(request: CreateSessionRequest) -> dict[str, Any]:
