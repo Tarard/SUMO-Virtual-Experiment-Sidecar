@@ -316,6 +316,29 @@ class SessionManager:
             "evidence": self.evidence(session_id),
         }
 
+    def export_visual_diff(self, session_id: str) -> dict[str, Any]:
+        session = self.get(session_id)
+        visual_diff = self._build_visual_diff(session)
+        visual_diff_markdown = self._render_visual_diff_markdown(visual_diff)
+        json_path = session.session_dir / "visual-diff.json"
+        markdown_path = session.session_dir / "visual-diff.md"
+        json_path.write_text(json.dumps(visual_diff, indent=2), encoding="utf-8")
+        markdown_path.write_text(visual_diff_markdown, encoding="utf-8")
+        session.manifest["visual_diff"] = {
+            "status": visual_diff["status"],
+            "json": str(json_path),
+            "markdown": str(markdown_path),
+            "updated_at": _utc_now(),
+        }
+        self._write_manifest(session)
+        return {
+            "visual_diff": visual_diff,
+            "visual_diff_json_path": json_path,
+            "visual_diff_markdown_path": markdown_path,
+            "visual_diff_markdown": visual_diff_markdown,
+            "evidence": self.evidence(session_id),
+        }
+
     def close(self, session_id: str) -> None:
         session = self.get(session_id)
         session.baseline.close()
@@ -422,12 +445,116 @@ class SessionManager:
                     "artifacts": [self._relative_artifact(session, packet.get("path", ""))],
                 }
             )
+        if "visual_diff" in session.manifest:
+            visual_diff = session.manifest["visual_diff"]
+            events.append(
+                {
+                    "sequence": len(events) + 1,
+                    "kind": "visual-diff",
+                    "label": "Visual diff index",
+                    "simulation_time": None,
+                    "wall_time": visual_diff.get("updated_at"),
+                    "status": visual_diff.get("status", "unknown"),
+                    "template": None,
+                    "note": None,
+                    "artifacts": [
+                        self._relative_artifact(session, visual_diff.get("json", "")),
+                        self._relative_artifact(session, visual_diff.get("markdown", "")),
+                    ],
+                }
+            )
         return {
             "session_id": session.id,
             "session_name": session.name,
             "session_dir": str(session.session_dir),
             "events": events,
         }
+
+    def _build_visual_diff(self, session: PairedSession) -> dict[str, Any]:
+        before_items = [item for item in session.evidence if item.template == "before-change"]
+        after_items = [item for item in session.evidence if item.template == "after-change"]
+        pairs = []
+        for index, (before, after) in enumerate(zip(before_items, after_items), start=1):
+            pairs.append(
+                {
+                    "index": index,
+                    "status": "paired",
+                    "before": self._visual_diff_checkpoint(session, before),
+                    "after": self._visual_diff_checkpoint(session, after),
+                    "baseline_before": self._relative_artifact(session, before.baseline_screenshot),
+                    "baseline_after": self._relative_artifact(session, after.baseline_screenshot),
+                    "variant_before": self._relative_artifact(session, before.variant_screenshot),
+                    "variant_after": self._relative_artifact(session, after.variant_screenshot),
+                    "claim_boundary": "Visual differences are diagnostic only; pair them with SUMO output evidence before making performance claims.",
+                }
+            )
+        warnings = []
+        if len(before_items) != len(after_items):
+            warnings.append(
+                f"unpaired checkpoints: before-change={len(before_items)}, after-change={len(after_items)}"
+            )
+        status = "ready" if pairs and not warnings else ("warn" if pairs else "incomplete")
+        return {
+            "session_id": session.id,
+            "session_name": session.name,
+            "status": status,
+            "pairs": pairs,
+            "warnings": warnings,
+        }
+
+    def _visual_diff_checkpoint(self, session: PairedSession, item: ScreenshotEvidence) -> dict[str, Any]:
+        return {
+            "label": item.label,
+            "template": item.template,
+            "note": item.note,
+            "simulation_time": item.time,
+            "baseline_screenshot": self._relative_artifact(session, item.baseline_screenshot),
+            "variant_screenshot": self._relative_artifact(session, item.variant_screenshot),
+        }
+
+    def _render_visual_diff_markdown(self, visual_diff: dict[str, Any]) -> str:
+        lines = [
+            f"# SUMO Visual Diff Index: {visual_diff['session_name']}",
+            "",
+            "This file pairs `before-change` and `after-change` screenshots. It is a visual diagnostic index, not a performance claim.",
+            "",
+            f"- Status: `{visual_diff['status']}`",
+            "",
+        ]
+        if visual_diff["warnings"]:
+            lines.extend(["## Warnings", ""])
+            lines.extend(f"- {warning}" for warning in visual_diff["warnings"])
+            lines.append("")
+        if not visual_diff["pairs"]:
+            lines.extend(
+                [
+                    "## Missing Pair",
+                    "",
+                    "Capture at least one `before-change` and one `after-change` checkpoint, then export the visual diff again.",
+                ]
+            )
+            return "\n".join(lines)
+        lines.extend(["## Pairs", ""])
+        for pair in visual_diff["pairs"]:
+            before = pair["before"]
+            after = pair["after"]
+            lines.extend(
+                [
+                    f"### Pair {pair['index']}",
+                    "",
+                    f"- Before note: {before.get('note') or 'none'}",
+                    f"- After note: {after.get('note') or 'none'}",
+                    f"- Before SUMO time: `{before['simulation_time']}`",
+                    f"- After SUMO time: `{after['simulation_time']}`",
+                    f"- baseline_before: `{pair['baseline_before']}`",
+                    f"- baseline_after: `{pair['baseline_after']}`",
+                    f"- variant_before: `{pair['variant_before']}`",
+                    f"- variant_after: `{pair['variant_after']}`",
+                    f"- Claim boundary: {pair['claim_boundary']}",
+                    "",
+                ]
+            )
+        return "\n".join(lines)
 
     def _render_timeline_markdown(self, timeline: dict[str, Any]) -> str:
         lines = [

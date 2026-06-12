@@ -211,6 +211,31 @@ button:disabled {
   overflow-wrap: anywhere;
 }
 
+.visual-diff-preview {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 14px;
+  color: var(--muted);
+  font-size: 13px;
+  white-space: pre-wrap;
+}
+
+.visual-diff-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(220px, 1fr));
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fbfcfb;
+}
+
+.visual-diff-pair h4 {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 14px;
+}
+
 pre {
   min-height: 96px;
   overflow: auto;
@@ -257,7 +282,8 @@ code {
 
   .twins,
   .output-grid,
-  .control-grid {
+  .control-grid,
+  .visual-diff-pair {
     grid-template-columns: 1fr;
   }
 }

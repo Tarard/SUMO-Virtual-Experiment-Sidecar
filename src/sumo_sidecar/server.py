@@ -248,6 +248,20 @@ def create_app(
         except KeyError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
 
+    @app.post("/api/session/{session_id}/visual-diff/export")
+    def export_visual_diff(session_id: str) -> dict[str, Any]:
+        try:
+            visual_diff = manager.export_visual_diff(session_id)
+            return {
+                "visual_diff": visual_diff["visual_diff"],
+                "visual_diff_json_path": str(visual_diff["visual_diff_json_path"]),
+                "visual_diff_markdown_path": str(visual_diff["visual_diff_markdown_path"]),
+                "visual_diff_markdown": visual_diff["visual_diff_markdown"],
+                "evidence": visual_diff["evidence"].model_dump(mode="json"),
+            }
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+
     @app.post("/api/session/{session_id}/close")
     def close_session(session_id: str) -> dict[str, str]:
         try:

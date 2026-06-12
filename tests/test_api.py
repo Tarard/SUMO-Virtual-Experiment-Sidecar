@@ -319,6 +319,49 @@ def test_template_checkpoint_records_note_in_evidence_and_timeline(tmp_path: Pat
     assert "Before changing the signal controller parameters." in timeline_body["timeline_markdown"]
 
 
+def test_visual_diff_export_pairs_before_after_template_checkpoints(tmp_path: Path) -> None:
+    baseline = tmp_path / "baseline.sumocfg"
+    variant = tmp_path / "variant.sumocfg"
+    baseline.write_text("<configuration/>", encoding="utf-8")
+    variant.write_text("<configuration/>", encoding="utf-8")
+
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+
+    create_response = client.post(
+        "/api/session/create",
+        json={
+            "name": "diff-demo",
+            "baseline_config": str(baseline),
+            "variant_config": str(variant),
+        },
+    )
+    session_id = create_response.json()["id"]
+    client.post(
+        f"/api/session/{session_id}/checkpoint/template",
+        json={"template": "before-change", "note": "Before tuning."},
+    )
+    client.post(f"/api/session/{session_id}/step", json={"count": 3})
+    client.post(
+        f"/api/session/{session_id}/checkpoint/template",
+        json={"template": "after-change", "note": "After tuning."},
+    )
+
+    response = client.post(f"/api/session/{session_id}/visual-diff/export")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert Path(body["visual_diff_json_path"]).exists()
+    assert Path(body["visual_diff_markdown_path"]).exists()
+    assert body["visual_diff"]["status"] == "ready"
+    assert body["visual_diff"]["pairs"][0]["before"]["template"] == "before-change"
+    assert body["visual_diff"]["pairs"][0]["after"]["template"] == "after-change"
+    assert "Before tuning." in body["visual_diff_markdown"]
+    assert "After tuning." in body["visual_diff_markdown"]
+    assert "baseline_before" in body["visual_diff_markdown"]
+    assert "variant_after" in body["visual_diff_markdown"]
+
+
 def test_config_preflight_api_reports_pair_risks(tmp_path: Path) -> None:
     baseline = tmp_path / "baseline.sumocfg"
     variant = tmp_path / "variant.sumocfg"

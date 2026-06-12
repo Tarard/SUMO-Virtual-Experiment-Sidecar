@@ -21,6 +21,7 @@ function setControls(enabled) {
     "evidenceBtn",
     "exportPacketBtn",
     "exportTimelineBtn",
+    "exportVisualDiffBtn",
     "closeBtn",
   ]) {
     el(id).disabled = !enabled;
@@ -540,6 +541,67 @@ el("exportTimelineBtn").addEventListener("click", async () => {
     log(`Timeline export failed: ${error.message}`);
   }
 });
+
+el("exportVisualDiffBtn").addEventListener("click", async () => {
+  try {
+    const body = await api(`/api/session/${state.sessionId}/visual-diff/export`, { method: "POST" });
+    renderEvidence(body.evidence);
+    renderVisualDiff(body.visual_diff);
+    el("visualDiffMarkdown").textContent = body.visual_diff_markdown;
+    log("Exported visual diff", { visual_diff_markdown_path: body.visual_diff_markdown_path });
+  } catch (error) {
+    log(`Visual diff export failed: ${error.message}`);
+  }
+});
+
+function renderVisualDiff(visualDiff) {
+  const container = el("visualDiffPreview");
+  container.replaceChildren();
+  const pairs = visualDiff.pairs || [];
+  if (!pairs.length) {
+    container.textContent = (visualDiff.warnings || []).join("\n") || "No before/after visual pairs found.";
+    return;
+  }
+  for (const pair of pairs) {
+    const article = document.createElement("article");
+    article.className = "visual-diff-pair";
+
+    const title = document.createElement("h4");
+    title.textContent = `Pair ${pair.index}`;
+    article.append(title);
+
+    for (const item of [
+      ["baseline_before", pair.baseline_before],
+      ["baseline_after", pair.baseline_after],
+      ["variant_before", pair.variant_before],
+      ["variant_after", pair.variant_after],
+    ]) {
+      const [labelText, relativePath] = item;
+      article.append(makeDiffImage(labelText, relativePath));
+    }
+
+    container.append(article);
+  }
+}
+
+function makeDiffImage(labelText, relativePath) {
+  const link = document.createElement("a");
+  link.href = artifactUrl(relativePath);
+  link.target = "_blank";
+  link.rel = "noopener noreferrer";
+  link.className = "screenshot-card";
+
+  const image = document.createElement("img");
+  image.src = link.href;
+  image.alt = labelText;
+  image.loading = "lazy";
+
+  const label = document.createElement("span");
+  label.textContent = `${labelText}: ${relativePath}`;
+
+  link.append(image, label);
+  return link;
+}
 
 el("closeBtn").addEventListener("click", async () => {
   try {
