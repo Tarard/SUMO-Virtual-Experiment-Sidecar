@@ -9,7 +9,16 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Callable, Protocol
 
-from .models import CreateSessionRequest, EvidenceArtifact, EvidenceResponse, ScreenshotEvidence, SessionState
+from .models import (
+    CreateSessionRequest,
+    EvidenceArtifact,
+    EvidenceResponse,
+    OutputInspectionRequest,
+    PairOutputInspectionReport,
+    ScreenshotEvidence,
+    SessionState,
+)
+from .output_inspection import inspect_output_pair, render_output_inspection_markdown
 from .sumo_adapter import TraCISumoRun
 
 
@@ -180,6 +189,27 @@ class SessionManager:
             comparison_markdown=comparison,
             artifacts=self._list_artifacts(session),
         )
+
+    def inspect_outputs(self, session_id: str, request: OutputInspectionRequest) -> PairOutputInspectionReport:
+        session = self.get(session_id)
+        report = inspect_output_pair(
+            baseline_summary=request.baseline_summary,
+            baseline_tripinfo=request.baseline_tripinfo,
+            variant_summary=request.variant_summary,
+            variant_tripinfo=request.variant_tripinfo,
+        )
+        json_path = session.session_dir / "output-inspection.json"
+        markdown_path = session.session_dir / "output-inspection.md"
+        json_path.write_text(json.dumps(report.model_dump(mode="json"), indent=2), encoding="utf-8")
+        markdown_path.write_text(render_output_inspection_markdown(report), encoding="utf-8")
+        session.manifest["output_inspection"] = {
+            "status": report.status,
+            "json": str(json_path),
+            "markdown": str(markdown_path),
+            "updated_at": _utc_now(),
+        }
+        self._write_manifest(session)
+        return report
 
     def close(self, session_id: str) -> None:
         session = self.get(session_id)

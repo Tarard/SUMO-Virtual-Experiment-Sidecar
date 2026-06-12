@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from sumo_sidecar.models import CreateSessionRequest
+from sumo_sidecar.models import CreateSessionRequest, OutputInspectionRequest
 from sumo_sidecar.session_manager import SessionManager
 
 
@@ -114,6 +114,37 @@ def test_evidence_lists_session_artifacts(tmp_path: Path) -> None:
     assert "comparison.md" in relative_paths
     assert any(path.startswith("baseline/screenshots/") for path in relative_paths)
     assert any(path.startswith("variant/screenshots/") for path in relative_paths)
+
+
+def test_output_inspection_is_written_to_session_evidence(tmp_path: Path) -> None:
+    manager = SessionManager(adapter_factory=FakeAdapterFactory())
+    session = manager.create(make_request(tmp_path))
+    baseline_summary = tmp_path / "baseline-summary.xml"
+    variant_summary = tmp_path / "variant-summary.xml"
+    baseline_summary.write_text(
+        '<summary><step time="10" loaded="2" inserted="2" running="0" waiting="0" arrived="2" teleports="0"/></summary>',
+        encoding="utf-8",
+    )
+    variant_summary.write_text(
+        '<summary><step time="10" loaded="2" inserted="2" running="1" waiting="0" arrived="1" teleports="0"/></summary>',
+        encoding="utf-8",
+    )
+
+    report = manager.inspect_outputs(
+        session.id,
+        OutputInspectionRequest(
+            baseline_summary=baseline_summary,
+            variant_summary=variant_summary,
+        ),
+    )
+    evidence = manager.evidence(session.id)
+    relative_paths = {item.relative_path for item in evidence.artifacts}
+
+    assert report.status == "warn"
+    assert "output-inspection.json" in relative_paths
+    assert "output-inspection.md" in relative_paths
+    assert "completion differs" in (session.session_dir / "output-inspection.md").read_text(encoding="utf-8")
+    assert evidence.manifest["output_inspection"]["status"] == "warn"
 
 
 def test_screenshot_sanitizes_label_for_file_paths(tmp_path: Path) -> None:

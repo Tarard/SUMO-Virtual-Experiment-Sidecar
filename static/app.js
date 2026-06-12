@@ -70,6 +70,25 @@ function renderConfigPreflight(body) {
     sectionForConfig(body.variant),
   ];
   el("configPreflightOutput").textContent = lines.join("\n");
+  autofillOutputPaths(body);
+}
+
+function autofillOutputPaths(body) {
+  setOutputPath("baselineSummary", findOutputPath(body.baseline, "summary-output"));
+  setOutputPath("baselineTripinfo", findOutputPath(body.baseline, "tripinfo-output"));
+  setOutputPath("variantSummary", findOutputPath(body.variant, "summary-output"));
+  setOutputPath("variantTripinfo", findOutputPath(body.variant, "tripinfo-output"));
+}
+
+function findOutputPath(report, option) {
+  const match = (report.references || []).find((item) => item.kind === "output" && item.option === option);
+  return match ? match.resolved_path : "";
+}
+
+function setOutputPath(id, value) {
+  if (value && !el(id).value.trim()) {
+    el(id).value = value;
+  }
 }
 
 function outputInspectionPayload() {
@@ -195,11 +214,15 @@ el("configPreflightBtn").addEventListener("click", async () => {
 
 el("inspectOutputsBtn").addEventListener("click", async () => {
   try {
-    const body = await api("/api/outputs/inspect", {
+    const path = state.sessionId ? `/api/session/${state.sessionId}/outputs/inspect` : "/api/outputs/inspect";
+    const body = await api(path, {
       method: "POST",
       body: JSON.stringify(outputInspectionPayload()),
     });
     renderOutputInspection(body);
+    if (state.sessionId) {
+      await loadEvidence();
+    }
     log("Output inspection", body);
   } catch (error) {
     log(`Output inspection failed: ${error.message}`);

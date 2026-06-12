@@ -33,6 +33,8 @@ python -m venv .venv
 
 SUMO must be installed locally. `sumo-gui` should be on `PATH`, or you can provide the full path in the web form.
 
+Creating a paired session launches two `sumo-gui` processes through TraCI. The `Auto-run after launch` option controls SUMO GUI's `--start` behavior; it does not mean "create a session without launching GUI."
+
 ## Run
 
 ```powershell
@@ -73,6 +75,7 @@ Useful endpoints:
 GET  /api/preflight
 POST /api/config/preflight
 POST /api/outputs/inspect
+POST /api/session/{id}/outputs/inspect
 POST /api/session/create
 POST /api/session/{id}/step
 POST /api/session/{id}/run-until
@@ -112,6 +115,8 @@ Before opening SUMO GUI sessions, the sidecar can inspect the two `.sumocfg` fil
 
 This is a construction check, not a scientific validity proof. A passing config preflight means the declared files are locally coherent enough to start visual inspection.
 
+When `summary-output` or `tripinfo-output` paths are declared in the `.sumocfg` files, the web page can carry those paths into the Output Evidence panel so the user does not have to retype them.
+
 ## Output Evidence Inspection
 
 The sidecar can inspect paired SUMO outputs:
@@ -120,6 +125,16 @@ The sidecar can inspect paired SUMO outputs:
 - `tripinfo.xml`: arrived-vehicle count and mean duration, waiting time, and time loss.
 
 Completion is reported before performance means. If one controller leaves more vehicles unfinished, the sidecar warns before comparing arrived-only averages.
+
+If a paired session is active, output inspection is also written into the session evidence bundle:
+
+```text
+runs/<session_id>/
+  output-inspection.json
+  output-inspection.md
+```
+
+This lets Codex inspect the visual screenshots and completion-first output report from the same session folder.
 
 ## Architecture
 

@@ -66,6 +66,23 @@ Invoke-RestMethod `
 
 The output inspection report follows the completion-first rule: check arrived, running, waiting-for-insertion, and teleports before interpreting travel-time or waiting-time averages.
 
+When a sidecar session is active, prefer the session-scoped endpoint so the report is persisted into the evidence bundle:
+
+```powershell
+Invoke-RestMethod `
+  -Uri http://127.0.0.1:8765/api/session/<session_id>/outputs/inspect `
+  -Method Post `
+  -ContentType "application/json" `
+  -Body '{
+    "baseline_summary": "C:\\path\\to\\baseline-summary.xml",
+    "baseline_tripinfo": "C:\\path\\to\\baseline-tripinfo.xml",
+    "variant_summary": "C:\\path\\to\\variant-summary.xml",
+    "variant_tripinfo": "C:\\path\\to\\variant-tripinfo.xml"
+  }'
+```
+
+This writes `output-inspection.json` and `output-inspection.md` into `runs/<session_id>/`.
+
 ## API Workflow
 
 Codex can call the local API from the same machine:

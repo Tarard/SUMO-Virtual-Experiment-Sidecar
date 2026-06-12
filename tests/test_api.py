@@ -150,6 +150,31 @@ def test_session_api_lifecycle(tmp_path: Path) -> None:
     assert any(item["relative_path"] == "comparison.md" for item in evidence_body["artifacts"])
     assert any(item["relative_path"].endswith(".png") for item in evidence_body["artifacts"])
 
+    baseline_summary = tmp_path / "baseline-summary.xml"
+    variant_summary = tmp_path / "variant-summary.xml"
+    baseline_summary.write_text(
+        '<summary><step time="10" loaded="2" inserted="2" running="0" waiting="0" arrived="2" teleports="0"/></summary>',
+        encoding="utf-8",
+    )
+    variant_summary.write_text(
+        '<summary><step time="10" loaded="2" inserted="2" running="1" waiting="0" arrived="1" teleports="0"/></summary>',
+        encoding="utf-8",
+    )
+    output_response = client.post(
+        f"/api/session/{session_id}/outputs/inspect",
+        json={
+            "baseline_summary": str(baseline_summary),
+            "variant_summary": str(variant_summary),
+        },
+    )
+    assert output_response.status_code == 200
+    assert output_response.json()["status"] == "warn"
+
+    evidence_response = client.get(f"/api/session/{session_id}/evidence")
+    evidence_body = evidence_response.json()
+    assert any(item["relative_path"] == "output-inspection.json" for item in evidence_body["artifacts"])
+    assert any(item["relative_path"] == "output-inspection.md" for item in evidence_body["artifacts"])
+
     close_response = client.post(f"/api/session/{session_id}/close")
     assert close_response.status_code == 200
     assert close_response.json()["status"] == "closed"

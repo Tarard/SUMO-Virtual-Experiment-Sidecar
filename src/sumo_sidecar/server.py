@@ -54,6 +54,15 @@ def create_app(
         except OSError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
+    @app.post("/api/session/{session_id}/outputs/inspect")
+    def api_session_outputs_inspect(session_id: str, request: OutputInspectionRequest) -> dict[str, Any]:
+        try:
+            return manager.inspect_outputs(session_id, request).model_dump(mode="json")
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        except OSError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
     @app.post("/api/session/create")
     def create_session(request: CreateSessionRequest) -> dict[str, Any]:
         try:

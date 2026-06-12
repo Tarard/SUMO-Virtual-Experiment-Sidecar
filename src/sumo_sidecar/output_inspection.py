@@ -77,6 +77,24 @@ def inspect_output_pair(
     )
 
 
+def render_output_inspection_markdown(report: PairOutputInspectionReport) -> str:
+    lines = [
+        "# SUMO Output Inspection",
+        "",
+        f"- Status: `{report.status}`",
+        "",
+        "## Paired Warnings",
+        "",
+    ]
+    if report.paired_warnings:
+        lines.extend(f"- {warning}" for warning in report.paired_warnings)
+    else:
+        lines.append("- none")
+
+    lines.extend(["", _render_run(report.baseline), "", _render_run(report.variant), ""])
+    return "\n".join(lines)
+
+
 def inspect_summary(path: Path) -> SummaryMetrics:
     resolved = path.expanduser().resolve()
     if not resolved.exists():
@@ -212,6 +230,54 @@ def inspect_tripinfo(path: Path) -> TripinfoMetrics:
         mean_time_loss=_mean_present(time_losses),
         warnings=warnings,
     )
+
+
+def _render_run(run: RunOutputInspection) -> str:
+    lines = [
+        f"## {run.role.title()}",
+        "",
+        f"- Status: `{run.status}`",
+        "",
+        "### Warnings",
+        "",
+    ]
+    if run.warnings:
+        lines.extend(f"- {warning}" for warning in run.warnings)
+    else:
+        lines.append("- none")
+
+    lines.extend(["", "### Summary", ""])
+    if run.summary is None:
+        lines.append("- not provided")
+    else:
+        lines.extend(
+            [
+                f"- Path: `{run.summary.path}`",
+                f"- Loaded: `{run.summary.loaded}`",
+                f"- Inserted: `{run.summary.inserted}`",
+                f"- Arrived: `{run.summary.arrived}`",
+                f"- Running: `{run.summary.running}`",
+                f"- Waiting: `{run.summary.waiting}`",
+                f"- Teleports: `{run.summary.teleports}`",
+                f"- Completion ratio: `{run.summary.completion_ratio}`",
+            ]
+        )
+
+    lines.extend(["", "### Tripinfo", ""])
+    if run.tripinfo is None:
+        lines.append("- not provided")
+    else:
+        lines.extend(
+            [
+                f"- Path: `{run.tripinfo.path}`",
+                f"- Trip count: `{run.tripinfo.trip_count}`",
+                f"- Mean duration: `{run.tripinfo.mean_duration}`",
+                f"- Mean waiting time: `{run.tripinfo.mean_waiting_time}`",
+                f"- Mean time loss: `{run.tripinfo.mean_time_loss}`",
+            ]
+        )
+
+    return "\n".join(lines)
 
 
 def _paired_warnings(
