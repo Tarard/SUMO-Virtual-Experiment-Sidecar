@@ -211,6 +211,59 @@ class SessionManager:
         self._write_manifest(session)
         return report
 
+    def export_packet(self, session_id: str) -> dict[str, Any]:
+        session = self.get(session_id)
+        evidence = self.evidence(session_id)
+        output_inspection_path = session.session_dir / "output-inspection.md"
+        output_inspection = (
+            output_inspection_path.read_text(encoding="utf-8") if output_inspection_path.exists() else "Not exported yet."
+        )
+        artifact_lines = [
+            f"- `{item.relative_path}` ({item.size_bytes} bytes)" for item in evidence.artifacts
+        ] or ["- No artifacts found."]
+        packet_lines = [
+            f"# Codex Experiment Packet: {session.name}",
+            "",
+            "This packet is an evidence index for Codex or Claude review. It does not certify experiment validity.",
+            "",
+            "## Session",
+            "",
+            f"- Session: `{session.id}`",
+            f"- Session folder: `{session.session_dir}`",
+            f"- Baseline config: `{session.manifest['baseline_config']}`",
+            f"- Variant config: `{session.manifest['variant_config']}`",
+            f"- Screenshot checkpoints: `{len(session.evidence)}`",
+            "",
+            "## Artifacts",
+            "",
+            *artifact_lines,
+            "",
+            "## Comparison Notes",
+            "",
+            evidence.comparison_markdown or "No comparison notes exported yet.",
+            "",
+            "## Output Inspection",
+            "",
+            output_inspection,
+            "",
+            "## Claim Boundary",
+            "",
+            "GUI screenshots are diagnostic visual evidence. Formal claims still require paired outputs, completion status, metric definitions, and reproducibility checks.",
+        ]
+        packet_markdown = "\n".join(packet_lines)
+        packet_path = session.session_dir / "codex-packet.md"
+        packet_path.write_text(packet_markdown, encoding="utf-8")
+        session.manifest["codex_packet"] = {
+            "path": str(packet_path),
+            "updated_at": _utc_now(),
+        }
+        self._write_manifest(session)
+        return {
+            "packet_path": packet_path,
+            "packet_markdown": packet_markdown,
+            "evidence": self.evidence(session_id),
+        }
+
     def close(self, session_id: str) -> None:
         session = self.get(session_id)
         session.baseline.close()

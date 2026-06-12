@@ -18,6 +18,7 @@ function setControls(enabled) {
     "firstCheckpointBtn",
     "stateBtn",
     "evidenceBtn",
+    "exportPacketBtn",
     "closeBtn",
   ]) {
     el(id).disabled = !enabled;
@@ -496,6 +497,17 @@ el("evidenceBtn").addEventListener("click", async () => {
     await loadEvidence();
   } catch (error) {
     log(`Evidence load failed: ${error.message}`);
+  }
+});
+
+el("exportPacketBtn").addEventListener("click", async () => {
+  try {
+    const body = await api(`/api/session/${state.sessionId}/packet/export`, { method: "POST" });
+    renderEvidence(body.evidence);
+    el("packetPreview").textContent = body.packet_markdown;
+    log("Exported Codex packet", { packet_path: body.packet_path });
+  } catch (error) {
+    log(`Packet export failed: ${error.message}`);
   }
 });
 

@@ -207,6 +207,18 @@ def create_app(
             raise HTTPException(status_code=404, detail="artifact not found")
         return FileResponse(requested_path)
 
+    @app.post("/api/session/{session_id}/packet/export")
+    def export_packet(session_id: str) -> dict[str, Any]:
+        try:
+            packet = manager.export_packet(session_id)
+            return {
+                "packet_path": str(packet["packet_path"]),
+                "packet_markdown": packet["packet_markdown"],
+                "evidence": packet["evidence"].model_dump(mode="json"),
+            }
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+
     @app.post("/api/session/{session_id}/close")
     def close_session(session_id: str) -> dict[str, str]:
         try:

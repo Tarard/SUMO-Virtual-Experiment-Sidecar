@@ -187,6 +187,38 @@ def test_session_artifact_api_serves_only_files_inside_session(tmp_path: Path) -
     assert blocked_response.status_code == 404
 
 
+def test_codex_packet_export_writes_single_markdown_entrypoint(tmp_path: Path) -> None:
+    baseline = tmp_path / "baseline.sumocfg"
+    variant = tmp_path / "variant.sumocfg"
+    baseline.write_text("<configuration/>", encoding="utf-8")
+    variant.write_text("<configuration/>", encoding="utf-8")
+
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+
+    create_response = client.post(
+        "/api/session/create",
+        json={
+            "name": "packet-demo",
+            "baseline_config": str(baseline),
+            "variant_config": str(variant),
+        },
+    )
+    session_id = create_response.json()["id"]
+    client.post(f"/api/session/{session_id}/checkpoint/first")
+
+    response = client.post(f"/api/session/{session_id}/packet/export")
+
+    assert response.status_code == 200
+    body = response.json()
+    packet_path = Path(body["packet_path"])
+    assert packet_path.exists()
+    assert packet_path.name == "codex-packet.md"
+    assert "packet-demo" in body["packet_markdown"]
+    assert "first-checkpoint" in body["packet_markdown"]
+    assert "comparison.md" in body["packet_markdown"]
+
+
 def test_config_preflight_api_reports_pair_risks(tmp_path: Path) -> None:
     baseline = tmp_path / "baseline.sumocfg"
     variant = tmp_path / "variant.sumocfg"
