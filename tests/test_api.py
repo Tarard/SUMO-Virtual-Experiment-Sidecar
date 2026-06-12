@@ -154,6 +154,39 @@ def test_first_checkpoint_api_captures_pair_and_returns_refreshed_evidence(tmp_p
     )
 
 
+def test_session_artifact_api_serves_only_files_inside_session(tmp_path: Path) -> None:
+    baseline = tmp_path / "baseline.sumocfg"
+    variant = tmp_path / "variant.sumocfg"
+    baseline.write_text("<configuration/>", encoding="utf-8")
+    variant.write_text("<configuration/>", encoding="utf-8")
+
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+
+    create_response = client.post(
+        "/api/session/create",
+        json={
+            "name": "artifact-demo",
+            "baseline_config": str(baseline),
+            "variant_config": str(variant),
+        },
+    )
+    session_id = create_response.json()["id"]
+    screenshot_response = client.post(
+        f"/api/session/{session_id}/screenshot",
+        json={"label": "visual-preview"},
+    )
+    screenshot_path = Path(screenshot_response.json()["baseline_screenshot"])
+    relative_path = screenshot_path.relative_to(tmp_path / "runs" / session_id).as_posix()
+
+    artifact_response = client.get(f"/api/session/{session_id}/artifact/{relative_path}")
+    blocked_response = client.get(f"/api/session/{session_id}/artifact/../baseline.sumocfg")
+
+    assert artifact_response.status_code == 200
+    assert artifact_response.text
+    assert blocked_response.status_code == 404
+
+
 def test_config_preflight_api_reports_pair_risks(tmp_path: Path) -> None:
     baseline = tmp_path / "baseline.sumocfg"
     variant = tmp_path / "variant.sumocfg"

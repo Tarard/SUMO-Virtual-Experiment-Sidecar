@@ -178,6 +178,38 @@ button:disabled {
   gap: 16px;
 }
 
+.screenshot-preview {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  margin-bottom: 14px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.screenshot-card {
+  display: grid;
+  gap: 8px;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.screenshot-card img {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: contain;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #eef2ef;
+}
+
+.screenshot-card span {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
 pre {
   min-height: 96px;
   overflow: auto;

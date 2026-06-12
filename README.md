@@ -97,6 +97,7 @@ Codex can interact with the sidecar in two ways:
 1. HTTP API on `127.0.0.1:8765`.
 2. Evidence folders under `runs/<session_id>/`.
 3. Artifact listings returned by `/api/session/{id}/evidence`.
+4. Session-scoped artifact files returned by `/api/session/{id}/artifact/{path}`.
 
 This is intentionally not a VS Code extension. The bridge is designed for the Codex app or any local agent that can call localhost APIs and read files from the same machine.
 
@@ -131,6 +132,7 @@ POST /api/session/{id}/screenshot
 POST /api/session/{id}/checkpoint/first
 GET  /api/session/{id}/state
 GET  /api/session/{id}/evidence
+GET  /api/session/{id}/artifact/{path}
 POST /api/session/{id}/close
 ```
 
@@ -151,6 +153,8 @@ runs/<session_id>/
 `comparison.md` is intentionally written for agent review. It records the paired screenshot checkpoints and reminds the agent not to treat GUI evidence as a formal performance claim.
 
 The evidence API also returns an artifact list for every file in the session folder. Codex can use that list to decide which screenshots, Markdown notes, manifests, or future SUMO output files need inspection.
+
+The web page renders PNG artifacts as screenshot previews through a session-scoped artifact endpoint. The endpoint serves files only from the active session folder; it is not a general local file browser.
 
 ## Config Pair Preflight
 
@@ -211,7 +215,6 @@ The tests use fake SUMO adapters so they can run without launching a GUI.
 
 The MVP is a local visual sidecar. The next targets are:
 
-- preview captured screenshots directly inside the web page;
 - export a Codex-ready experiment packet for the Simulation Helper Skill for Eclipse SUMO;
 - support named checkpoint templates for before/after controller changes;
 - add a lightweight run timeline that aligns visual checkpoints with output evidence.

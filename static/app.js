@@ -447,7 +447,40 @@ function renderEvidence(body) {
     .map((item) => `${item.relative_path}  (${item.size_bytes} bytes)`)
     .join("\n");
   el("artifactList").textContent = artifacts || "No artifacts found.";
+  renderScreenshotPreview(body.artifacts || []);
   el("evidencePreview").textContent = body.comparison_markdown;
+}
+
+function artifactUrl(relativePath) {
+  return `/api/session/${state.sessionId}/artifact/${relativePath.split("/").map(encodeURIComponent).join("/")}`;
+}
+
+function renderScreenshotPreview(artifacts) {
+  const screenshots = artifacts.filter((item) => item.relative_path.toLowerCase().endsWith(".png"));
+  const container = el("screenshotPreview");
+  container.replaceChildren();
+  if (!screenshots.length) {
+    container.textContent = "No screenshots loaded.";
+    return;
+  }
+  for (const item of screenshots) {
+    const link = document.createElement("a");
+    link.href = artifactUrl(item.relative_path);
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    link.className = "screenshot-card";
+
+    const image = document.createElement("img");
+    image.src = link.href;
+    image.alt = item.relative_path;
+    image.loading = "lazy";
+
+    const label = document.createElement("span");
+    label.textContent = item.relative_path;
+
+    link.append(image, label);
+    container.append(link);
+  }
 }
 
 el("stateBtn").addEventListener("click", async () => {

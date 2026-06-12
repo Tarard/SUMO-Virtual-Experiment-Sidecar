@@ -194,6 +194,19 @@ def create_app(
         except KeyError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
 
+    @app.get("/api/session/{session_id}/artifact/{artifact_path:path}")
+    def get_artifact(session_id: str, artifact_path: str) -> FileResponse:
+        try:
+            session = manager.get(session_id)
+            session_dir = session.session_dir.resolve()
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+        requested_path = (session_dir / artifact_path).resolve()
+        if not requested_path.is_file() or not requested_path.is_relative_to(session_dir):
+            raise HTTPException(status_code=404, detail="artifact not found")
+        return FileResponse(requested_path)
+
     @app.post("/api/session/{session_id}/close")
     def close_session(session_id: str) -> dict[str, str]:
         try:
