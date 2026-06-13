@@ -427,6 +427,28 @@ def test_evidence_loop_status_renders_next_action_banner(tmp_path: Path) -> None
     assert "manual_gate: workflow cue only; inspect the detailed status before making claims." in script
 
 
+def test_evidence_loop_status_syncs_source_evidence_guide(tmp_path: Path) -> None:
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+
+    script_response = client.get("/static/app.js")
+
+    assert script_response.status_code == 200
+    script = script_response.text
+    status_function = script.split("async function refreshEvidenceLoopStatus", 1)[1].split(
+        "async function refreshSourceEvidenceGuide",
+        1,
+    )[0]
+    assert "await syncSourceEvidenceGuideFromEvidenceLoop(refreshTrigger)" in status_function
+    assert "async function syncSourceEvidenceGuideFromEvidenceLoop(refreshTrigger)" in script
+    assert "Source evidence guide sync failed" in script
+    assert "refreshSourceEvidenceGuide(`evidence-loop-${refreshTrigger}`)" in script
+    assert 'async function refreshSourceEvidenceGuide(refreshTrigger = "manual-guide")' in script
+    assert "renderSourceEvidenceGuide(body, refreshTrigger)" in script
+    guide_renderer = script.split("function renderSourceEvidenceGuide", 1)[1].split("function formatSuggestedInputs", 1)[0]
+    assert "refresh_trigger: ${refreshTrigger}" in guide_renderer
+
+
 def test_homepage_exposes_next_action_review_action(tmp_path: Path) -> None:
     app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
     client = TestClient(app)

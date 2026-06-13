@@ -926,13 +926,23 @@ async function refreshEvidenceLoopStatus(refreshTrigger = "manual-check") {
     source_status: body.source_status,
     review_status: body.review_status,
   });
+  await syncSourceEvidenceGuideFromEvidenceLoop(refreshTrigger);
   return body;
 }
 
-async function refreshSourceEvidenceGuide() {
+async function syncSourceEvidenceGuideFromEvidenceLoop(refreshTrigger) {
+  try {
+    await refreshSourceEvidenceGuide(`evidence-loop-${refreshTrigger}`);
+  } catch (error) {
+    log(`Source evidence guide sync failed: ${error.message}`);
+  }
+}
+
+async function refreshSourceEvidenceGuide(refreshTrigger = "manual-guide") {
   const body = await api(`/api/session/${state.sessionId}/source-evidence/guide`);
-  renderSourceEvidenceGuide(body);
+  renderSourceEvidenceGuide(body, refreshTrigger);
   log("Guided source evidence", {
+    refresh_trigger: refreshTrigger,
     status: body.status,
     evidence_loop_status: body.evidence_loop_status,
   });
@@ -1116,7 +1126,7 @@ function renderEvidenceLoopNextAction(body, refreshTrigger) {
   ].join("\n");
 }
 
-function renderSourceEvidenceGuide(body) {
+function renderSourceEvidenceGuide(body, refreshTrigger = "manual-guide") {
   const steps = (body.steps || [])
     .map((step) => [
       `${step.status.toUpperCase()} ${step.title}`,
@@ -1135,6 +1145,7 @@ function renderSourceEvidenceGuide(body) {
     .join("\n\n");
   el("sourceEvidenceGuideOutput").textContent = [
     `status: ${body.status}`,
+    `refresh_trigger: ${refreshTrigger}`,
     `evidence_loop_status: ${body.evidence_loop_status}`,
     `source_status: ${body.source_status}`,
     `review_status: ${body.review_status}`,
