@@ -351,6 +351,8 @@ The web page renders PNG artifacts as screenshot previews through a session-scop
 
 `codex-packet.md` is a single Markdown entrypoint for agent review. It lists the session, artifacts, comparison notes, output inspection when available, and the claim boundary. It is an index over evidence, not an automatic scientific conclusion.
 
+When visual observations exist, `codex-packet.md` includes a `Visual observation review focus` section. It carries the observation label, anchor, note, evidence targets, missing evidence targets, taxonomy checks, and claim boundary so Codex can test the observation against completion/output/metric evidence.
+
 `scenario-plan.md` records the intended before/after comparison before the evidence is interpreted. It lists the planned parameter change, hypothesis, expected metrics, required evidence sequence, and claim boundary. It is a plan, not proof that the change was applied.
 
 Scenario templates prefill `scenario-plan.md` inputs for common workflows. They are reusable prompts for planning, not executable SUMO patches and not evidence.
@@ -370,6 +372,8 @@ Scenario templates prefill `scenario-plan.md` inputs for common workflows. They 
 `review-summary.md` is the compact dashboard for agent review. It links structured changes, output inspection, completion-first metric highlights, metric chart status, visual diff status, timeline status, packet status, and the current claim boundary. It does not re-run SUMO or certify causality.
 
 `agent-review-prompt.md` is the copy-paste bridge into Codex or Claude. It tells the agent which artifacts to open, what readiness and claim status apply, what next actions are suggested, and what claims are prohibited. It is a prompt wrapper over existing evidence, not new evidence.
+
+The prompt also includes `visual_observation_review_focus` in JSON and a matching Markdown section. This is the agent's checklist for checking whether visual observations are supported, contradicted, or still unverified by SUMO completion and output evidence.
 
 `agent-feedback.md` is the return bridge from Codex or Claude back into the Sidecar. It records the pasted agent response, source agent, prompt artifact, suggested next action, and claim boundary. It preserves the review loop, but it is not proof that the agent's recommendation is correct.
 

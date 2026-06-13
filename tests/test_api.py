@@ -1742,6 +1742,69 @@ def test_visual_observation_record_enters_evidence_review_and_prompt(tmp_path: P
     assert "visual-observations.md" in prompt["agent_prompt_markdown"]
 
 
+def test_visual_observation_review_focus_enters_packet_and_agent_prompt(tmp_path: Path) -> None:
+    baseline = tmp_path / "baseline.sumocfg"
+    variant = tmp_path / "variant.sumocfg"
+    baseline.write_text("<configuration/>", encoding="utf-8")
+    variant.write_text("<configuration/>", encoding="utf-8")
+
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+    create_response = client.post(
+        "/api/session/create",
+        json={
+            "name": "visual-review-focus-demo",
+            "baseline_config": str(baseline),
+            "variant_config": str(variant),
+        },
+    )
+    session_id = create_response.json()["id"]
+    client.post(f"/api/session/{session_id}/checkpoint/template", json={"template": "before-change"})
+    client.post(f"/api/session/{session_id}/step", json={"count": 3})
+    client.post(f"/api/session/{session_id}/checkpoint/template", json={"template": "after-change"})
+    client.post(f"/api/session/{session_id}/visual-diff/export")
+    client.post(
+        f"/api/session/{session_id}/visual-observation/record",
+        json={
+            "label": "spotlight-eastbound-density",
+            "observation_type": "density-change",
+            "evidence_artifact": "visual-diff.md",
+            "confidence": "diagnostic",
+            "comparison_role": "variant",
+            "visual_view": "diff",
+            "location": "eastbound stop line",
+            "movement": "eastbound through",
+            "visual_anchor": "visual-diff spotlight; pair 1; Variant; diff=visual-diff/pair-1-variant-diff.png",
+            "note": "The spotlight shows a stronger variant density change near the eastbound stop line.",
+        },
+    )
+
+    packet_response = client.post(f"/api/session/{session_id}/packet/export")
+    prompt_response = client.post(f"/api/session/{session_id}/agent-review-prompt/export")
+
+    assert packet_response.status_code == 200
+    assert prompt_response.status_code == 200
+    packet_markdown = packet_response.json()["packet_markdown"]
+    prompt = prompt_response.json()["agent_prompt"]
+    prompt_markdown = prompt_response.json()["agent_prompt_markdown"]
+
+    assert "Visual observation review focus" in packet_markdown
+    assert "spotlight-eastbound-density" in packet_markdown
+    assert "visual-diff spotlight; pair 1; Variant" in packet_markdown
+    assert "output-inspection.md" in packet_markdown
+    assert "metric-comparison.md" in packet_markdown
+    assert "does not prove performance" in packet_markdown
+
+    assert "visual_observation_review_focus" in prompt
+    assert prompt["visual_observation_review_focus"][0]["label"] == "spotlight-eastbound-density"
+    assert prompt["visual_observation_review_focus"][0]["visual_anchor"].startswith("visual-diff spotlight")
+    assert "output-inspection.md" in prompt["visual_observation_review_focus"][0]["evidence_targets"]
+    assert "metric-comparison.md" in prompt["visual_observation_review_focus"][0]["evidence_targets"]
+    assert "Visual observation review focus" in prompt_markdown
+    assert "spotlight-eastbound-density" in prompt_markdown
+    assert "Check whether each visual observation is supported by completion and output evidence" in prompt_markdown
+
+
 def test_visual_observation_record_includes_taxonomy_guidance(tmp_path: Path) -> None:
     baseline = tmp_path / "baseline.sumocfg"
     variant = tmp_path / "variant.sumocfg"

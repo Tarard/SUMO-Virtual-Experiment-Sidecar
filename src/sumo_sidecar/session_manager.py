@@ -270,6 +270,10 @@ class SessionManager:
         artifact_lines = [
             f"- `{item.relative_path}` ({item.size_bytes} bytes)" for item in evidence.artifacts
         ] or ["- No artifacts found."]
+        visual_observation_review_focus = self._visual_observation_review_focus(session)
+        visual_observation_review_focus_lines = self._render_visual_observation_review_focus_lines(
+            visual_observation_review_focus
+        )
         packet_lines = [
             f"# Codex Experiment Packet: {session.name}",
             "",
@@ -318,6 +322,10 @@ class SessionManager:
             "## Review Summary",
             "",
             self._read_optional_text(session.session_dir / "review-summary.md", "No review summary exported yet."),
+            "",
+            "## Visual observation review focus",
+            "",
+            *visual_observation_review_focus_lines,
             "",
             "## Claim Boundary",
             "",
@@ -2371,6 +2379,7 @@ class SessionManager:
     ) -> dict[str, Any]:
         artifacts_to_open = self._agent_prompt_artifacts_to_open(session)
         visual_observations = session.manifest.get("visual_observations", [])
+        visual_observation_review_focus = self._visual_observation_review_focus(session)
         next_actions = []
         for action in readiness.get("next_actions", []) + workflow.get("next_actions", []):
             if action not in next_actions:
@@ -2387,6 +2396,7 @@ class SessionManager:
             "artifacts_to_open": artifacts_to_open,
             "next_actions": next_actions,
             "visual_observations": visual_observations,
+            "visual_observation_review_focus": visual_observation_review_focus,
             "readiness_checklist": readiness["checklist"],
             "claim_boundary": readiness["claim_boundary"],
             "copyable_prompt": self._copyable_agent_prompt(
@@ -2396,6 +2406,7 @@ class SessionManager:
                 artifacts_to_open,
                 next_actions,
                 visual_observations,
+                visual_observation_review_focus,
             ),
         }
 
@@ -3017,6 +3028,73 @@ class SessionManager:
             )
         return guidance
 
+    def _visual_observation_review_focus(self, session: PairedSession) -> list[dict[str, Any]]:
+        relative_paths = {item.relative_path for item in self._list_artifacts(session)}
+        focus_items: list[dict[str, Any]] = []
+        for observation in session.manifest.get("visual_observations", []):
+            taxonomy = observation.get("taxonomy") or {}
+            evidence_targets = list(dict.fromkeys(
+                [
+                    observation.get("evidence_artifact") or "visual-diff.md",
+                    "visual-observations.md",
+                    *(taxonomy.get("evidence_targets", []) or []),
+                    "output-inspection.md",
+                    "metric-comparison.md",
+                ]
+            ))
+            focus_items.append(
+                {
+                    "label": observation.get("label", "visual-observation"),
+                    "observation_type": observation.get("observation_type", "unknown"),
+                    "confidence": observation.get("confidence", "diagnostic"),
+                    "evidence_artifact": observation.get("evidence_artifact"),
+                    "comparison_role": observation.get("comparison_role"),
+                    "visual_view": observation.get("visual_view"),
+                    "location": observation.get("location"),
+                    "movement": observation.get("movement"),
+                    "link_or_lane": observation.get("link_or_lane"),
+                    "visual_anchor": observation.get("visual_anchor"),
+                    "note": observation.get("note", ""),
+                    "evidence_targets": evidence_targets,
+                    "missing_evidence_targets": [target for target in evidence_targets if target not in relative_paths],
+                    "evidence_checks": taxonomy.get("evidence_checks", []),
+                    "claim_boundary": taxonomy.get(
+                        "claim_boundary",
+                        "A visual observation is diagnostic and does not prove performance without paired completion and output evidence.",
+                    ),
+                }
+            )
+        return focus_items
+
+    def _render_visual_observation_review_focus_lines(self, focus_items: list[dict[str, Any]]) -> list[str]:
+        if not focus_items:
+            return [
+                "No visual observation review focus is available yet.",
+                "Record a visual observation after inspecting the SUMO GUI or visual-diff matrix.",
+            ]
+        lines = [
+            "Check whether each visual observation is supported by completion and output evidence before treating it as a reportable difference.",
+            "",
+        ]
+        for item in focus_items:
+            evidence_targets = ", ".join(f"`{target}`" for target in item.get("evidence_targets", [])) or "`not specified`"
+            missing_targets = ", ".join(f"`{target}`" for target in item.get("missing_evidence_targets", [])) or "none"
+            checks = "; ".join(item.get("evidence_checks", [])) or "Check paired outputs, completion, metrics, and visual artifacts."
+            lines.extend(
+                [
+                    f"- `{item.get('label', 'visual-observation')}` / `{item.get('observation_type', 'unknown')}`"
+                    f" / `{item.get('comparison_role') or 'role not specified'} / {item.get('visual_view') or 'view not specified'}`",
+                    f"  - Anchor: {item.get('visual_anchor') or 'not specified'}",
+                    f"  - Location: {item.get('location') or 'not specified'}; movement: {item.get('movement') or 'not specified'}; link/lane: {item.get('link_or_lane') or 'not specified'}",
+                    f"  - Note: {item.get('note', '')}",
+                    f"  - Evidence targets: {evidence_targets}",
+                    f"  - Missing evidence targets: {missing_targets}",
+                    f"  - Checks: {checks}",
+                    f"  - Claim boundary: {item.get('claim_boundary', '')}",
+                ]
+            )
+        return lines
+
     def _next_action(self, priority: int, action: str, reason: str, evidence: str) -> dict[str, str]:
         return {
             "priority": str(priority),
@@ -3033,6 +3111,7 @@ class SessionManager:
         artifacts_to_open: list[str],
         next_actions: list[str],
         visual_observations: list[dict[str, Any]],
+        visual_observation_review_focus: list[dict[str, Any]],
     ) -> str:
         artifact_lines = "\n".join(f"- {artifact}" for artifact in artifacts_to_open) or "- No review artifacts exported yet."
         action_lines = "\n".join(f"- {action}" for action in next_actions) or "- Inspect the listed artifacts and propose the next evidence step."
@@ -3044,6 +3123,7 @@ class SessionManager:
             )
             or "- No visual observations recorded yet."
         )
+        focus_lines = "\n".join(self._render_visual_observation_review_focus_lines(visual_observation_review_focus))
         return "\n".join(
             [
                 "Use Simulation Helper Skill for Eclipse SUMO (`simulation-helper-skill-for-eclipse-sumo`) or an equivalent SUMO/TraCI audit workflow to review this Sidecar evidence bundle.",
@@ -3062,12 +3142,16 @@ class SessionManager:
                 "Visual observations recorded:",
                 observation_lines,
                 "",
+                "Visual observation review focus:",
+                focus_lines,
+                "",
                 "Task:",
                 "1. Report only supported visual and metric differences from the listed artifacts.",
                 "2. Start with completion, unfinished vehicles, teleports, and output warnings before interpreting tripinfo means.",
                 "3. Connect visual changes to change records only when the evidence supports the connection.",
-                "4. Identify missing evidence, unpaired assumptions, or claim overreach.",
-                "5. Give the next concrete Sidecar action to run.",
+                "4. Check whether each visual observation is supported by completion and output evidence before treating it as a reportable difference.",
+                "5. Identify missing evidence, unpaired assumptions, or claim overreach.",
+                "6. Give the next concrete Sidecar action to run.",
                 "",
                 "Next actions currently suggested by the Sidecar:",
                 action_lines,
@@ -3085,6 +3169,9 @@ class SessionManager:
             f": {item.get('note', '')}"
             for item in prompt.get("visual_observations", [])
         ] or ["- none"]
+        focus_lines = self._render_visual_observation_review_focus_lines(
+            prompt.get("visual_observation_review_focus", [])
+        )
         return "\n".join(
             [
                 f"# Agent Review Prompt: {prompt['session_name']}",
@@ -3109,6 +3196,10 @@ class SessionManager:
                 "## Visual observations",
                 "",
                 *observation_lines,
+                "",
+                "## Visual observation review focus",
+                "",
+                *focus_lines,
                 "",
                 "## Copyable prompt",
                 "",

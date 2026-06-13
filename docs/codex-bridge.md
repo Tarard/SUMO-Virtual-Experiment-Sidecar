@@ -365,6 +365,8 @@ Invoke-RestMethod -Uri http://127.0.0.1:8765/api/session/<session_id>/agent-revi
 
 This writes `agent-review-prompt.json` and `agent-review-prompt.md`. Paste the Markdown prompt into Codex or Claude when you want the agent to inspect the current Sidecar evidence folder. The prompt includes the session folder, artifacts to open, readiness status, next actions, and the claim boundary.
 
+When visual observations have been recorded, the prompt JSON includes `visual_observation_review_focus` and the Markdown includes `Visual observation review focus`. Treat this as the first pass for checking each visual observation against `visual-diff.md`, `visual-observations.md`, `output-inspection.md`, and metric artifacts before making or rejecting a claim.
+
 After Codex or Claude replies, paste the response back into the Sidecar:
 
 ```powershell
