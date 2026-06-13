@@ -350,172 +350,200 @@
 
       <section class="panel evidence">
         <h2>Codex Evidence</h2>
-        <div class="evidence-path">
-          <span>Session folder</span>
-          <code id="sessionDir">not created</code>
+        <div class="evidence-overview">
+          <div class="evidence-path">
+            <span>Session folder</span>
+            <code id="sessionDir">not created</code>
+          </div>
+          <div>
+            <h3>Artifacts</h3>
+            <pre id="artifactList">No artifacts loaded.</pre>
+          </div>
         </div>
-        <h3>Artifacts</h3>
-        <pre id="artifactList">No artifacts loaded.</pre>
-        <h3>Screenshots</h3>
-        <div id="screenshotPreview" class="screenshot-preview">No screenshots loaded.</div>
-        <h3>Codex Packet</h3>
-        <pre id="packetPreview">No packet exported.</pre>
-        <h3>Agent Review Prompt</h3>
-        <pre id="agentPromptPreview">No agent prompt exported.</pre>
-        <h3>Agent Feedback</h3>
-        <div class="output-grid">
-          <label>
-            Source agent
-            <input id="agentFeedbackSource" value="Codex">
-          </label>
-          <label>
-            Feedback label
-            <input id="agentFeedbackLabel" value="agent-feedback">
-          </label>
-          <label>
-            Prompt artifact
-            <input id="agentFeedbackPromptArtifact" value="agent-review-prompt.md">
-          </label>
-          <label>
-            Recommended action
-            <input id="agentFeedbackAction" placeholder="Inspect Outputs, Compare Metrics, Export Timeline">
-          </label>
-          <label>
-            Claim boundary
-            <input id="agentFeedbackBoundary" placeholder="What did the agent say cannot be claimed yet?">
-          </label>
-        </div>
-        <label>
-          Agent response
-          <textarea id="agentFeedbackText" rows="6" placeholder="Paste the Codex or Claude response you want to preserve in this Sidecar session."></textarea>
-        </label>
-        <button id="recordAgentFeedbackBtn" type="button" disabled>Record Agent Feedback</button>
-        <pre id="agentFeedbackPreview">No agent feedback recorded.</pre>
-        <h3>Agent Action Plan</h3>
-        <pre id="agentActionPlanPreview">No agent action plan exported.</pre>
-        <h3>Agent Action Outcome</h3>
-        <div class="output-grid">
-          <label>
-            Outcome label
-            <input id="agentActionOutcomeLabel" value="agent-action-outcome">
-          </label>
-          <label>
-            Action plan artifact
-            <input id="agentActionOutcomePlanArtifact" value="agent-action-plan.md">
-          </label>
-          <label>
-            Action
-            <input id="agentActionOutcomeAction" placeholder="Inspect Outputs, Compare Metrics, Export Timeline">
-          </label>
-          <label>
-            Outcome status
-            <input id="agentActionOutcomeStatus" value="completed">
-          </label>
-          <label>
-            Evidence artifact
-            <input id="agentActionOutcomeEvidence" placeholder="output-inspection.md">
-          </label>
-        </div>
-        <label>
-          Outcome note
-          <textarea id="agentActionOutcomeNote" rows="4" placeholder="Record what you actually did after reading the agent action plan, and what evidence changed."></textarea>
-        </label>
-        <button id="recordAgentActionOutcomeBtn" type="button" disabled>Record Agent Action Outcome</button>
-        <pre id="agentActionOutcomePreview">No agent action outcome recorded.</pre>
-        <h3>Agent Loop Review</h3>
-        <pre id="agentLoopReviewPreview">No agent loop review exported.</pre>
-        <h3>Next Action Review</h3>
-        <pre id="nextActionReviewPreview">No next action review exported.</pre>
-        <h3>Run Timeline</h3>
-        <pre id="timelinePreview">No timeline exported.</pre>
-        <h3>Metric Comparison</h3>
-        <pre id="metricComparisonPreview">No metric comparison exported.</pre>
-        <h3>Metric Delta Chart</h3>
-        <div id="metricChartPreview" class="metric-chart-preview">No metric chart exported.</div>
-        <pre id="metricChartMarkdown">No metric chart exported.</pre>
-        <h3>Review Summary</h3>
-        <pre id="reviewSummaryPreview">No review summary exported.</pre>
-        <h3>Experiment State Board</h3>
-        <div id="experimentStateBoardCards" class="state-board">No experiment state board exported.</div>
-        <pre id="experimentStateBoardPreview">No experiment state board exported.</pre>
-        <h3>Visual Diff</h3>
-        <div id="visualDiffPreview" class="visual-diff-preview">No visual diff exported.</div>
-        <pre id="visualDiffMarkdown">No visual diff exported.</pre>
-        <h3>Visual Observation</h3>
-        <div class="row">
-          <label>
-            Observation guide
-            <select id="visualObservationTaxonomy">
-              <option value="">custom</option>
-            </select>
-          </label>
-          <button id="loadVisualObservationTaxonomyBtn" type="button">Load Observation Types</button>
-        </div>
-        <pre id="visualObservationGuidePreview">Load observation types to get evidence checks and claim boundaries.</pre>
-        <div class="output-grid">
-          <label>
-            Observation type
-            <input id="visualObservationType" value="queue-growth">
-          </label>
-          <label>
-            Evidence artifact
-            <input id="visualObservationArtifact" value="visual-diff.md">
-          </label>
-          <label>
-            Confidence
-            <select id="visualObservationConfidence">
-              <option value="diagnostic">diagnostic</option>
-              <option value="tentative">tentative</option>
-              <option value="strong">strong</option>
-            </select>
-          </label>
-          <label>
-            Label
-            <input id="visualObservationLabel" value="visual-observation">
-          </label>
-          <label>
-            Role
-            <select id="visualObservationRole">
-              <option value="">not specified</option>
-              <option value="baseline">baseline</option>
-              <option value="variant">variant</option>
-              <option value="both">both</option>
-            </select>
-          </label>
-          <label>
-            View
-            <select id="visualObservationView">
-              <option value="">not specified</option>
-              <option value="before">before</option>
-              <option value="after">after</option>
-              <option value="diff">diff</option>
-              <option value="first-checkpoint">first-checkpoint</option>
-            </select>
-          </label>
-          <label>
-            Location
-            <input id="visualObservationLocation" placeholder="north approach, stop line, merge area">
-          </label>
-          <label>
-            Movement
-            <input id="visualObservationMovement" placeholder="northbound through, left turn, bus lane">
-          </label>
-          <label>
-            Link or lane
-            <input id="visualObservationLinkLane" placeholder="edge or lane id if known">
-          </label>
-          <label>
-            Visual anchor
-            <input id="visualObservationAnchor" placeholder="matrix cell, screenshot region, or where Codex should look">
-          </label>
-        </div>
-        <label>
-          Observation note
-          <input id="visualObservationNote" placeholder="What did you see in the SUMO GUI or visual diff matrix?">
-        </label>
-        <pre id="visualObservationPreview">No visual observation recorded.</pre>
-        <h3>Comparison Notes</h3>
-        <pre id="evidencePreview">Evidence preview will appear here.</pre>
+
+        <details id="evidenceArtifactsDrawer" class="evidence-drawer">
+          <summary>Evidence Artifacts</summary>
+          <div class="evidence-drawer-body">
+            <h3>Screenshots</h3>
+            <div id="screenshotPreview" class="screenshot-preview">No screenshots loaded.</div>
+            <h3>Codex Packet</h3>
+            <pre id="packetPreview">No packet exported.</pre>
+            <h3>Run Timeline</h3>
+            <pre id="timelinePreview">No timeline exported.</pre>
+            <h3>Comparison Notes</h3>
+            <pre id="evidencePreview">Evidence preview will appear here.</pre>
+          </div>
+        </details>
+
+        <details id="agentBridgeDrawer" class="evidence-drawer">
+          <summary>Agent Bridge</summary>
+          <div class="evidence-drawer-body">
+            <h3>Agent Review Prompt</h3>
+            <pre id="agentPromptPreview">No agent prompt exported.</pre>
+            <h3>Agent Feedback</h3>
+            <div class="output-grid">
+              <label>
+                Source agent
+                <input id="agentFeedbackSource" value="Codex">
+              </label>
+              <label>
+                Feedback label
+                <input id="agentFeedbackLabel" value="agent-feedback">
+              </label>
+              <label>
+                Prompt artifact
+                <input id="agentFeedbackPromptArtifact" value="agent-review-prompt.md">
+              </label>
+              <label>
+                Recommended action
+                <input id="agentFeedbackAction" placeholder="Inspect Outputs, Compare Metrics, Export Timeline">
+              </label>
+              <label>
+                Claim boundary
+                <input id="agentFeedbackBoundary" placeholder="What did the agent say cannot be claimed yet?">
+              </label>
+            </div>
+            <label>
+              Agent response
+              <textarea id="agentFeedbackText" rows="6" placeholder="Paste the Codex or Claude response you want to preserve in this Sidecar session."></textarea>
+            </label>
+            <button id="recordAgentFeedbackBtn" type="button" disabled>Record Agent Feedback</button>
+            <pre id="agentFeedbackPreview">No agent feedback recorded.</pre>
+            <h3>Agent Action Plan</h3>
+            <pre id="agentActionPlanPreview">No agent action plan exported.</pre>
+            <h3>Agent Action Outcome</h3>
+            <div class="output-grid">
+              <label>
+                Outcome label
+                <input id="agentActionOutcomeLabel" value="agent-action-outcome">
+              </label>
+              <label>
+                Action plan artifact
+                <input id="agentActionOutcomePlanArtifact" value="agent-action-plan.md">
+              </label>
+              <label>
+                Action
+                <input id="agentActionOutcomeAction" placeholder="Inspect Outputs, Compare Metrics, Export Timeline">
+              </label>
+              <label>
+                Outcome status
+                <input id="agentActionOutcomeStatus" value="completed">
+              </label>
+              <label>
+                Evidence artifact
+                <input id="agentActionOutcomeEvidence" placeholder="output-inspection.md">
+              </label>
+            </div>
+            <label>
+              Outcome note
+              <textarea id="agentActionOutcomeNote" rows="4" placeholder="Record what you actually did after reading the agent action plan, and what evidence changed."></textarea>
+            </label>
+            <button id="recordAgentActionOutcomeBtn" type="button" disabled>Record Agent Action Outcome</button>
+            <pre id="agentActionOutcomePreview">No agent action outcome recorded.</pre>
+            <h3>Agent Loop Review</h3>
+            <pre id="agentLoopReviewPreview">No agent loop review exported.</pre>
+            <h3>Next Action Review</h3>
+            <pre id="nextActionReviewPreview">No next action review exported.</pre>
+          </div>
+        </details>
+
+        <details id="metricReviewDrawer" class="evidence-drawer">
+          <summary>Metrics and Review</summary>
+          <div class="evidence-drawer-body">
+            <h3>Metric Comparison</h3>
+            <pre id="metricComparisonPreview">No metric comparison exported.</pre>
+            <h3>Metric Delta Chart</h3>
+            <div id="metricChartPreview" class="metric-chart-preview">No metric chart exported.</div>
+            <pre id="metricChartMarkdown">No metric chart exported.</pre>
+            <h3>Review Summary</h3>
+            <pre id="reviewSummaryPreview">No review summary exported.</pre>
+            <h3>Experiment State Board</h3>
+            <div id="experimentStateBoardCards" class="state-board">No experiment state board exported.</div>
+            <pre id="experimentStateBoardPreview">No experiment state board exported.</pre>
+          </div>
+        </details>
+
+        <details id="visualReviewDrawer" class="evidence-drawer">
+          <summary>Visual Review</summary>
+          <div class="evidence-drawer-body">
+            <h3>Visual Diff</h3>
+            <div id="visualDiffPreview" class="visual-diff-preview">No visual diff exported.</div>
+            <pre id="visualDiffMarkdown">No visual diff exported.</pre>
+            <h3>Visual Observation</h3>
+            <div class="row">
+              <label>
+                Observation guide
+                <select id="visualObservationTaxonomy">
+                  <option value="">custom</option>
+                </select>
+              </label>
+              <button id="loadVisualObservationTaxonomyBtn" type="button">Load Observation Types</button>
+            </div>
+            <pre id="visualObservationGuidePreview">Load observation types to get evidence checks and claim boundaries.</pre>
+            <div class="output-grid">
+              <label>
+                Observation type
+                <input id="visualObservationType" value="queue-growth">
+              </label>
+              <label>
+                Evidence artifact
+                <input id="visualObservationArtifact" value="visual-diff.md">
+              </label>
+              <label>
+                Confidence
+                <select id="visualObservationConfidence">
+                  <option value="diagnostic">diagnostic</option>
+                  <option value="tentative">tentative</option>
+                  <option value="strong">strong</option>
+                </select>
+              </label>
+              <label>
+                Label
+                <input id="visualObservationLabel" value="visual-observation">
+              </label>
+              <label>
+                Role
+                <select id="visualObservationRole">
+                  <option value="">not specified</option>
+                  <option value="baseline">baseline</option>
+                  <option value="variant">variant</option>
+                  <option value="both">both</option>
+                </select>
+              </label>
+              <label>
+                View
+                <select id="visualObservationView">
+                  <option value="">not specified</option>
+                  <option value="before">before</option>
+                  <option value="after">after</option>
+                  <option value="diff">diff</option>
+                  <option value="first-checkpoint">first-checkpoint</option>
+                </select>
+              </label>
+              <label>
+                Location
+                <input id="visualObservationLocation" placeholder="north approach, stop line, merge area">
+              </label>
+              <label>
+                Movement
+                <input id="visualObservationMovement" placeholder="northbound through, left turn, bus lane">
+              </label>
+              <label>
+                Link or lane
+                <input id="visualObservationLinkLane" placeholder="edge or lane id if known">
+              </label>
+              <label>
+                Visual anchor
+                <input id="visualObservationAnchor" placeholder="matrix cell, screenshot region, or where Codex should look">
+              </label>
+            </div>
+            <label>
+              Observation note
+              <input id="visualObservationNote" placeholder="What did you see in the SUMO GUI or visual diff matrix?">
+            </label>
+            <pre id="visualObservationPreview">No visual observation recorded.</pre>
+          </div>
+        </details>
       </section>
 
       <section class="panel log">

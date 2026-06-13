@@ -274,6 +274,43 @@ button:disabled {
   font-weight: 700;
 }
 
+.evidence-overview {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.evidence-drawer {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcfb;
+  margin-top: 10px;
+}
+
+.evidence-drawer > summary {
+  cursor: pointer;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1.2;
+  list-style-position: inside;
+  padding: 12px 14px;
+}
+
+.evidence-drawer[open] > summary {
+  border-bottom: 1px solid var(--line);
+}
+
+.evidence-drawer-body {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+}
+
+.evidence-drawer-body h3 {
+  margin-top: 4px;
+}
+
 .control-grid {
   display: grid;
   grid-template-columns: 1fr auto;

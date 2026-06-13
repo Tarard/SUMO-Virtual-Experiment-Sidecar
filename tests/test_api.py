@@ -594,6 +594,34 @@ def test_homepage_uses_sidebar_first_operator_layout(tmp_path: Path) -> None:
     assert ".sidebar-drawer" in style_response.text
 
 
+def test_homepage_groups_codex_evidence_into_drawers(tmp_path: Path) -> None:
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+
+    index_response = client.get("/")
+    style_response = client.get("/static/styles.css")
+
+    assert index_response.status_code == 200
+    assert style_response.status_code == 200
+    html = index_response.text
+    evidence = html.split('class="panel evidence"', 1)[1].split('class="panel log"', 1)[0]
+    assert 'class="evidence-overview"' in evidence
+    assert 'id="evidenceArtifactsDrawer"' in evidence
+    assert 'id="agentBridgeDrawer"' in evidence
+    assert 'id="metricReviewDrawer"' in evidence
+    assert 'id="visualReviewDrawer"' in evidence
+    assert "<summary>Evidence Artifacts</summary>" in evidence
+    assert "<summary>Agent Bridge</summary>" in evidence
+    assert "<summary>Metrics and Review</summary>" in evidence
+    assert "<summary>Visual Review</summary>" in evidence
+    assert "screenshotPreview" in evidence.split('id="evidenceArtifactsDrawer"', 1)[1].split("</details>", 1)[0]
+    assert "agentFeedbackSource" in evidence.split('id="agentBridgeDrawer"', 1)[1].split("</details>", 1)[0]
+    assert "metricComparisonPreview" in evidence.split('id="metricReviewDrawer"', 1)[1].split("</details>", 1)[0]
+    assert "visualObservationType" in evidence.split('id="visualReviewDrawer"', 1)[1].split("</details>", 1)[0]
+    assert ".evidence-drawer" in style_response.text
+    assert ".evidence-overview" in style_response.text
+
+
 def test_homepage_exposes_next_action_review_action(tmp_path: Path) -> None:
     app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
     client = TestClient(app)
