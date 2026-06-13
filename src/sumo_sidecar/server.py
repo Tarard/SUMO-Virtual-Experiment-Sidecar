@@ -167,6 +167,7 @@ def create_app(
             )
             visual_diff = manager.export_visual_diff(session.id)
             metric_comparison = manager.export_metric_comparison(session.id)
+            metric_chart = manager.export_metric_chart(session.id)
             packet = manager.export_packet(session.id)
             timeline = manager.export_timeline(session.id, preset="full")
             review_timeline = manager.export_timeline(session.id, preset="review")
@@ -207,6 +208,13 @@ def create_app(
                     "metric_comparison_json_path": str(metric_comparison["metric_comparison_json_path"]),
                     "metric_comparison_markdown_path": str(metric_comparison["metric_comparison_markdown_path"]),
                     "metric_comparison_markdown": metric_comparison["metric_comparison_markdown"],
+                },
+                "metric_chart": {
+                    "metric_chart": metric_chart["metric_chart"],
+                    "metric_chart_svg_path": str(metric_chart["metric_chart_svg_path"]),
+                    "metric_chart_markdown_path": str(metric_chart["metric_chart_markdown_path"]),
+                    "metric_chart_svg": metric_chart["metric_chart_svg"],
+                    "metric_chart_markdown": metric_chart["metric_chart_markdown"],
                 },
                 "packet": {
                     "packet_path": str(packet["packet_path"]),
@@ -417,6 +425,23 @@ def create_app(
                 "metric_comparison_markdown_path": str(comparison["metric_comparison_markdown_path"]),
                 "metric_comparison_markdown": comparison["metric_comparison_markdown"],
                 "evidence": comparison["evidence"].model_dump(mode="json"),
+            }
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @app.post("/api/session/{session_id}/metrics/chart")
+    def export_metric_chart(session_id: str) -> dict[str, Any]:
+        try:
+            chart = manager.export_metric_chart(session_id)
+            return {
+                "metric_chart": chart["metric_chart"],
+                "metric_chart_svg_path": str(chart["metric_chart_svg_path"]),
+                "metric_chart_markdown_path": str(chart["metric_chart_markdown_path"]),
+                "metric_chart_svg": chart["metric_chart_svg"],
+                "metric_chart_markdown": chart["metric_chart_markdown"],
+                "evidence": chart["evidence"].model_dump(mode="json"),
             }
         except KeyError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc

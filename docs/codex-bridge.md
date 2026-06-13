@@ -36,7 +36,7 @@ It does not embed Codex inside SUMO, and it does not require VS Code. The user k
 6. Ask Codex to inspect the session folder:
 
    ```text
-   Read runs/<session_id>/manifest.json, comparison.md, change-records.md, metric-comparison.md, review-summary.md, timeline.md, visual-diff.md, output-inspection.md, and codex-packet.md if present.
+   Read runs/<session_id>/manifest.json, comparison.md, change-records.md, metric-comparison.md, metric-delta-chart.md, review-summary.md, timeline.md, visual-diff.md, output-inspection.md, and codex-packet.md if present.
    Tell me what visual differences are supported by the evidence, what output evidence exists, and what claims remain unsupported.
    ```
 
@@ -46,7 +46,7 @@ For the bundled public demo, the shortest end-to-end path is:
 Invoke-RestMethod -Uri http://127.0.0.1:8765/api/examples/minimal-paired/launch-full-workflow-gui -Method Post
 ```
 
-This runs the guided demo, launches a paired GUI session, captures first and before/after checkpoints, adds a timeline note, exports visual diff, exports metric comparison, exports full and review timelines, exports a review summary, exports a Codex packet, and returns workflow status. It is a diagnostic workflow demonstration, not a controller-performance claim.
+This runs the guided demo, launches a paired GUI session, captures first and before/after checkpoints, adds a timeline note, exports visual diff, exports metric comparison, exports a metric chart, exports full and review timelines, exports a review summary, exports a Codex packet, and returns workflow status. It is a diagnostic workflow demonstration, not a controller-performance claim.
 
 Before creating a session, Codex can also inspect the paired `.sumocfg` files:
 
@@ -183,6 +183,14 @@ Invoke-RestMethod -Uri http://127.0.0.1:8765/api/session/<session_id>/metrics/co
 
 This writes `metric-comparison.json` and `metric-comparison.md`. It compares persisted baseline and variant output evidence as `variant - baseline`, with completion, unfinished vehicles, and teleports reported before tripinfo means.
 
+Export a visual metric-delta chart from the comparison:
+
+```powershell
+Invoke-RestMethod -Uri http://127.0.0.1:8765/api/session/<session_id>/metrics/chart -Method Post
+```
+
+This writes `metric-delta-chart.svg` and `metric-delta-chart.md`. The chart uses the same `variant - baseline` definition and keeps the numeric deltas visible. The bar lengths are scaled within this artifact, so they are useful for visual scanning but not for cross-unit interpretation by themselves.
+
 Load the evidence:
 
 ```powershell
@@ -205,6 +213,7 @@ Export visual and agent-readable evidence:
 ```powershell
 Invoke-RestMethod -Uri http://127.0.0.1:8765/api/session/<session_id>/visual-diff/export -Method Post
 Invoke-RestMethod -Uri http://127.0.0.1:8765/api/session/<session_id>/metrics/compare -Method Post
+Invoke-RestMethod -Uri http://127.0.0.1:8765/api/session/<session_id>/metrics/chart -Method Post
 Invoke-RestMethod -Uri http://127.0.0.1:8765/api/session/<session_id>/timeline/export -Method Post
 Invoke-RestMethod -Uri "http://127.0.0.1:8765/api/session/<session_id>/timeline/export?preset=visual" -Method Post
 Invoke-RestMethod -Uri http://127.0.0.1:8765/api/session/<session_id>/review/summary -Method Post
@@ -217,7 +226,7 @@ Timeline presets:
 full     all events, written to timeline.md/json
 review   high-signal review events
 visual   screenshot checkpoints and visual diff events
-outputs  output-inspection and metric-comparison events
+outputs  output-inspection, metric-comparison, and metric-chart events
 notes    user-authored timeline notes
 ```
 
@@ -227,7 +236,7 @@ Export a compact review summary when the session has enough evidence for Codex o
 Invoke-RestMethod -Uri http://127.0.0.1:8765/api/session/<session_id>/review/summary -Method Post
 ```
 
-This writes `review-summary.json` and `review-summary.md`. The summary links structured change records, output inspection, completion-first metric highlights, visual diff status, timeline status, packet status, next actions, and the current claim boundary. It is a dashboard over existing evidence, not a new validity proof.
+This writes `review-summary.json` and `review-summary.md`. The summary links structured change records, output inspection, completion-first metric highlights, metric chart status, visual diff status, timeline status, packet status, next actions, and the current claim boundary. It is a dashboard over existing evidence, not a new validity proof.
 
 Check workflow status before asking Codex for review:
 
@@ -250,5 +259,7 @@ Pixel-level visual diff artifacts are also diagnostic. They can show that pixels
 Structured change records close part of that gap by recording what was intentionally changed, but they still do not prove causality. They should be read together with paired outputs, completion status, and reproduced runs.
 
 Metric comparison makes output deltas easier to review, but it is still an evidence view. If completion, route demand, seed, horizon, or controller identity is unpaired, metric deltas should remain diagnostic rather than formal claims.
+
+Metric charts make those deltas easier to scan, but they do not define improvement. Compare the numeric values, units, completion status, and metric definitions before interpreting the bars.
 
 Review summary makes the evidence easier to enter, but it is still an index. If the underlying evidence is incomplete or unpaired, the summary should preserve that limitation instead of upgrading the claim.

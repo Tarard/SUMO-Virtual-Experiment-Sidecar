@@ -82,6 +82,21 @@ def test_homepage_exposes_metric_comparison_action(tmp_path: Path) -> None:
     assert "/metrics/compare" in script_response.text
 
 
+def test_homepage_exposes_metric_chart_action(tmp_path: Path) -> None:
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+
+    index_response = client.get("/")
+    script_response = client.get("/static/app.js")
+
+    assert index_response.status_code == 200
+    assert script_response.status_code == 200
+    assert "exportMetricChartBtn" in index_response.text
+    assert "Export Metric Chart" in index_response.text
+    assert "metricChartPreview" in index_response.text
+    assert "/metrics/chart" in script_response.text
+
+
 def test_homepage_exposes_review_summary_action(tmp_path: Path) -> None:
     app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
     client = TestClient(app)
@@ -211,10 +226,13 @@ def test_minimal_demo_full_workflow_gui_api_exports_review_ready_bundle(tmp_path
     assert body["timeline"]["timeline"]["preset"] == "full"
     assert body["review_timeline"]["timeline"]["preset"] == "review"
     assert Path(body["packet"]["packet_path"]).name == "codex-packet.md"
+    assert Path(body["metric_chart"]["metric_chart_svg_path"]).name == "metric-delta-chart.svg"
     assert Path(body["review_summary"]["review_summary_markdown_path"]).name == "review-summary.md"
     assert "Output Inspection" in body["packet"]["packet_markdown"]
+    assert "Metric Delta Chart" in body["packet"]["packet_markdown"]
     assert "Review Summary" in body["packet"]["packet_markdown"]
     assert "Claim boundary" in body["review_summary"]["review_summary_markdown"]
+    assert "metric-delta-chart.md" in body["review_summary"]["review_summary_markdown"]
     assert body["workflow"]["status"] == "review-ready"
     assert body["workflow"]["claim_status"] == "evidence-index-ready"
 
@@ -225,6 +243,8 @@ def test_minimal_demo_full_workflow_gui_api_exports_review_ready_bundle(tmp_path
     assert "visual-diff.md" in artifact_paths
     assert "metric-comparison.json" in artifact_paths
     assert "metric-comparison.md" in artifact_paths
+    assert "metric-delta-chart.svg" in artifact_paths
+    assert "metric-delta-chart.md" in artifact_paths
     assert "review-summary.json" in artifact_paths
     assert "review-summary.md" in artifact_paths
     assert "timeline.json" in artifact_paths
@@ -814,6 +834,104 @@ def test_metric_comparison_api_writes_completion_first_delta_report(tmp_path: Pa
     event_kinds = [event["kind"] for event in timeline_body["timeline"]["events"]]
     assert "metric-comparison" in event_kinds
     assert "metric-comparison.md" in timeline_body["timeline_markdown"]
+
+
+def test_metric_chart_api_writes_visual_delta_artifacts(tmp_path: Path) -> None:
+    baseline = tmp_path / "baseline.sumocfg"
+    variant = tmp_path / "variant.sumocfg"
+    baseline.write_text("<configuration/>", encoding="utf-8")
+    variant.write_text("<configuration/>", encoding="utf-8")
+
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+
+    create_response = client.post(
+        "/api/session/create",
+        json={
+            "name": "metric-chart-demo",
+            "baseline_config": str(baseline),
+            "variant_config": str(variant),
+        },
+    )
+    session_id = create_response.json()["id"]
+    baseline_summary = tmp_path / "baseline-summary.xml"
+    variant_summary = tmp_path / "variant-summary.xml"
+    baseline_tripinfo = tmp_path / "baseline-tripinfo.xml"
+    variant_tripinfo = tmp_path / "variant-tripinfo.xml"
+    baseline_summary.write_text(
+        '<summary><step time="10" loaded="2" inserted="2" running="0" waiting="0" arrived="2" teleports="0"/></summary>',
+        encoding="utf-8",
+    )
+    variant_summary.write_text(
+        '<summary><step time="10" loaded="2" inserted="2" running="0" waiting="0" arrived="2" teleports="0"/></summary>',
+        encoding="utf-8",
+    )
+    baseline_tripinfo.write_text(
+        '<tripinfos><tripinfo id="b0" duration="10" waitingTime="1" timeLoss="2"/><tripinfo id="b1" duration="20" waitingTime="3" timeLoss="4"/></tripinfos>',
+        encoding="utf-8",
+    )
+    variant_tripinfo.write_text(
+        '<tripinfos><tripinfo id="v0" duration="8" waitingTime="0" timeLoss="1"/><tripinfo id="v1" duration="18" waitingTime="2" timeLoss="3"/></tripinfos>',
+        encoding="utf-8",
+    )
+    client.post(
+        f"/api/session/{session_id}/outputs/inspect",
+        json={
+            "baseline_summary": str(baseline_summary),
+            "baseline_tripinfo": str(baseline_tripinfo),
+            "variant_summary": str(variant_summary),
+            "variant_tripinfo": str(variant_tripinfo),
+        },
+    )
+    client.post(f"/api/session/{session_id}/metrics/compare")
+
+    response = client.post(f"/api/session/{session_id}/metrics/chart")
+
+    assert response.status_code == 200
+    body = response.json()
+    chart = body["metric_chart"]
+    assert chart["status"] == "pass"
+    chart_metrics = {row["metric"] for row in chart["rows"]}
+    assert {"completion_ratio", "mean_duration", "mean_waiting_time", "mean_time_loss"}.issubset(chart_metrics)
+    assert '<svg xmlns="http://www.w3.org/2000/svg"' in body["metric_chart_svg"]
+    assert "variant - baseline" in body["metric_chart_svg"]
+    assert "Mean duration" in body["metric_chart_svg"]
+    assert "metric-delta-chart.svg" in body["metric_chart_markdown"]
+    assert "diagnostic visualization" in body["metric_chart_markdown"]
+    assert Path(body["metric_chart_svg_path"]).exists()
+    assert Path(body["metric_chart_markdown_path"]).exists()
+
+    artifact_paths = {item["relative_path"] for item in body["evidence"]["artifacts"]}
+    assert "metric-delta-chart.svg" in artifact_paths
+    assert "metric-delta-chart.md" in artifact_paths
+
+    client.post(f"/api/session/{session_id}/packet/export")
+    packet = client.post(f"/api/session/{session_id}/packet/export").json()
+    assert "Metric Delta Chart" in packet["packet_markdown"]
+    assert "metric-delta-chart.md" in packet["packet_markdown"]
+
+    timeline_response = client.post(f"/api/session/{session_id}/timeline/export?preset=outputs")
+    timeline_body = timeline_response.json()
+    event_kinds = [event["kind"] for event in timeline_body["timeline"]["events"]]
+    assert "metric-chart" in event_kinds
+    assert "metric-delta-chart.svg" in timeline_body["timeline_markdown"]
+
+    client.post(f"/api/session/{session_id}/checkpoint/first")
+    client.post(
+        f"/api/session/{session_id}/checkpoint/template",
+        json={"template": "before-change", "note": "Before tuning."},
+    )
+    client.post(
+        f"/api/session/{session_id}/checkpoint/template",
+        json={"template": "after-change", "note": "After tuning."},
+    )
+    client.post(f"/api/session/{session_id}/visual-diff/export")
+    client.post(f"/api/session/{session_id}/timeline/export")
+    client.post(f"/api/session/{session_id}/packet/export")
+    summary_response = client.post(f"/api/session/{session_id}/review/summary")
+    card_ids = {card["id"] for card in summary_response.json()["review_summary"]["cards"]}
+    assert "metric_chart" in card_ids
+    assert "metric-delta-chart.md" in summary_response.json()["review_summary_markdown"]
 
 
 def test_review_summary_api_writes_compact_claim_dashboard(tmp_path: Path) -> None:

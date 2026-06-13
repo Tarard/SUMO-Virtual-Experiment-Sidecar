@@ -221,6 +221,23 @@ button:disabled {
   white-space: pre-wrap;
 }
 
+.metric-chart-preview {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 14px;
+  color: var(--muted);
+  font-size: 13px;
+  white-space: pre-wrap;
+}
+
+.metric-chart-preview svg {
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fbfcfb;
+}
+
 .visual-diff-pair {
   display: grid;
   grid-template-columns: repeat(2, minmax(220px, 1fr));

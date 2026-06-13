@@ -6,6 +6,7 @@ import uuid
 from contextlib import suppress
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from html import escape as html_escape
 from pathlib import Path
 from typing import Any, Callable, Protocol
 
@@ -69,9 +70,9 @@ CHECKPOINT_TEMPLATES = {
 
 TIMELINE_PRESETS = {
     "full": None,
-    "review": {"session-created", "user-note", "change-record", "screenshot-checkpoint", "output-inspection", "metric-comparison", "visual-diff", "codex-packet", "review-summary"},
+    "review": {"session-created", "user-note", "change-record", "screenshot-checkpoint", "output-inspection", "metric-comparison", "metric-chart", "visual-diff", "codex-packet", "review-summary"},
     "visual": {"session-created", "screenshot-checkpoint", "visual-diff"},
-    "outputs": {"session-created", "output-inspection", "metric-comparison"},
+    "outputs": {"session-created", "output-inspection", "metric-comparison", "metric-chart"},
     "notes": {"session-created", "user-note", "change-record"},
 }
 
@@ -297,6 +298,10 @@ class SessionManager:
             "",
             self._read_optional_text(session.session_dir / "metric-comparison.md", "No metric comparison exported yet."),
             "",
+            "## Metric Delta Chart",
+            "",
+            self._read_optional_text(session.session_dir / "metric-delta-chart.md", "No metric delta chart exported yet."),
+            "",
             "## Review Summary",
             "",
             self._read_optional_text(session.session_dir / "review-summary.md", "No review summary exported yet."),
@@ -416,6 +421,38 @@ class SessionManager:
             "metric_comparison_json_path": json_path,
             "metric_comparison_markdown_path": markdown_path,
             "metric_comparison_markdown": metric_markdown,
+            "evidence": self.evidence(session_id),
+        }
+
+    def export_metric_chart(self, session_id: str) -> dict[str, Any]:
+        session = self.get(session_id)
+        metric_comparison = session.manifest.get("metric_comparison")
+        if not metric_comparison:
+            raise ValueError("metric comparison must be exported before metric chart")
+        metric_json_path = Path(metric_comparison.get("json", ""))
+        if not metric_json_path.exists():
+            raise ValueError(f"metric comparison json not found: {metric_json_path}")
+        comparison = json.loads(metric_json_path.read_text(encoding="utf-8"))
+        metric_chart = self._build_metric_chart(session, comparison)
+        metric_chart_svg = self._render_metric_chart_svg(metric_chart)
+        metric_chart_markdown = self._render_metric_chart_markdown(metric_chart)
+        svg_path = session.session_dir / "metric-delta-chart.svg"
+        markdown_path = session.session_dir / "metric-delta-chart.md"
+        svg_path.write_text(metric_chart_svg, encoding="utf-8")
+        markdown_path.write_text(metric_chart_markdown, encoding="utf-8")
+        session.manifest["metric_chart"] = {
+            "status": metric_chart["status"],
+            "svg": str(svg_path),
+            "markdown": str(markdown_path),
+            "updated_at": _utc_now(),
+        }
+        self._write_manifest(session)
+        return {
+            "metric_chart": metric_chart,
+            "metric_chart_svg_path": svg_path,
+            "metric_chart_markdown_path": markdown_path,
+            "metric_chart_svg": metric_chart_svg,
+            "metric_chart_markdown": metric_chart_markdown,
             "evidence": self.evidence(session_id),
         }
 
@@ -738,6 +775,24 @@ class SessionManager:
                     "artifacts": [
                         self._relative_artifact(session, comparison.get("json", "")),
                         self._relative_artifact(session, comparison.get("markdown", "")),
+                    ],
+                }
+            )
+        if "metric_chart" in session.manifest:
+            chart = session.manifest["metric_chart"]
+            events.append(
+                {
+                    "sequence": len(events) + 1,
+                    "kind": "metric-chart",
+                    "label": "Metric delta chart",
+                    "simulation_time": None,
+                    "wall_time": chart.get("updated_at"),
+                    "status": chart.get("status", "unknown"),
+                    "template": None,
+                    "note": "visual index of metric deltas; bars are not a validity claim",
+                    "artifacts": [
+                        self._relative_artifact(session, chart.get("svg", "")),
+                        self._relative_artifact(session, chart.get("markdown", "")),
                     ],
                 }
             )
@@ -1117,6 +1172,12 @@ class SessionManager:
             ),
             self._review_manifest_card(
                 session,
+                "metric_chart",
+                "Metric delta chart",
+                session.manifest.get("metric_chart"),
+            ),
+            self._review_manifest_card(
+                session,
                 "visual_diff",
                 "Before/after visual diff",
                 session.manifest.get("visual_diff"),
@@ -1166,7 +1227,7 @@ class SessionManager:
             return self._review_card(card_id, label, "missing", "not exported", [])
         artifacts = [
             self._relative_artifact(session, manifest_entry.get(key, ""))
-            for key in ("markdown", "json", "path")
+            for key in ("markdown", "json", "svg", "path")
             if manifest_entry.get(key)
         ]
         return self._review_card(
@@ -1216,6 +1277,8 @@ class SessionManager:
             "review-summary.md",
             "timeline.md",
             "timeline-review.md",
+            "metric-delta-chart.md",
+            "metric-delta-chart.svg",
             "metric-comparison.md",
             "visual-diff.md",
             "output-inspection.md",
@@ -1269,6 +1332,91 @@ class SessionManager:
             lines.append("- none")
         lines.extend(["", "## Next actions", ""])
         lines.extend(f"- {action}" for action in summary["next_actions"])
+        return "\n".join(lines)
+
+    def _build_metric_chart(self, session: PairedSession, comparison: dict[str, Any]) -> dict[str, Any]:
+        rows = []
+        for category, source_rows in (
+            ("completion", comparison.get("completion_metrics", [])),
+            ("tripinfo", comparison.get("tripinfo_metrics", [])),
+        ):
+            for row in source_rows:
+                if isinstance(row.get("delta"), (int, float)):
+                    rows.append({**row, "category": category})
+        return {
+            "session_id": session.id,
+            "session_name": session.name,
+            "status": comparison.get("status", "unknown"),
+            "delta_definition": "variant - baseline",
+            "rows": rows,
+            "claim_boundary": "This is a diagnostic visualization of already-exported metric deltas. Bar length is scaled within this artifact and does not define improvement, causality, or statistical validity.",
+        }
+
+    def _render_metric_chart_svg(self, chart: dict[str, Any]) -> str:
+        rows = chart["rows"]
+        row_height = 46
+        top = 92
+        bottom = 70
+        width = 980
+        height = top + max(1, len(rows)) * row_height + bottom
+        label_x = 32
+        center_x = 560
+        max_bar_width = 220
+        max_abs_delta = max((abs(row["delta"]) for row in rows), default=1) or 1
+        svg_lines = [
+            f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}" role="img" aria-label="SUMO metric delta chart">',
+            '<rect width="100%" height="100%" fill="#fbfcfb"/>',
+            f'<text x="{label_x}" y="34" font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="700" fill="#17212b">SUMO Metric Delta Chart: {html_escape(chart["session_name"])}</text>',
+            f'<text x="{label_x}" y="61" font-family="Segoe UI, Arial, sans-serif" font-size="13" fill="#62717d">Delta definition: {html_escape(chart["delta_definition"])}. Bars are a diagnostic visualization, not a performance claim.</text>',
+            f'<line x1="{center_x}" y1="{top - 26}" x2="{center_x}" y2="{height - bottom + 18}" stroke="#83909a" stroke-width="1"/>',
+            f'<text x="{center_x - 34}" y="{top - 34}" font-family="Segoe UI, Arial, sans-serif" font-size="12" fill="#62717d">0 delta</text>',
+        ]
+        if not rows:
+            svg_lines.append(
+                f'<text x="{label_x}" y="{top}" font-family="Segoe UI, Arial, sans-serif" font-size="14" fill="#62717d">No numeric metric deltas available.</text>'
+            )
+        for index, row in enumerate(rows):
+            y = top + index * row_height
+            delta = row["delta"]
+            bar_width = round((abs(delta) / max_abs_delta) * max_bar_width, 2)
+            x = center_x if delta >= 0 else center_x - bar_width
+            fill = "#0d4f7a" if delta > 0 else ("#b85c38" if delta < 0 else "#83909a")
+            value_text_x = center_x + bar_width + 12 if delta >= 0 else center_x - bar_width - 160
+            svg_lines.extend(
+                [
+                    f'<text x="{label_x}" y="{y + 14}" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="700" fill="#17212b">{html_escape(row["label"])}</text>',
+                    f'<text x="{label_x}" y="{y + 32}" font-family="Segoe UI, Arial, sans-serif" font-size="11" fill="#62717d">{html_escape(row["category"])} / {html_escape(row["metric"])}</text>',
+                    f'<rect x="{x}" y="{y}" width="{bar_width}" height="22" rx="3" fill="{fill}"/>',
+                    f'<text x="{value_text_x}" y="{y + 16}" font-family="Segoe UI, Arial, sans-serif" font-size="12" fill="#17212b">delta {html_escape(str(delta))}</text>',
+                ]
+            )
+        svg_lines.extend(
+            [
+                f'<text x="{label_x}" y="{height - 28}" font-family="Segoe UI, Arial, sans-serif" font-size="12" fill="#62717d">Diagnostic visualization only; compare numeric units and completion evidence before interpreting bars.</text>',
+                "</svg>",
+            ]
+        )
+        return "\n".join(svg_lines)
+
+    def _render_metric_chart_markdown(self, chart: dict[str, Any]) -> str:
+        lines = [
+            f"# SUMO Metric Delta Chart: {chart['session_name']}",
+            "",
+            "This diagnostic visualization is built from persisted `metric-comparison.json`; it does not re-run SUMO and it does not certify a performance claim.",
+            "",
+            f"- Status: `{chart['status']}`",
+            f"- Delta definition: `{chart['delta_definition']}`",
+            f"- Claim boundary: {chart['claim_boundary']}",
+            "",
+            "![Metric delta chart](metric-delta-chart.svg)",
+            "",
+            "## Delta rows",
+            "",
+        ]
+        if chart["rows"]:
+            lines.extend(self._render_metric_table(chart["rows"]))
+        else:
+            lines.append("No numeric metric deltas available.")
         return "\n".join(lines)
 
     def _write_change_records(self, session: PairedSession) -> None:

@@ -25,6 +25,7 @@ function setControls(enabled) {
     "exportPacketBtn",
     "exportTimelineBtn",
     "compareMetricsBtn",
+    "exportMetricChartBtn",
     "exportReviewSummaryBtn",
     "exportVisualDiffBtn",
     "closeBtn",
@@ -196,6 +197,7 @@ function renderFullWorkflowLaunch(body) {
   renderWorkflow(body.workflow);
   el("visualDiffMarkdown").textContent = body.visual_diff.visual_diff_markdown;
   el("metricComparisonPreview").textContent = body.metric_comparison.metric_comparison_markdown;
+  renderMetricChart(body.metric_chart);
   el("packetPreview").textContent = body.packet.packet_markdown;
   el("timelinePreview").textContent = body.timeline.timeline_markdown;
   el("reviewSummaryPreview").textContent = body.review_summary.review_summary_markdown;
@@ -205,7 +207,7 @@ function renderFullWorkflowLaunch(body) {
     `- ${body.session.id}`,
     "- first checkpoint captured",
     "- before/after checkpoints captured",
-    "- output inspection, visual diff, timeline, review summary, review timeline, and Codex packet exported",
+    "- output inspection, visual diff, metric chart, timeline, review summary, review timeline, and Codex packet exported",
     `- workflow: ${body.workflow.status}`,
   ].join("\n");
 }
@@ -675,6 +677,18 @@ el("compareMetricsBtn").addEventListener("click", async () => {
   }
 });
 
+el("exportMetricChartBtn").addEventListener("click", async () => {
+  try {
+    const body = await api(`/api/session/${state.sessionId}/metrics/chart`, { method: "POST" });
+    renderEvidence(body.evidence);
+    renderMetricChart(body);
+    await refreshWorkflow();
+    log("Exported metric chart", { metric_chart_markdown_path: body.metric_chart_markdown_path });
+  } catch (error) {
+    log(`Metric chart export failed: ${error.message}`);
+  }
+});
+
 el("exportReviewSummaryBtn").addEventListener("click", async () => {
   try {
     const body = await api(`/api/session/${state.sessionId}/review/summary`, { method: "POST" });
@@ -690,6 +704,17 @@ el("exportReviewSummaryBtn").addEventListener("click", async () => {
 async function exportTimelineWithPreset() {
   const preset = encodeURIComponent(el("timelinePreset").value || "full");
   return api(`/api/session/${state.sessionId}/timeline/export?preset=${preset}`, { method: "POST" });
+}
+
+function renderMetricChart(body) {
+  const container = el("metricChartPreview");
+  container.replaceChildren();
+  if (body.metric_chart_svg) {
+    container.innerHTML = body.metric_chart_svg;
+  } else {
+    container.textContent = "No metric chart exported.";
+  }
+  el("metricChartMarkdown").textContent = body.metric_chart_markdown || "No metric chart exported.";
 }
 
 el("exportVisualDiffBtn").addEventListener("click", async () => {
