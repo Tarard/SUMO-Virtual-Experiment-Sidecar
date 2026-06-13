@@ -332,9 +332,12 @@ def test_homepage_exposes_manual_copy_for_suggested_output_paths(tmp_path: Path)
     assert script_response.status_code == 200
     assert "applySuggestedOutputPathsBtn" in index_response.text
     assert "Use Suggested Output Paths" in index_response.text
+    assert "suggestedOutputPathStatus" in index_response.text
     assert '"applySuggestedOutputPathsBtn"' in script_response.text
     assert "applySuggestedOutputPaths" in script_response.text
     assert "setSuggestedOutputPath" in script_response.text
+    assert "renderSuggestedOutputPathStatus" in script_response.text
+    assert "Suggested output path copy status" in script_response.text
     assert '"baseline_summary", "baselineSummary"' in script_response.text
     assert '"baseline_tripinfo", "baselineTripinfo"' in script_response.text
     assert '"variant_summary", "variantSummary"' in script_response.text

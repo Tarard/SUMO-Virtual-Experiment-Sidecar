@@ -960,6 +960,7 @@ async function applySuggestedOutputPaths() {
     skipped,
     manual_gate: "Suggested paths fill text inputs only. Inspect Outputs still requires a separate user action.",
   });
+  renderSuggestedOutputPathStatus(applied, skipped);
   return { applied, skipped };
 }
 
@@ -972,6 +973,23 @@ function setSuggestedOutputPath(sourceKey, inputId, suggestion) {
   }
   el(inputId).value = suggestion.path;
   return "applied";
+}
+
+function renderSuggestedOutputPathStatus(applied, skipped) {
+  el("suggestedOutputPathStatus").textContent = [
+    "Suggested output path copy status",
+    "",
+    "applied:",
+    formatList(applied),
+    "",
+    "skipped:",
+    formatList(skipped),
+    "",
+    "manual_gate:",
+    "- This filled text fields only.",
+    "- Inspect Outputs still requires a separate user action.",
+    "- Confirm the suggested files belong to the intended completed paired run.",
+  ].join("\n");
 }
 
 async function refreshScenario() {
