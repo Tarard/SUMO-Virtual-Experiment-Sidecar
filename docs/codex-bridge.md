@@ -459,6 +459,8 @@ The `Refresh Cockpit` action is the one-click status refresh for Codex-facing re
 
 The page uses a sidebar-first operator layout. `sidecar-sidebar` contains demo loading, session setup, paired run controls, collapsible drawers for scenario setup, construction preflight, output evidence inputs, and advanced review/export actions. `main-workspace` keeps the workflow cue board, live state, evidence bundle, and event log visible as the observation surface. This preserves the full audit surface while keeping the operator path short.
 
+The Active Session Checklist in `activeSessionChecklist` mirrors Session, Workflow, Compare, Evidence Loop, and Source Guide status into one compact operator strip. It is updated by the same front-end renderers that update the detailed workflow blocks, so Codex should treat it as a navigation cue and still inspect the underlying status artifacts before making claims.
+
 Within `main-workspace`, the Codex Evidence panel keeps `sessionDir` and `artifactList` visible as the compact evidence index, then groups the deeper evidence into `evidenceArtifactsDrawer`, `agentBridgeDrawer`, `metricReviewDrawer`, and `visualReviewDrawer`. This is a layout change only; all evidence artifacts and claim-boundary rules remain unchanged.
 
 When the web UI refreshes Evidence Loop status, it also refreshes `source-evidence/guide` into the Source Evidence Guide panel. The guide includes its own `refresh_trigger`, such as `manual-guide` or `evidence-loop-output-inspection`, so Codex can tell whether it was manually requested or synchronized from workflow status. This is guidance only; it does not execute the guide step or certify validity.

@@ -501,6 +501,34 @@ def test_workflow_control_screen_renders_compact_cue_board(tmp_path: Path) -> No
     assert ".workflow-cue strong" in style
 
 
+def test_homepage_exposes_active_session_checklist(tmp_path: Path) -> None:
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+
+    index_response = client.get("/")
+    script_response = client.get("/static/app.js")
+    style_response = client.get("/static/styles.css")
+
+    assert index_response.status_code == 200
+    assert script_response.status_code == 200
+    assert style_response.status_code == 200
+    html = index_response.text
+    assert 'id="activeSessionChecklist"' in html
+    assert 'id="activeChecklistHeadline"' in html
+    assert "Active Session Checklist" in html
+    assert html.index('class="operator-summary"') < html.index('id="activeSessionChecklist"')
+    script = script_response.text
+    assert "function renderActiveSessionChecklist()" in script
+    assert "function updateActiveSessionChecklist(id, label, status, detail)" in script
+    assert 'updateActiveSessionChecklist("workflow"' in script
+    assert 'updateActiveSessionChecklist("compare"' in script
+    assert 'updateActiveSessionChecklist("evidence-loop"' in script
+    assert 'updateActiveSessionChecklist("source-guide"' in script
+    assert "resetActiveSessionChecklist()" in script
+    assert ".active-session-checklist" in style_response.text
+    assert ".active-checklist-card" in style_response.text
+
+
 def test_homepage_exposes_cockpit_refresh_action(tmp_path: Path) -> None:
     app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
     client = TestClient(app)

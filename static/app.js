@@ -1,6 +1,7 @@
 const state = {
   sessionId: null,
   hasExperimentStateBoard: false,
+  activeSessionChecklist: defaultActiveSessionChecklist(),
 };
 
 const scenarioTemplates = new Map();
@@ -56,6 +57,41 @@ function setControls(enabled) {
   ]) {
     el(id).disabled = !enabled;
   }
+  if (enabled) {
+    updateActiveSessionChecklist("session", "Session", "active", state.sessionId || "Session is active.");
+  } else {
+    resetActiveSessionChecklist();
+  }
+}
+
+function defaultActiveSessionChecklist() {
+  return {
+    session: {
+      label: "Session",
+      status: "missing",
+      detail: "Create or load a paired session.",
+    },
+    workflow: {
+      label: "Workflow",
+      status: "not checked",
+      detail: "Refresh workflow status.",
+    },
+    compare: {
+      label: "Compare",
+      status: "not checked",
+      detail: "Check comparison readiness.",
+    },
+    "evidence-loop": {
+      label: "Evidence loop",
+      status: "not checked",
+      detail: "Check evidence loop readiness.",
+    },
+    "source-guide": {
+      label: "Source guide",
+      status: "not checked",
+      detail: "Guide missing source evidence if needed.",
+    },
+  };
 }
 
 async function api(path, options = {}) {
@@ -1080,12 +1116,73 @@ function updateWorkflowCue(id, label, status, detail) {
   cue.append(labelNode, statusNode, detailNode);
 }
 
+function resetActiveSessionChecklist() {
+  state.activeSessionChecklist = defaultActiveSessionChecklist();
+  renderActiveSessionChecklist();
+}
+
+function updateActiveSessionChecklist(id, label, status, detail) {
+  state.activeSessionChecklist[id] = {
+    label,
+    status: status || "unknown",
+    detail: detail || "No next action reported.",
+  };
+  renderActiveSessionChecklist();
+}
+
+function activeChecklistStatusClass(status) {
+  return `status-${String(status || "unknown")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "") || "unknown"}`;
+}
+
+function activeChecklistIsReady(status) {
+  return [
+    "active",
+    "pass",
+    "ready",
+    "review-ready",
+    "ready-to-compare",
+    "ready-for-agent-review",
+    "ready-to-run-loop",
+    "review-index-ready",
+    "complete",
+  ].includes(String(status || "").toLowerCase());
+}
+
+function renderActiveSessionChecklist() {
+  const order = ["session", "workflow", "compare", "evidence-loop", "source-guide"];
+  const container = el("activeSessionChecklist");
+  container.replaceChildren();
+  for (const id of order) {
+    const item = state.activeSessionChecklist[id] || defaultActiveSessionChecklist()[id];
+    const card = document.createElement("div");
+    card.className = `active-checklist-card ${activeChecklistStatusClass(item.status)}`;
+    const label = document.createElement("span");
+    label.textContent = item.label;
+    const status = document.createElement("strong");
+    status.textContent = item.status || "unknown";
+    const detail = document.createElement("em");
+    detail.textContent = item.detail || "No next action reported.";
+    card.append(label, status, detail);
+    container.append(card);
+  }
+  const firstPending = order
+    .map((id) => state.activeSessionChecklist[id])
+    .find((item) => item && !activeChecklistIsReady(item.status));
+  el("activeChecklistHeadline").textContent = state.sessionId
+    ? firstPending?.detail || "Review checklist is current."
+    : "No session active";
+}
+
 function renderWorkflow(body) {
   const checklist = (body.checklist || [])
     .map((item) => `${item.status.toUpperCase()} ${item.label}\n  evidence: ${item.evidence}`)
     .join("\n");
   const actions = (body.next_actions || []).map((item) => `- ${item}`).join("\n");
   updateWorkflowCue("workflowCueWorkflow", "Workflow", body.status, (body.next_actions || [])[0] || body.claim_status);
+  updateActiveSessionChecklist("workflow", "Workflow", body.status, (body.next_actions || [])[0] || body.claim_status);
   el("workflowOutput").textContent = [
     `status: ${body.status}`,
     `claim_status: ${body.claim_status}`,
@@ -1104,6 +1201,7 @@ function renderComparisonReadiness(body) {
     .join("\n");
   const actions = (body.next_actions || []).map((item) => `- ${item}`).join("\n");
   updateWorkflowCue("workflowCueCompare", "Compare", body.status, (body.next_actions || [])[0] || body.claim_status);
+  updateActiveSessionChecklist("compare", "Compare", body.status, (body.next_actions || [])[0] || body.claim_status);
   el("compareReadinessOutput").textContent = [
     `status: ${body.status}`,
     `claim_status: ${body.claim_status}`,
@@ -1149,6 +1247,7 @@ function renderEvidenceLoopStatus(body, refreshTrigger = "manual-check") {
 function renderEvidenceLoopNextAction(body, refreshTrigger) {
   const firstNextAction = (body.next_actions || [])[0] || "No next action reported.";
   updateWorkflowCue("workflowCueEvidence", "Evidence loop", body.status, firstNextAction);
+  updateActiveSessionChecklist("evidence-loop", "Evidence loop", body.status, firstNextAction);
   el("evidenceLoopNextAction").textContent = [
     `status: ${body.status}`,
     `refresh_trigger: ${refreshTrigger}`,
@@ -1161,6 +1260,7 @@ function renderSourceGuideNextStep(body, refreshTrigger) {
   const firstGuideStep = (body.steps || [])[0];
   if (!firstGuideStep) {
     updateWorkflowCue("workflowCueSourceGuide", "Source guide", body.status, "No guide step reported.");
+    updateActiveSessionChecklist("source-guide", "Source guide", body.status, "No guide step reported.");
     el("sourceGuideNextStep").textContent = [
       `status: ${body.status}`,
       `refresh_trigger: ${refreshTrigger}`,
@@ -1170,6 +1270,7 @@ function renderSourceGuideNextStep(body, refreshTrigger) {
     return;
   }
   updateWorkflowCue("workflowCueSourceGuide", "Source guide", body.status, firstGuideStep.ui_action);
+  updateActiveSessionChecklist("source-guide", "Source guide", body.status, firstGuideStep.ui_action);
   el("sourceGuideNextStep").textContent = [
     `status: ${body.status}`,
     `refresh_trigger: ${refreshTrigger}`,
@@ -2175,6 +2276,10 @@ el("closeBtn").addEventListener("click", async () => {
   try {
     const body = await api(`/api/session/${state.sessionId}/close`, { method: "POST" });
     log("Closed session", body);
+    state.sessionId = null;
+    state.hasExperimentStateBoard = false;
+    el("sessionId").textContent = "none";
+    el("sessionDir").textContent = "not created";
     setControls(false);
   } catch (error) {
     log(`Close failed: ${error.message}`);

@@ -180,6 +180,8 @@ Use `Refresh Cockpit` when you want the cue board and detailed workflow panels u
 
 The visible controls now follow a sidebar-first layout. Demo, session setup, and paired control stay immediately available; scenario setup, construction preflight, output evidence, and advanced exports live in collapsible sidebar drawers. The main workspace stays focused on cockpit cues, live state, the evidence bundle, and the event log. This keeps the page usable as an operator sidecar instead of a wall of equal-weight buttons.
 
+The Active Session Checklist summarizes the current operator gate for Session, Workflow, Compare, Evidence Loop, and Source Guide. It mirrors the same status responses rendered in the detailed workflow blocks, so it is a quick navigation cue, not a separate validation layer.
+
 The Codex Evidence panel is grouped into collapsible drawers for evidence artifacts, the agent bridge, metrics/review outputs, and visual review. The session folder and artifact list stay visible as the compact evidence index; deeper Markdown, charts, screenshots, prompts, and observation forms open only when needed.
 
 Each Evidence Loop refresh also syncs the Source Evidence Guide panel. If source evidence is missing, the guide steps appear without a second click; if the session is ready, the guide points toward the next review-loop action. This is still only UI guidance and does not run SUMO, create screenshots, parse output files, or certify the experiment.
