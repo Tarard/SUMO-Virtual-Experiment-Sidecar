@@ -180,6 +180,25 @@ def test_homepage_exposes_agent_action_plan_export(tmp_path: Path) -> None:
     assert "renderAgentActionPlan" in script_response.text
 
 
+def test_homepage_exposes_agent_action_outcome_record(tmp_path: Path) -> None:
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+
+    index_response = client.get("/")
+    script_response = client.get("/static/app.js")
+
+    assert index_response.status_code == 200
+    assert script_response.status_code == 200
+    assert "agentActionOutcomeAction" in index_response.text
+    assert "agentActionOutcomeStatus" in index_response.text
+    assert "recordAgentActionOutcomeBtn" in index_response.text
+    assert "Record Agent Action Outcome" in index_response.text
+    assert "agentActionOutcomePreview" in index_response.text
+    assert "/agent-action-outcome/record" in script_response.text
+    assert "agentActionOutcomePayload" in script_response.text
+    assert "renderAgentActionOutcome" in script_response.text
+
+
 def test_homepage_exposes_next_action_review_action(tmp_path: Path) -> None:
     app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
     client = TestClient(app)
@@ -2250,6 +2269,82 @@ def test_agent_action_plan_exports_manual_next_step_from_agent_feedback(tmp_path
     card_ids = {card["id"] for card in summary["review_summary"]["cards"]}
     assert "agent_action_plan" in card_ids
     assert "agent-action-plan.md" in summary["review_summary_markdown"]
+
+
+def test_agent_action_outcome_records_manual_result_from_action_plan(tmp_path: Path) -> None:
+    baseline = tmp_path / "baseline.sumocfg"
+    variant = tmp_path / "variant.sumocfg"
+    baseline.write_text("<configuration/>", encoding="utf-8")
+    variant.write_text("<configuration/>", encoding="utf-8")
+
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+
+    create_response = client.post(
+        "/api/session/create",
+        json={
+            "name": "agent-action-outcome-demo",
+            "baseline_config": str(baseline),
+            "variant_config": str(variant),
+        },
+    )
+    session_id = create_response.json()["id"]
+    client.post(f"/api/session/{session_id}/agent-review-prompt/export")
+    client.post(
+        f"/api/session/{session_id}/agent-feedback/record",
+        json={
+            "label": "codex-output-check",
+            "source_agent": "Codex",
+            "prompt_artifact": "agent-review-prompt.md",
+            "response_text": "Inspect output-inspection.md before making any performance claim.",
+            "recommended_action": "Inspect Outputs",
+            "claim_boundary": "Treat the current review as diagnostic only.",
+        },
+    )
+    client.post(f"/api/session/{session_id}/agent-action-plan/export")
+
+    response = client.post(
+        f"/api/session/{session_id}/agent-action-outcome/record",
+        json={
+            "label": "inspect-outputs-completed",
+            "action_plan_artifact": "agent-action-plan.md",
+            "action": "Inspect Outputs",
+            "outcome_status": "completed",
+            "evidence_artifact": "output-inspection.md",
+            "note": "Output inspection was run and completion evidence is now available.",
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    outcome = body["agent_action_outcome"]
+    assert outcome["label"] == "inspect-outputs-completed"
+    assert outcome["action_plan_artifact"] == "agent-action-plan.md"
+    assert outcome["action"] == "Inspect Outputs"
+    assert outcome["outcome_status"] == "completed"
+    assert outcome["evidence_artifact"] == "output-inspection.md"
+    assert "completion evidence" in outcome["note"]
+    assert Path(body["agent_action_outcome_json_path"]).name == "agent-action-outcomes.json"
+    assert Path(body["agent_action_outcome_markdown_path"]).name == "agent-action-outcomes.md"
+    assert "Output inspection was run" in body["agent_action_outcome_markdown"]
+    assert "completed" in body["agent_action_outcome_markdown"]
+    artifact_paths = {item["relative_path"] for item in body["evidence"]["artifacts"]}
+    assert "agent-action-outcomes.json" in artifact_paths
+    assert "agent-action-outcomes.md" in artifact_paths
+    assert body["evidence"]["manifest"]["agent_action_outcomes"][0]["label"] == "inspect-outputs-completed"
+
+    timeline_response = client.post(f"/api/session/{session_id}/timeline/export?preset=review")
+    assert timeline_response.status_code == 200
+    timeline = timeline_response.json()
+    assert "agent-action-outcome" in {event["kind"] for event in timeline["timeline"]["events"]}
+    assert "agent-action-outcomes.md" in timeline["timeline_markdown"]
+
+    summary_response = client.post(f"/api/session/{session_id}/review/summary")
+    assert summary_response.status_code == 200
+    summary = summary_response.json()
+    card_ids = {card["id"] for card in summary["review_summary"]["cards"]}
+    assert "agent_action_outcomes" in card_ids
+    assert "agent-action-outcomes.md" in summary["review_summary_markdown"]
 
 
 def test_workflow_status_guides_incomplete_session_next_actions(tmp_path: Path) -> None:

@@ -88,6 +88,15 @@ class AgentFeedbackRequest(BaseModel):
     claim_boundary: str | None = None
 
 
+class AgentActionOutcomeRequest(BaseModel):
+    label: str = "agent-action-outcome"
+    action_plan_artifact: str | None = "agent-action-plan.md"
+    action: str
+    outcome_status: str = "recorded"
+    evidence_artifact: str | None = None
+    note: str
+
+
 class ScenarioPlanRequest(BaseModel):
     label: str = "parameter-change-scenario"
     parameter: str

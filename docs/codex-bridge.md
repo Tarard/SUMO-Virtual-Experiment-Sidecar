@@ -392,6 +392,25 @@ Invoke-RestMethod -Uri http://127.0.0.1:8765/api/session/<session_id>/agent-acti
 
 This writes `agent-action-plan.json` and `agent-action-plan.md`. The plan maps the latest `recommended_action` to a likely Sidecar evidence target and repeats the manual execution boundary. It does not execute the action or validate the agent recommendation.
 
+After manually following, skipping, or blocking the plan, record the outcome:
+
+```powershell
+Invoke-RestMethod `
+  -Uri http://127.0.0.1:8765/api/session/<session_id>/agent-action-outcome/record `
+  -Method Post `
+  -ContentType "application/json" `
+  -Body '{
+    "label": "inspect-outputs-completed",
+    "action_plan_artifact": "agent-action-plan.md",
+    "action": "Inspect Outputs",
+    "outcome_status": "completed",
+    "evidence_artifact": "output-inspection.md",
+    "note": "Output inspection was run and completion evidence is now available."
+  }'
+```
+
+This writes `agent-action-outcomes.json` and `agent-action-outcomes.md`, adds the outcome to review timelines, and surfaces it in `review-summary.md`. It records manual workflow execution; it is not proof that the experiment or agent recommendation is valid.
+
 Check workflow status before asking Codex for review:
 
 ```powershell

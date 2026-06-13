@@ -33,6 +33,7 @@ function setControls(enabled) {
     "exportAgentPromptBtn",
     "exportAgentActionPlanBtn",
     "recordAgentFeedbackBtn",
+    "recordAgentActionOutcomeBtn",
     "exportNextActionReviewBtn",
     "exportTimelineBtn",
     "compareMetricsBtn",
@@ -124,6 +125,17 @@ function agentFeedbackPayload() {
     response_text: el("agentFeedbackText").value,
     recommended_action: el("agentFeedbackAction").value,
     claim_boundary: el("agentFeedbackBoundary").value,
+  };
+}
+
+function agentActionOutcomePayload() {
+  return {
+    label: el("agentActionOutcomeLabel").value,
+    action_plan_artifact: el("agentActionOutcomePlanArtifact").value,
+    action: el("agentActionOutcomeAction").value,
+    outcome_status: el("agentActionOutcomeStatus").value,
+    evidence_artifact: el("agentActionOutcomeEvidence").value,
+    note: el("agentActionOutcomeNote").value,
   };
 }
 
@@ -1097,6 +1109,29 @@ el("exportAgentActionPlanBtn").addEventListener("click", async () => {
 function renderAgentActionPlan(body) {
   renderEvidence(body.evidence);
   el("agentActionPlanPreview").textContent = body.agent_action_plan_markdown || "No agent action plan exported.";
+}
+
+el("recordAgentActionOutcomeBtn").addEventListener("click", async () => {
+  try {
+    const body = await api(`/api/session/${state.sessionId}/agent-action-outcome/record`, {
+      method: "POST",
+      body: JSON.stringify(agentActionOutcomePayload()),
+    });
+    renderAgentActionOutcome(body);
+    await refreshWorkflow();
+    log("Recorded agent action outcome", {
+      label: body.agent_action_outcome.label,
+      agent_action_outcome_markdown_path: body.agent_action_outcome_markdown_path,
+    });
+  } catch (error) {
+    log(`Agent action outcome record failed: ${error.message}`);
+  }
+});
+
+function renderAgentActionOutcome(body) {
+  renderEvidence(body.evidence);
+  el("agentActionOutcomePreview").textContent =
+    body.agent_action_outcome_markdown || "No agent action outcome recorded.";
 }
 
 el("exportNextActionReviewBtn").addEventListener("click", async () => {

@@ -13,6 +13,7 @@ from typing import Any, Callable, Protocol
 from PIL import Image
 
 from .models import (
+    AgentActionOutcomeRequest,
     AgentFeedbackRequest,
     ChangeRecordRequest,
     CreateSessionRequest,
@@ -74,7 +75,7 @@ CHECKPOINT_TEMPLATES = {
 
 TIMELINE_PRESETS = {
     "full": None,
-    "review": {"session-created", "scenario-plan", "user-note", "change-record", "visual-observation", "screenshot-checkpoint", "output-inspection", "metric-comparison", "metric-chart", "visual-diff", "codex-packet", "review-summary", "next-action-review", "agent-feedback", "agent-action-plan"},
+    "review": {"session-created", "scenario-plan", "user-note", "change-record", "visual-observation", "screenshot-checkpoint", "output-inspection", "metric-comparison", "metric-chart", "visual-diff", "codex-packet", "review-summary", "next-action-review", "agent-feedback", "agent-action-plan", "agent-action-outcome"},
     "visual": {"session-created", "screenshot-checkpoint", "visual-observation", "visual-diff"},
     "outputs": {"session-created", "output-inspection", "metric-comparison", "metric-chart"},
     "notes": {"session-created", "scenario-plan", "user-note", "change-record"},
@@ -128,6 +129,7 @@ class SessionManager:
             "change_records": [],
             "visual_observations": [],
             "agent_feedback": [],
+            "agent_action_outcomes": [],
         }
 
         baseline: SumoRun | None = None
@@ -412,6 +414,47 @@ class SessionManager:
             "agent_action_plan_json_path": json_path,
             "agent_action_plan_markdown_path": markdown_path,
             "agent_action_plan_markdown": plan_markdown,
+            "evidence": self.evidence(session_id),
+        }
+
+    def record_agent_action_outcome(self, session_id: str, request: AgentActionOutcomeRequest) -> dict[str, Any]:
+        session = self.get(session_id)
+        action = request.action.strip()
+        outcome_status = request.outcome_status.strip()
+        note = request.note.strip()
+        action_plan_artifact = (
+            request.action_plan_artifact.strip()
+            if request.action_plan_artifact and request.action_plan_artifact.strip()
+            else None
+        )
+        evidence_artifact = (
+            request.evidence_artifact.strip()
+            if request.evidence_artifact and request.evidence_artifact.strip()
+            else None
+        )
+        if not action:
+            raise ValueError("agent action outcome action cannot be empty")
+        if not outcome_status:
+            raise ValueError("agent action outcome outcome_status cannot be empty")
+        if not note:
+            raise ValueError("agent action outcome note cannot be empty")
+        entry = {
+            "label": _safe_label(request.label),
+            "action_plan_artifact": action_plan_artifact,
+            "action": action,
+            "outcome_status": outcome_status,
+            "evidence_artifact": evidence_artifact,
+            "note": note,
+            "created_at": _utc_now(),
+        }
+        session.manifest.setdefault("agent_action_outcomes", []).append(entry)
+        self._write_agent_action_outcomes(session)
+        self._write_manifest(session)
+        return {
+            "agent_action_outcome": entry,
+            "agent_action_outcome_json_path": session.session_dir / "agent-action-outcomes.json",
+            "agent_action_outcome_markdown_path": session.session_dir / "agent-action-outcomes.md",
+            "agent_action_outcome_markdown": (session.session_dir / "agent-action-outcomes.md").read_text(encoding="utf-8"),
             "evidence": self.evidence(session_id),
         }
 
@@ -1360,6 +1403,20 @@ class SessionManager:
                     ],
                 }
             )
+        for outcome in session.manifest.get("agent_action_outcomes", []):
+            events.append(
+                {
+                    "sequence": len(events) + 1,
+                    "kind": "agent-action-outcome",
+                    "label": outcome.get("label", "agent-action-outcome"),
+                    "simulation_time": None,
+                    "wall_time": outcome.get("created_at"),
+                    "status": outcome.get("outcome_status", "recorded"),
+                    "template": None,
+                    "note": f"{outcome.get('action', 'manual action')}: {outcome.get('note', '')}",
+                    "artifacts": ["agent-action-outcomes.json", "agent-action-outcomes.md"],
+                }
+            )
         return {
             "session_id": session.id,
             "session_name": session.name,
@@ -1792,6 +1849,15 @@ class SessionManager:
                 session.manifest.get("agent_action_plan"),
             ),
             self._review_card(
+                "agent_action_outcomes",
+                "Agent action outcomes",
+                "pass" if session.manifest.get("agent_action_outcomes") else "warn",
+                f"{len(session.manifest.get('agent_action_outcomes', []))} outcome record(s)",
+                ["agent-action-outcomes.md", "agent-action-outcomes.json"]
+                if session.manifest.get("agent_action_outcomes_artifact")
+                else [],
+            ),
+            self._review_card(
                 "workflow",
                 "Workflow control screen",
                 workflow["status"],
@@ -1810,6 +1876,7 @@ class SessionManager:
             "change_records": session.manifest.get("change_records", []),
             "visual_observations": session.manifest.get("visual_observations", []),
             "agent_feedback": session.manifest.get("agent_feedback", []),
+            "agent_action_outcomes": session.manifest.get("agent_action_outcomes", []),
             "artifacts_to_review": self._review_artifacts_to_review(session),
             "next_actions": workflow["next_actions"],
             "claim_boundary": "This summary is a review dashboard for existing Sidecar evidence. It does not re-run SUMO, prove causality, or certify controller performance.",
@@ -1872,6 +1939,7 @@ class SessionManager:
 
     def _review_artifacts_to_review(self, session: PairedSession) -> list[str]:
         candidates = [
+            "agent-action-outcomes.md",
             "agent-action-plan.md",
             "next-action-review.md",
             "agent-feedback.md",
@@ -1930,6 +1998,7 @@ class SessionManager:
 
     def _agent_prompt_artifacts_to_open(self, session: PairedSession) -> list[str]:
         candidates = [
+            "agent-action-outcomes.md",
             "agent-action-plan.md",
             "next-action-review.md",
             "agent-feedback.md",
@@ -2502,6 +2571,14 @@ class SessionManager:
             )
         else:
             lines.append("- none")
+        lines.extend(["", "## Agent action outcomes", ""])
+        if summary["agent_action_outcomes"]:
+            lines.extend(
+                f"- `{item['outcome_status']}` / `{item['label']}`: {item['action']} -> {item.get('evidence_artifact') or 'no evidence artifact recorded'}"
+                for item in summary["agent_action_outcomes"]
+            )
+        else:
+            lines.append("- none")
         lines.extend(["", "## Artifacts to review", ""])
         if summary["artifacts_to_review"]:
             lines.extend(f"- `{artifact}`" for artifact in summary["artifacts_to_review"])
@@ -2662,6 +2739,28 @@ class SessionManager:
             "updated_at": _utc_now(),
         }
 
+    def _write_agent_action_outcomes(self, session: PairedSession) -> None:
+        outcome_items = session.manifest.get("agent_action_outcomes", [])
+        json_path = session.session_dir / "agent-action-outcomes.json"
+        markdown_path = session.session_dir / "agent-action-outcomes.md"
+        json_path.write_text(
+            json.dumps(
+                {
+                    "session_id": session.id,
+                    "session_name": session.name,
+                    "outcomes": outcome_items,
+                },
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+        markdown_path.write_text(self._render_agent_action_outcomes_markdown(session, outcome_items), encoding="utf-8")
+        session.manifest["agent_action_outcomes_artifact"] = {
+            "json": str(json_path),
+            "markdown": str(markdown_path),
+            "updated_at": _utc_now(),
+        }
+
     def _render_scenario_plan_markdown(self, session: PairedSession, plan: dict[str, Any]) -> str:
         metrics = ", ".join(f"`{metric}`" for metric in plan["expected_metrics"]) or "`not specified`"
         return "\n".join(
@@ -2789,6 +2888,42 @@ class SessionManager:
                     "",
                 ]
             )
+        return "\n".join(lines)
+
+    def _render_agent_action_outcomes_markdown(self, session: PairedSession, outcome_items: list[dict[str, Any]]) -> str:
+        lines = [
+            f"# Agent Action Outcomes: {session.name}",
+            "",
+            "Agent action outcomes record what the user did after reading a manual agent action plan. They document the control loop; they do not prove that the experiment is valid.",
+            "",
+        ]
+        if not outcome_items:
+            lines.append("No agent action outcomes have been recorded yet.")
+            return "\n".join(lines)
+        for index, item in enumerate(outcome_items, start=1):
+            lines.extend(
+                [
+                    f"## {index}. {item['label']}",
+                    "",
+                    f"- Action plan artifact: `{item.get('action_plan_artifact') or 'not specified'}`",
+                    f"- Action: {item['action']}",
+                    f"- Outcome status: `{item['outcome_status']}`",
+                    f"- Evidence artifact: `{item.get('evidence_artifact') or 'not specified'}`",
+                    f"- Recorded at: `{item['created_at']}`",
+                    "",
+                    "### Note",
+                    "",
+                    item["note"],
+                    "",
+                ]
+            )
+        lines.extend(
+            [
+                "## Boundary",
+                "",
+                "This artifact records a manual outcome after agent guidance. It is evidence of workflow execution, not evidence of controller performance, causality, or reproducibility by itself.",
+            ]
+        )
         return "\n".join(lines)
 
     def _render_timeline_markdown(self, timeline: dict[str, Any]) -> str:

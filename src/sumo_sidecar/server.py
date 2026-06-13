@@ -12,6 +12,7 @@ from .config_preflight import preflight_pair
 from .config_patch import patch_sumo_config_option
 from .demo_runner import minimal_paired_metadata, run_minimal_paired_guided, run_minimal_paired_headless
 from .models import (
+    AgentActionOutcomeRequest,
     AgentFeedbackRequest,
     ChangeRecordRequest,
     ConfigPatchRequest,
@@ -484,6 +485,22 @@ def create_app(
             }
         except KeyError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    @app.post("/api/session/{session_id}/agent-action-outcome/record")
+    def record_agent_action_outcome(session_id: str, request: AgentActionOutcomeRequest) -> dict[str, Any]:
+        try:
+            outcome = manager.record_agent_action_outcome(session_id, request)
+            return {
+                "agent_action_outcome": outcome["agent_action_outcome"],
+                "agent_action_outcome_json_path": str(outcome["agent_action_outcome_json_path"]),
+                "agent_action_outcome_markdown_path": str(outcome["agent_action_outcome_markdown_path"]),
+                "agent_action_outcome_markdown": outcome["agent_action_outcome_markdown"],
+                "evidence": outcome["evidence"].model_dump(mode="json"),
+            }
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     @app.post("/api/session/{session_id}/next-action-review/export")
     def export_next_action_review(session_id: str) -> dict[str, Any]:
