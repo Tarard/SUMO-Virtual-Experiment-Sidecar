@@ -112,6 +112,24 @@ def test_homepage_exposes_review_summary_action(tmp_path: Path) -> None:
     assert "/review/summary" in script_response.text
 
 
+def test_homepage_exposes_scenario_guide_controls(tmp_path: Path) -> None:
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+
+    index_response = client.get("/")
+    script_response = client.get("/static/app.js")
+
+    assert index_response.status_code == 200
+    assert script_response.status_code == 200
+    assert "scenarioLabel" in index_response.text
+    assert "scenarioParameter" in index_response.text
+    assert "startScenarioBtn" in index_response.text
+    assert "Refresh Scenario" in index_response.text
+    assert "scenarioOutput" in index_response.text
+    assert "/scenario/plan" in script_response.text
+    assert "/scenario/status" in script_response.text
+
+
 def test_minimal_demo_metadata_api_returns_usable_paths(tmp_path: Path) -> None:
     app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
     client = TestClient(app)
@@ -225,10 +243,12 @@ def test_minimal_demo_full_workflow_gui_api_exports_review_ready_bundle(tmp_path
     assert body["visual_diff"]["visual_diff"]["status"] == "ready"
     assert body["timeline"]["timeline"]["preset"] == "full"
     assert body["review_timeline"]["timeline"]["preset"] == "review"
+    assert Path(body["scenario_plan"]["scenario_plan_markdown_path"]).name == "scenario-plan.md"
     assert Path(body["packet"]["packet_path"]).name == "codex-packet.md"
     assert Path(body["metric_chart"]["metric_chart_svg_path"]).name == "metric-delta-chart.svg"
     assert Path(body["review_summary"]["review_summary_markdown_path"]).name == "review-summary.md"
     assert "Output Inspection" in body["packet"]["packet_markdown"]
+    assert "Scenario Plan" in body["packet"]["packet_markdown"]
     assert "Metric Delta Chart" in body["packet"]["packet_markdown"]
     assert "Review Summary" in body["packet"]["packet_markdown"]
     assert "Claim boundary" in body["review_summary"]["review_summary_markdown"]
@@ -239,6 +259,8 @@ def test_minimal_demo_full_workflow_gui_api_exports_review_ready_bundle(tmp_path
     artifact_paths = {item["relative_path"] for item in body["evidence"]["artifacts"]}
     assert "output-inspection.json" in artifact_paths
     assert "output-inspection.md" in artifact_paths
+    assert "scenario-plan.json" in artifact_paths
+    assert "scenario-plan.md" in artifact_paths
     assert "visual-diff.json" in artifact_paths
     assert "visual-diff.md" in artifact_paths
     assert "metric-comparison.json" in artifact_paths
@@ -1036,6 +1058,144 @@ def test_review_summary_api_writes_compact_claim_dashboard(tmp_path: Path) -> No
     timeline_response = client.post(f"/api/session/{session_id}/timeline/export")
     event_kinds = [event["kind"] for event in timeline_response.json()["timeline"]["events"]]
     assert "review-summary" in event_kinds
+
+
+def test_scenario_guide_tracks_before_after_evidence_sequence(tmp_path: Path) -> None:
+    baseline = tmp_path / "baseline.sumocfg"
+    variant = tmp_path / "variant.sumocfg"
+    baseline.write_text("<configuration/>", encoding="utf-8")
+    variant.write_text("<configuration/>", encoding="utf-8")
+
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+
+    create_response = client.post(
+        "/api/session/create",
+        json={
+            "name": "scenario-guide-demo",
+            "baseline_config": str(baseline),
+            "variant_config": str(variant),
+        },
+    )
+    session_id = create_response.json()["id"]
+
+    plan_response = client.post(
+        f"/api/session/{session_id}/scenario/plan",
+        json={
+            "label": "max-green-scenario",
+            "parameter": "max_green",
+            "before_value": "30",
+            "after_value": "45",
+            "hypothesis": "Longer green should reduce duration if completion remains unchanged.",
+            "expected_metrics": ["completion_ratio", "mean_duration"],
+            "note": "Use before/after checkpoints around the parameter change.",
+        },
+    )
+
+    assert plan_response.status_code == 200
+    body = plan_response.json()
+    assert body["scenario_plan"]["parameter"] == "max_green"
+    assert body["scenario_status"]["status"] == "needs-evidence"
+    assert body["scenario_status"]["current_step"] == "Capture First Checkpoint."
+    assert Path(body["scenario_plan_json_path"]).exists()
+    assert Path(body["scenario_plan_markdown_path"]).exists()
+    assert "max_green" in body["scenario_plan_markdown"]
+    artifact_paths = {item["relative_path"] for item in body["evidence"]["artifacts"]}
+    assert "scenario-plan.json" in artifact_paths
+    assert "scenario-plan.md" in artifact_paths
+
+    client.post(f"/api/session/{session_id}/checkpoint/first")
+    client.post(
+        f"/api/session/{session_id}/checkpoint/template",
+        json={"template": "before-change", "note": "Before changing max green."},
+    )
+    status_after_before = client.get(f"/api/session/{session_id}/scenario/status").json()
+    assert status_after_before["current_step"] == "Record Change with the planned parameter, before value, after value, and rationale."
+
+    client.post(
+        f"/api/session/{session_id}/change/record",
+        json={
+            "label": "max-green-change",
+            "parameter": "max_green",
+            "before_value": "30",
+            "after_value": "45",
+            "rationale": "Use the scenario plan hypothesis as the change rationale.",
+        },
+    )
+    client.post(
+        f"/api/session/{session_id}/checkpoint/template",
+        json={"template": "after-change", "note": "After changing max green."},
+    )
+    client.post(f"/api/session/{session_id}/visual-diff/export")
+
+    baseline_summary = tmp_path / "baseline-summary.xml"
+    variant_summary = tmp_path / "variant-summary.xml"
+    baseline_tripinfo = tmp_path / "baseline-tripinfo.xml"
+    variant_tripinfo = tmp_path / "variant-tripinfo.xml"
+    baseline_summary.write_text(
+        '<summary><step time="10" loaded="2" inserted="2" running="0" waiting="0" arrived="2" teleports="0"/></summary>',
+        encoding="utf-8",
+    )
+    variant_summary.write_text(
+        '<summary><step time="10" loaded="2" inserted="2" running="0" waiting="0" arrived="2" teleports="0"/></summary>',
+        encoding="utf-8",
+    )
+    baseline_tripinfo.write_text(
+        '<tripinfos><tripinfo id="b0" duration="10" waitingTime="1" timeLoss="2"/><tripinfo id="b1" duration="20" waitingTime="3" timeLoss="4"/></tripinfos>',
+        encoding="utf-8",
+    )
+    variant_tripinfo.write_text(
+        '<tripinfos><tripinfo id="v0" duration="8" waitingTime="0" timeLoss="1"/><tripinfo id="v1" duration="18" waitingTime="2" timeLoss="3"/></tripinfos>',
+        encoding="utf-8",
+    )
+    client.post(
+        f"/api/session/{session_id}/outputs/inspect",
+        json={
+            "baseline_summary": str(baseline_summary),
+            "baseline_tripinfo": str(baseline_tripinfo),
+            "variant_summary": str(variant_summary),
+            "variant_tripinfo": str(variant_tripinfo),
+        },
+    )
+    client.post(f"/api/session/{session_id}/metrics/compare")
+    client.post(f"/api/session/{session_id}/metrics/chart")
+    client.post(f"/api/session/{session_id}/timeline/export")
+    client.post(f"/api/session/{session_id}/review/summary")
+    client.post(f"/api/session/{session_id}/packet/export")
+
+    final_status_response = client.get(f"/api/session/{session_id}/scenario/status")
+
+    assert final_status_response.status_code == 200
+    final_status = final_status_response.json()
+    assert final_status["status"] == "ready-for-review"
+    assert final_status["current_step"] == "Ask Codex to inspect scenario-plan.md, review-summary.md, metric-delta-chart.md, visual-diff.md, and codex-packet.md."
+    checklist = {item["id"]: item for item in final_status["checklist"]}
+    assert checklist["scenario_plan"]["status"] == "pass"
+    assert checklist["first_checkpoint"]["status"] == "pass"
+    assert checklist["before_checkpoint"]["status"] == "pass"
+    assert checklist["change_record"]["status"] == "pass"
+    assert checklist["after_checkpoint"]["status"] == "pass"
+    assert checklist["output_inspection"]["status"] == "pass"
+    assert checklist["metric_comparison"]["status"] == "pass"
+    assert checklist["metric_chart"]["status"] == "pass"
+    assert checklist["visual_diff"]["status"] == "pass"
+    assert checklist["timeline"]["status"] == "pass"
+    assert checklist["review_summary"]["status"] == "pass"
+    assert checklist["codex_packet"]["status"] == "pass"
+
+    timeline = client.post(f"/api/session/{session_id}/timeline/export?preset=review").json()
+    event_kinds = [event["kind"] for event in timeline["timeline"]["events"]]
+    assert "scenario-plan" in event_kinds
+    assert "scenario-plan.md" in timeline["timeline_markdown"]
+
+    packet = client.post(f"/api/session/{session_id}/packet/export").json()
+    assert "Scenario Plan" in packet["packet_markdown"]
+    assert "scenario-plan.md" in packet["packet_markdown"]
+
+    summary = client.post(f"/api/session/{session_id}/review/summary").json()
+    card_ids = {card["id"] for card in summary["review_summary"]["cards"]}
+    assert "scenario_plan" in card_ids
+    assert "scenario-plan.md" in summary["review_summary_markdown"]
 
 
 def test_workflow_status_guides_incomplete_session_next_actions(tmp_path: Path) -> None:

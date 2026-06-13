@@ -156,6 +156,45 @@
         </div>
       </section>
 
+      <section class="panel scenario-guide">
+        <h2>Scenario Guide</h2>
+        <div class="output-grid">
+          <label>
+            Scenario label
+            <input id="scenarioLabel" value="parameter-change-scenario">
+          </label>
+          <label>
+            Parameter
+            <input id="scenarioParameter" placeholder="max_green, detector_map, route_demand, controller_weight">
+          </label>
+          <label>
+            Before value
+            <input id="scenarioBefore" placeholder="30">
+          </label>
+          <label>
+            After value
+            <input id="scenarioAfter" placeholder="45">
+          </label>
+          <label>
+            Expected metrics
+            <input id="scenarioMetrics" value="completion_ratio, mean_duration">
+          </label>
+          <label>
+            Note
+            <input id="scenarioNote" placeholder="Optional setup note or expected visual behavior.">
+          </label>
+        </div>
+        <label>
+          Hypothesis
+          <input id="scenarioHypothesis" placeholder="What should change, and what evidence would support it?">
+        </label>
+        <div class="row">
+          <button id="startScenarioBtn" type="button" disabled>Start Scenario</button>
+          <button id="scenarioStatusBtn" type="button" disabled>Refresh Scenario</button>
+        </div>
+        <pre id="scenarioOutput">Create a paired session, then start a guided before/after scenario.</pre>
+      </section>
+
       <section class="panel config-preflight">
         <h2>Construction Preflight</h2>
         <pre id="configPreflightOutput">Run config preflight before opening paired SUMO GUI sessions.</pre>

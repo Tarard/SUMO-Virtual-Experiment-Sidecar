@@ -18,6 +18,8 @@ function setControls(enabled) {
     "templateCheckpointBtn",
     "addTimelineNoteBtn",
     "recordChangeBtn",
+    "startScenarioBtn",
+    "scenarioStatusBtn",
     "firstCheckpointBtn",
     "stateBtn",
     "workflowBtn",
@@ -219,6 +221,32 @@ function outputInspectionPayload() {
   if (el("variantSummary").value.trim()) payload.variant_summary = el("variantSummary").value.trim();
   if (el("variantTripinfo").value.trim()) payload.variant_tripinfo = el("variantTripinfo").value.trim();
   return payload;
+}
+
+function scenarioPlanPayload() {
+  const metrics = el("scenarioMetrics").value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+  const note = el("scenarioNote").value.trim();
+  return {
+    label: el("scenarioLabel").value,
+    parameter: el("scenarioParameter").value,
+    before_value: el("scenarioBefore").value,
+    after_value: el("scenarioAfter").value,
+    hypothesis: el("scenarioHypothesis").value,
+    expected_metrics: metrics,
+    note: note || null,
+  };
+}
+
+function syncChangeFieldsFromScenario() {
+  el("changeLabel").value = el("scenarioLabel").value || "parameter-change";
+  el("changeParameter").value = el("scenarioParameter").value;
+  el("changeBefore").value = el("scenarioBefore").value;
+  el("changeAfter").value = el("scenarioAfter").value;
+  el("changeRationale").value = el("scenarioHypothesis").value;
+  el("changeNote").value = el("scenarioNote").value;
 }
 
 function renderOutputInspection(body) {
@@ -540,6 +568,29 @@ el("recordChangeBtn").addEventListener("click", async () => {
   }
 });
 
+el("startScenarioBtn").addEventListener("click", async () => {
+  try {
+    const body = await api(`/api/session/${state.sessionId}/scenario/plan`, {
+      method: "POST",
+      body: JSON.stringify(scenarioPlanPayload()),
+    });
+    syncChangeFieldsFromScenario();
+    renderEvidence(body.evidence);
+    renderScenarioStatus(body.scenario_status);
+    log("Started guided scenario", { scenario_plan_markdown_path: body.scenario_plan_markdown_path });
+  } catch (error) {
+    log(`Scenario start failed: ${error.message}`);
+  }
+});
+
+el("scenarioStatusBtn").addEventListener("click", async () => {
+  try {
+    await refreshScenario();
+  } catch (error) {
+    log(`Scenario refresh failed: ${error.message}`);
+  }
+});
+
 async function refreshState() {
   const body = await api(`/api/session/${state.sessionId}/state`);
   renderState(body);
@@ -550,6 +601,12 @@ async function refreshWorkflow() {
   const body = await api(`/api/session/${state.sessionId}/workflow/status`);
   renderWorkflow(body);
   log("Refreshed workflow", { status: body.status, claim_status: body.claim_status });
+}
+
+async function refreshScenario() {
+  const body = await api(`/api/session/${state.sessionId}/scenario/status`);
+  renderScenarioStatus(body);
+  log("Refreshed scenario", { status: body.status, current_step: body.current_step });
 }
 
 async function loadEvidence() {
@@ -566,6 +623,23 @@ function renderWorkflow(body) {
   el("workflowOutput").textContent = [
     `status: ${body.status}`,
     `claim_status: ${body.claim_status}`,
+    "",
+    "checklist:",
+    checklist || "- none",
+    "",
+    "next_actions:",
+    actions || "- none",
+  ].join("\n");
+}
+
+function renderScenarioStatus(body) {
+  const checklist = (body.checklist || [])
+    .map((item) => `${item.status.toUpperCase()} ${item.label}\n  evidence: ${item.evidence}`)
+    .join("\n");
+  const actions = (body.next_actions || []).map((item) => `- ${item}`).join("\n");
+  el("scenarioOutput").textContent = [
+    `status: ${body.status}`,
+    `current_step: ${body.current_step}`,
     "",
     "checklist:",
     checklist || "- none",

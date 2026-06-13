@@ -14,6 +14,7 @@ MVP focus:
 - capture paired screenshots from the SUMO GUI view;
 - capture a fixed first visual checkpoint into the evidence bundle;
 - capture named `before-change`, `after-change`, `queue-build-up`, and `final-state` checkpoints with notes;
+- guide before/after parameter-change scenarios with `scenario-plan.md` and next-step status;
 - record user-authored timeline notes without taking screenshots;
 - record structured parameter/controller changes with before value, after value, and rationale;
 - export completion-first metric comparisons from persisted paired SUMO outputs;
@@ -99,7 +100,11 @@ Use `Launch Demo GUI` to open the same bundled baseline and variant as a paired 
 
 Use `Launch Guided GUI` to run the guided demo first, then open a paired GUI session with the output inspection report already written into the session evidence bundle.
 
-Use `Launch Full Workflow` to run the guided demo, open the paired GUI session, capture first and before/after checkpoints, add a timeline note, export visual diff, export metric comparison, export a metric chart, export full and review timelines, export a review summary, export a Codex packet, and return a review-ready workflow status. This is the shortest public demonstration of the full evidence loop.
+Use `Launch Full Workflow` to run the guided demo, open the paired GUI session, start a demo scenario plan, capture first and before/after checkpoints, add a timeline note, export visual diff, export metric comparison, export a metric chart, export full and review timelines, export a review summary, export a Codex packet, and return a review-ready workflow status. This is the shortest public demonstration of the full evidence loop.
+
+Use `Start Scenario` before a manual before/after comparison. It writes `scenario-plan.json` and `scenario-plan.md`, records the planned parameter, before value, after value, hypothesis, expected metrics, and then tells you the next evidence step.
+
+Use `Refresh Scenario` during the run to see the current guided step. The scenario guide advances as first checkpoint, before-change checkpoint, change record, after-change checkpoint, output inspection, metric comparison, metric chart, visual diff, timeline, review summary, and Codex packet become available.
 
 After a GUI session is active, use `Capture First Checkpoint` to write the first paired visual checkpoint and refresh the Codex evidence panel immediately.
 
@@ -140,19 +145,20 @@ Typical workflow:
 1. Start this sidecar locally.
 2. Run environment preflight and config-pair preflight.
 3. Create a paired baseline/variant session in the web page.
-4. Capture the first paired checkpoint, then capture named before/after checkpoints while watching the SUMO GUI windows.
-5. Add timeline notes when you change parameters, observe a behavior, or record an assumption.
-6. Record structured changes so Codex can connect what changed to visual checkpoints and output metrics.
-7. Inspect `summary.xml` and `tripinfo.xml` output evidence before interpreting performance metrics.
-8. Export metric comparison so completion status and tripinfo deltas are visible together.
-9. Export a metric chart so the metric deltas are visible as an artifact.
-10. Export the visual diff index for the paired before/after checkpoints.
-11. Export a run timeline, optionally with a preset, to align checkpoints, change records, metric comparison, chart, notes, output inspection, and packet evidence.
-12. Export a review summary to create the compact review dashboard.
-13. Export a Codex packet when the session has enough screenshots and output evidence.
-14. Refresh workflow status and follow remaining next actions.
-15. Ask Codex to inspect the evidence folder, review summary, metric chart, metric comparison, visual diff, packet, timeline, workflow status, or local API.
-16. Use the generated `comparison.md`, `change-records.md`, `metric-comparison.md`, `metric-delta-chart.md`, `visual-diff.md`, `timeline.md`, `review-summary.md`, and `codex-packet.md` as diagnostic evidence indexes, then pair them with SUMO output files before making formal claims.
+4. Start a scenario plan before the manual before/after comparison.
+5. Capture the first paired checkpoint, then capture named before/after checkpoints while watching the SUMO GUI windows.
+6. Add timeline notes when you change parameters, observe a behavior, or record an assumption.
+7. Record structured changes so Codex can connect what changed to visual checkpoints and output metrics.
+8. Inspect `summary.xml` and `tripinfo.xml` output evidence before interpreting performance metrics.
+9. Export metric comparison so completion status and tripinfo deltas are visible together.
+10. Export a metric chart so the metric deltas are visible as an artifact.
+11. Export the visual diff index for the paired before/after checkpoints.
+12. Export a run timeline, optionally with a preset, to align scenario plan, checkpoints, change records, metric comparison, chart, notes, output inspection, and packet evidence.
+13. Export a review summary to create the compact review dashboard.
+14. Export a Codex packet when the session has enough screenshots and output evidence.
+15. Refresh scenario/workflow status and follow remaining next actions.
+16. Ask Codex to inspect the evidence folder, scenario plan, review summary, metric chart, metric comparison, visual diff, packet, timeline, workflow status, or local API.
+17. Use the generated `scenario-plan.md`, `comparison.md`, `change-records.md`, `metric-comparison.md`, `metric-delta-chart.md`, `visual-diff.md`, `timeline.md`, `review-summary.md`, and `codex-packet.md` as diagnostic evidence indexes, then pair them with SUMO output files before making formal claims.
 
 See [docs/codex-bridge.md](docs/codex-bridge.md) for exact prompts and API examples.
 
@@ -182,6 +188,8 @@ GET  /api/session/{id}/artifact/{path}
 POST /api/session/{id}/packet/export
 POST /api/session/{id}/timeline/export?preset=full
 POST /api/session/{id}/timeline/note
+POST /api/session/{id}/scenario/plan
+GET  /api/session/{id}/scenario/status
 POST /api/session/{id}/change/record
 POST /api/session/{id}/metrics/compare
 POST /api/session/{id}/metrics/chart
@@ -199,6 +207,8 @@ runs/<session_id>/
   manifest.json
   comparison.md
   codex-packet.md
+  scenario-plan.json
+  scenario-plan.md
   change-records.json
   change-records.md
   metric-comparison.json
@@ -225,6 +235,8 @@ The web page renders PNG artifacts as screenshot previews through a session-scop
 
 `codex-packet.md` is a single Markdown entrypoint for agent review. It lists the session, artifacts, comparison notes, output inspection when available, and the claim boundary. It is an index over evidence, not an automatic scientific conclusion.
 
+`scenario-plan.md` records the intended before/after comparison before the evidence is interpreted. It lists the planned parameter change, hypothesis, expected metrics, required evidence sequence, and claim boundary. It is a plan, not proof that the change was applied.
+
 `change-records.md` records structured edits such as controller parameters, detector mappings, route settings, or experiment assumptions with before value, after value, and rationale. It is the link between "what changed" and the visual/output evidence.
 
 `metric-comparison.md` compares persisted baseline and variant output evidence using completion-first ordering. It reports loaded, inserted, arrived, running, waiting, teleports, and completion ratio before tripinfo means such as duration, waiting time, and time loss.
@@ -233,7 +245,7 @@ The web page renders PNG artifacts as screenshot previews through a session-scop
 
 `review-summary.md` is the compact dashboard for agent review. It links structured changes, output inspection, completion-first metric highlights, metric chart status, visual diff status, timeline status, packet status, and the current claim boundary. It does not re-run SUMO or certify causality.
 
-`timeline.md` aligns session creation, screenshot checkpoints, user notes, structured change records, output inspection, metric comparison, visual diffs, and exported Codex packets. This is the quickest way to see what evidence was produced before and after a controller or configuration change.
+`timeline.md` aligns session creation, scenario plan, screenshot checkpoints, user notes, structured change records, output inspection, metric comparison, visual diffs, and exported Codex packets. This is the quickest way to see what evidence was produced before and after a controller or configuration change.
 
 Timeline presets write separate files such as `timeline-visual.md`, `timeline-outputs.md`, and `timeline-notes.md`. The default `full` preset keeps the existing `timeline.md` / `timeline.json` names. The `review` preset includes metric comparison, metric chart, structured change records, visual diff, Codex packet, and review summary; the `outputs` preset includes output inspection, metric comparison, and metric chart.
 

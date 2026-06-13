@@ -58,6 +58,16 @@ class ChangeRecordRequest(BaseModel):
     note: str | None = None
 
 
+class ScenarioPlanRequest(BaseModel):
+    label: str = "parameter-change-scenario"
+    parameter: str
+    before_value: str
+    after_value: str
+    hypothesis: str
+    expected_metrics: list[str] = Field(default_factory=list)
+    note: str | None = None
+
+
 class SessionState(BaseModel):
     id: str
     name: str

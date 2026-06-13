@@ -20,6 +20,7 @@ from .models import (
     OutputInspectionRequest,
     PairOutputInspectionReport,
     ScreenshotEvidence,
+    ScenarioPlanRequest,
     SessionState,
 )
 from .output_inspection import inspect_output_pair, render_output_inspection_markdown
@@ -70,10 +71,10 @@ CHECKPOINT_TEMPLATES = {
 
 TIMELINE_PRESETS = {
     "full": None,
-    "review": {"session-created", "user-note", "change-record", "screenshot-checkpoint", "output-inspection", "metric-comparison", "metric-chart", "visual-diff", "codex-packet", "review-summary"},
+    "review": {"session-created", "scenario-plan", "user-note", "change-record", "screenshot-checkpoint", "output-inspection", "metric-comparison", "metric-chart", "visual-diff", "codex-packet", "review-summary"},
     "visual": {"session-created", "screenshot-checkpoint", "visual-diff"},
     "outputs": {"session-created", "output-inspection", "metric-comparison", "metric-chart"},
-    "notes": {"session-created", "user-note", "change-record"},
+    "notes": {"session-created", "scenario-plan", "user-note", "change-record"},
 }
 
 
@@ -282,6 +283,10 @@ class SessionManager:
             "",
             timeline_markdown,
             "",
+            "## Scenario Plan",
+            "",
+            self._read_optional_text(session.session_dir / "scenario-plan.md", "No guided scenario plan exported yet."),
+            "",
             "## Comparison Notes",
             "",
             evidence.comparison_markdown or "No comparison notes exported yet.",
@@ -364,6 +369,96 @@ class SessionManager:
         session.manifest.setdefault("timeline_notes", []).append(entry)
         self._write_manifest(session)
         return entry
+
+    def plan_scenario(self, session_id: str, request: ScenarioPlanRequest) -> dict[str, Any]:
+        session = self.get(session_id)
+        parameter = request.parameter.strip()
+        before_value = request.before_value.strip()
+        after_value = request.after_value.strip()
+        hypothesis = request.hypothesis.strip()
+        note = request.note.strip() if request.note and request.note.strip() else None
+        expected_metrics = [item.strip() for item in request.expected_metrics if item.strip()]
+        if not parameter:
+            raise ValueError("scenario parameter cannot be empty")
+        if not before_value:
+            raise ValueError("scenario before_value cannot be empty")
+        if not after_value:
+            raise ValueError("scenario after_value cannot be empty")
+        if not hypothesis:
+            raise ValueError("scenario hypothesis cannot be empty")
+        plan = {
+            "label": _safe_label(request.label),
+            "parameter": parameter,
+            "before_value": before_value,
+            "after_value": after_value,
+            "hypothesis": hypothesis,
+            "expected_metrics": expected_metrics,
+            "note": note,
+            "created_at": _utc_now(),
+        }
+        json_path = session.session_dir / "scenario-plan.json"
+        markdown_path = session.session_dir / "scenario-plan.md"
+        json_path.write_text(
+            json.dumps(
+                {
+                    "session_id": session.id,
+                    "session_name": session.name,
+                    "scenario_plan": plan,
+                },
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+        markdown = self._render_scenario_plan_markdown(session, plan)
+        markdown_path.write_text(markdown, encoding="utf-8")
+        session.manifest["scenario_plan"] = {
+            **plan,
+            "json": str(json_path),
+            "markdown": str(markdown_path),
+            "updated_at": _utc_now(),
+        }
+        self._write_manifest(session)
+        return {
+            "scenario_plan": plan,
+            "scenario_plan_json_path": json_path,
+            "scenario_plan_markdown_path": markdown_path,
+            "scenario_plan_markdown": markdown,
+            "scenario_status": self.scenario_status(session_id),
+            "evidence": self.evidence(session_id),
+        }
+
+    def scenario_status(self, session_id: str) -> dict[str, Any]:
+        session = self.get(session_id)
+        relative_paths = {item.relative_path for item in self._list_artifacts(session)}
+        templates = {item.template for item in session.evidence if item.template}
+        has_scenario = "scenario_plan" in session.manifest and "scenario-plan.md" in relative_paths
+        has_first_checkpoint = any(item.label == "first-checkpoint" for item in session.evidence)
+        has_before = "before-change" in templates
+        has_after = "after-change" in templates
+        has_change = bool(session.manifest.get("change_records"))
+        checks = [
+            self._scenario_item("scenario_plan", "Create Scenario Plan", has_scenario, "scenario-plan.md" if has_scenario else "missing"),
+            self._scenario_item("first_checkpoint", "Capture First Checkpoint", has_first_checkpoint, "first-checkpoint screenshot evidence"),
+            self._scenario_item("before_checkpoint", "Capture before-change checkpoint", has_before, "before-change checkpoint"),
+            self._scenario_item("change_record", "Record planned change", has_change, f"{len(session.manifest.get('change_records', []))} change record(s)"),
+            self._scenario_item("after_checkpoint", "Capture after-change checkpoint", has_after, "after-change checkpoint"),
+            self._scenario_manifest_item(session, "output_inspection", "Inspect Outputs", session.manifest.get("output_inspection")),
+            self._scenario_manifest_item(session, "metric_comparison", "Compare Metrics", session.manifest.get("metric_comparison")),
+            self._scenario_manifest_item(session, "metric_chart", "Export Metric Chart", session.manifest.get("metric_chart")),
+            self._scenario_manifest_item(session, "visual_diff", "Export Visual Diff", session.manifest.get("visual_diff")),
+            self._scenario_manifest_item(session, "timeline", "Export Timeline", session.manifest.get("timeline")),
+            self._scenario_manifest_item(session, "review_summary", "Export Review Summary", session.manifest.get("review_summary")),
+            self._scenario_manifest_item(session, "codex_packet", "Export Codex Packet", session.manifest.get("codex_packet")),
+        ]
+        next_actions = self._scenario_next_actions(checks)
+        return {
+            "session_id": session.id,
+            "session_name": session.name,
+            "status": "ready-for-review" if not next_actions else "needs-evidence",
+            "current_step": next_actions[0] if next_actions else "Ask Codex to inspect scenario-plan.md, review-summary.md, metric-delta-chart.md, visual-diff.md, and codex-packet.md.",
+            "checklist": checks,
+            "next_actions": next_actions or ["Ask Codex to inspect scenario-plan.md, review-summary.md, metric-delta-chart.md, visual-diff.md, and codex-packet.md."],
+        }
 
     def record_change(self, session_id: str, request: ChangeRecordRequest) -> dict[str, Any]:
         session = self.get(session_id)
@@ -683,6 +778,53 @@ class SessionManager:
             actions.append("Ask Codex to inspect codex-packet.md, timeline.md, metric-comparison.md, visual-diff.md, and output-inspection.md.")
         return actions
 
+    def _scenario_item(self, item_id: str, label: str, passed: bool, evidence: str) -> dict[str, str]:
+        return {
+            "id": item_id,
+            "label": label,
+            "status": "pass" if passed else "missing",
+            "evidence": evidence,
+        }
+
+    def _scenario_manifest_item(
+        self,
+        session: PairedSession,
+        item_id: str,
+        label: str,
+        manifest_entry: dict[str, Any] | None,
+    ) -> dict[str, str]:
+        if not manifest_entry:
+            return self._scenario_item(item_id, label, False, "missing")
+        artifacts = [
+            self._relative_artifact(session, manifest_entry.get(key, ""))
+            for key in ("markdown", "json", "svg", "path")
+            if manifest_entry.get(key)
+        ]
+        return self._scenario_item(
+            item_id,
+            label,
+            True,
+            ", ".join(path for path in artifacts if path) or manifest_entry.get("status", "exported"),
+        )
+
+    def _scenario_next_actions(self, checklist: list[dict[str, str]]) -> list[str]:
+        status_by_id = {item["id"]: item["status"] for item in checklist}
+        ordered_actions = [
+            ("scenario_plan", "Create Scenario Plan."),
+            ("first_checkpoint", "Capture First Checkpoint."),
+            ("before_checkpoint", "Capture before-change checkpoint."),
+            ("change_record", "Record Change with the planned parameter, before value, after value, and rationale."),
+            ("after_checkpoint", "Capture after-change checkpoint."),
+            ("visual_diff", "Export Visual Diff."),
+            ("output_inspection", "Inspect Outputs with summary.xml and tripinfo.xml."),
+            ("metric_comparison", "Compare Metrics."),
+            ("metric_chart", "Export Metric Chart."),
+            ("timeline", "Export Timeline."),
+            ("review_summary", "Export Review Summary."),
+            ("codex_packet", "Export Codex Packet."),
+        ]
+        return [action for item_id, action in ordered_actions if status_by_id.get(item_id) == "missing"]
+
     def _build_timeline(self, session: PairedSession) -> dict[str, Any]:
         events: list[dict[str, Any]] = [
             {
@@ -697,6 +839,24 @@ class SessionManager:
                 "artifacts": ["manifest.json", "comparison.md"],
             }
         ]
+        if "scenario_plan" in session.manifest:
+            plan = session.manifest["scenario_plan"]
+            events.append(
+                {
+                    "sequence": len(events) + 1,
+                    "kind": "scenario-plan",
+                    "label": plan.get("label", "scenario-plan"),
+                    "simulation_time": None,
+                    "wall_time": plan.get("updated_at") or plan.get("created_at"),
+                    "status": "planned",
+                    "template": None,
+                    "note": f"{plan.get('parameter')}: {plan.get('before_value')} -> {plan.get('after_value')}",
+                    "artifacts": [
+                        self._relative_artifact(session, plan.get("json", "")),
+                        self._relative_artifact(session, plan.get("markdown", "")),
+                    ],
+                }
+            )
         for item in session.evidence:
             events.append(
                 {
@@ -1151,6 +1311,12 @@ class SessionManager:
 
     def _build_review_summary(self, session: PairedSession, workflow: dict[str, Any]) -> dict[str, Any]:
         cards = [
+            self._review_manifest_card(
+                session,
+                "scenario_plan",
+                "Scenario plan",
+                session.manifest.get("scenario_plan"),
+            ),
             self._review_card(
                 "change_records",
                 "Structured change records",
@@ -1275,6 +1441,7 @@ class SessionManager:
         candidates = [
             "codex-packet.md",
             "review-summary.md",
+            "scenario-plan.md",
             "timeline.md",
             "timeline-review.md",
             "metric-delta-chart.md",
@@ -1440,6 +1607,36 @@ class SessionManager:
             "markdown": str(markdown_path),
             "updated_at": _utc_now(),
         }
+
+    def _render_scenario_plan_markdown(self, session: PairedSession, plan: dict[str, Any]) -> str:
+        metrics = ", ".join(f"`{metric}`" for metric in plan["expected_metrics"]) or "`not specified`"
+        return "\n".join(
+            [
+                f"# SUMO Scenario Plan: {session.name}",
+                "",
+                "This guided scenario plan records the intended before/after comparison. It is not evidence that the change was applied or that the result is valid.",
+                "",
+                f"- Scenario: `{plan['label']}`",
+                f"- Parameter: `{plan['parameter']}`",
+                f"- Planned change: `{plan['before_value']}` -> `{plan['after_value']}`",
+                f"- Hypothesis: {plan['hypothesis']}",
+                f"- Expected metrics: {metrics}",
+                f"- Note: {plan.get('note') or 'none'}",
+                f"- Created at: `{plan['created_at']}`",
+                "",
+                "## Required evidence sequence",
+                "",
+                "1. Capture `first-checkpoint`.",
+                "2. Capture `before-change` before applying or activating the planned change.",
+                "3. Record the actual change with parameter, before value, after value, and rationale.",
+                "4. Capture `after-change` after the change is active.",
+                "5. Inspect SUMO outputs, compare metrics, export metric chart, export visual diff, timeline, review summary, and Codex packet.",
+                "",
+                "## Claim boundary",
+                "",
+                "This plan can guide evidence collection, but claims still require paired demand, seed, horizon, completion status, metric definitions, and reproducible outputs.",
+            ]
+        )
 
     def _render_change_records_markdown(self, session: PairedSession, records: list[dict[str, Any]]) -> str:
         lines = [

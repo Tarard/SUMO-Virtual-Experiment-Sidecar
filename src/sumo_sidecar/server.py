@@ -17,6 +17,7 @@ from .models import (
     OutputInspectionRequest,
     RunUntilRequest,
     ScreenshotRequest,
+    ScenarioPlanRequest,
     StepRequest,
     TemplateCheckpointRequest,
     TimelineNoteRequest,
@@ -137,6 +138,18 @@ def create_app(
                     variant_tripinfo=Path(metadata["variant_tripinfo"]),
                 ),
             )
+            scenario_plan = manager.plan_scenario(
+                session.id,
+                ScenarioPlanRequest(
+                    label="demo-step-scenario",
+                    parameter="paired_demo_step_count",
+                    before_value="0",
+                    after_value="2",
+                    hypothesis="A short paired step interval should create visible diagnostic progress while completion evidence remains unchanged.",
+                    expected_metrics=["completion_ratio", "mean_duration"],
+                    note="This scenario demonstrates the evidence workflow, not controller performance.",
+                ),
+            )
             first_checkpoint = manager.screenshot(session.id, "first-checkpoint")
             timeline_note = manager.add_timeline_note(
                 session.id,
@@ -194,6 +207,12 @@ def create_app(
                     "first": first_checkpoint.model_dump(mode="json"),
                     "before": before_checkpoint.model_dump(mode="json"),
                     "after": after_checkpoint.model_dump(mode="json"),
+                },
+                "scenario_plan": {
+                    "scenario_plan": scenario_plan["scenario_plan"],
+                    "scenario_plan_json_path": str(scenario_plan["scenario_plan_json_path"]),
+                    "scenario_plan_markdown_path": str(scenario_plan["scenario_plan_markdown_path"]),
+                    "scenario_plan_markdown": scenario_plan["scenario_plan_markdown"],
                 },
                 "timeline_note": timeline_note,
                 "change_record": change_record,
@@ -401,6 +420,30 @@ def create_app(
             raise HTTPException(status_code=404, detail=str(exc)) from exc
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @app.post("/api/session/{session_id}/scenario/plan")
+    def plan_scenario(session_id: str, request: ScenarioPlanRequest) -> dict[str, Any]:
+        try:
+            plan = manager.plan_scenario(session_id, request)
+            return {
+                "scenario_plan": plan["scenario_plan"],
+                "scenario_plan_json_path": str(plan["scenario_plan_json_path"]),
+                "scenario_plan_markdown_path": str(plan["scenario_plan_markdown_path"]),
+                "scenario_plan_markdown": plan["scenario_plan_markdown"],
+                "scenario_status": plan["scenario_status"],
+                "evidence": plan["evidence"].model_dump(mode="json"),
+            }
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @app.get("/api/session/{session_id}/scenario/status")
+    def get_scenario_status(session_id: str) -> dict[str, Any]:
+        try:
+            return manager.scenario_status(session_id)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
 
     @app.post("/api/session/{session_id}/change/record")
     def record_change(session_id: str, request: ChangeRecordRequest) -> dict[str, Any]:
