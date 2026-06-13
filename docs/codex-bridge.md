@@ -36,7 +36,7 @@ It does not embed Codex inside SUMO, and it does not require VS Code. The user k
 6. Ask Codex to inspect the session folder:
 
    ```text
-   Read runs/<session_id>/manifest.json, comparison.md, change-records.md, timeline.md, visual-diff.md, output-inspection.md, and codex-packet.md if present.
+   Read runs/<session_id>/manifest.json, comparison.md, change-records.md, metric-comparison.md, timeline.md, visual-diff.md, output-inspection.md, and codex-packet.md if present.
    Tell me what visual differences are supported by the evidence, what output evidence exists, and what claims remain unsupported.
    ```
 
@@ -46,7 +46,7 @@ For the bundled public demo, the shortest end-to-end path is:
 Invoke-RestMethod -Uri http://127.0.0.1:8765/api/examples/minimal-paired/launch-full-workflow-gui -Method Post
 ```
 
-This runs the guided demo, launches a paired GUI session, captures first and before/after checkpoints, adds a timeline note, exports visual diff, exports full and review timelines, exports a Codex packet, and returns workflow status. It is a diagnostic workflow demonstration, not a controller-performance claim.
+This runs the guided demo, launches a paired GUI session, captures first and before/after checkpoints, adds a timeline note, exports visual diff, exports metric comparison, exports full and review timelines, exports a Codex packet, and returns workflow status. It is a diagnostic workflow demonstration, not a controller-performance claim.
 
 Before creating a session, Codex can also inspect the paired `.sumocfg` files:
 
@@ -175,6 +175,14 @@ Invoke-RestMethod `
 
 This writes `change-records.json` and `change-records.md` into the evidence bundle and adds a `change-record` event to exported timelines.
 
+Export the completion-first metric comparison after output inspection:
+
+```powershell
+Invoke-RestMethod -Uri http://127.0.0.1:8765/api/session/<session_id>/metrics/compare -Method Post
+```
+
+This writes `metric-comparison.json` and `metric-comparison.md`. It compares persisted baseline and variant output evidence as `variant - baseline`, with completion, unfinished vehicles, and teleports reported before tripinfo means.
+
 Load the evidence:
 
 ```powershell
@@ -196,6 +204,7 @@ Export visual and agent-readable evidence:
 
 ```powershell
 Invoke-RestMethod -Uri http://127.0.0.1:8765/api/session/<session_id>/visual-diff/export -Method Post
+Invoke-RestMethod -Uri http://127.0.0.1:8765/api/session/<session_id>/metrics/compare -Method Post
 Invoke-RestMethod -Uri http://127.0.0.1:8765/api/session/<session_id>/timeline/export -Method Post
 Invoke-RestMethod -Uri "http://127.0.0.1:8765/api/session/<session_id>/timeline/export?preset=visual" -Method Post
 Invoke-RestMethod -Uri http://127.0.0.1:8765/api/session/<session_id>/packet/export -Method Post
@@ -207,7 +216,7 @@ Timeline presets:
 full     all events, written to timeline.md/json
 review   high-signal review events
 visual   screenshot checkpoints and visual diff events
-outputs  output-inspection events
+outputs  output-inspection and metric-comparison events
 notes    user-authored timeline notes
 ```
 
@@ -230,3 +239,5 @@ Use screenshot evidence as a diagnostic signal first. Promote it into a report o
 Pixel-level visual diff artifacts are also diagnostic. They can show that pixels changed between before/after screenshots, but they do not explain why the change happened and do not replace SUMO output metrics.
 
 Structured change records close part of that gap by recording what was intentionally changed, but they still do not prove causality. They should be read together with paired outputs, completion status, and reproduced runs.
+
+Metric comparison makes output deltas easier to review, but it is still an evidence view. If completion, route demand, seed, horizon, or controller identity is unpaired, metric deltas should remain diagnostic rather than formal claims.

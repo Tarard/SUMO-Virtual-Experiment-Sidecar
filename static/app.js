@@ -24,6 +24,7 @@ function setControls(enabled) {
     "evidenceBtn",
     "exportPacketBtn",
     "exportTimelineBtn",
+    "compareMetricsBtn",
     "exportVisualDiffBtn",
     "closeBtn",
   ]) {
@@ -193,6 +194,7 @@ function renderFullWorkflowLaunch(body) {
   renderVisualDiff(body.visual_diff.visual_diff);
   renderWorkflow(body.workflow);
   el("visualDiffMarkdown").textContent = body.visual_diff.visual_diff_markdown;
+  el("metricComparisonPreview").textContent = body.metric_comparison.metric_comparison_markdown;
   el("packetPreview").textContent = body.packet.packet_markdown;
   el("timelinePreview").textContent = body.timeline.timeline_markdown;
   el("configPreflightOutput").textContent += [
@@ -656,6 +658,18 @@ el("exportTimelineBtn").addEventListener("click", async () => {
     log("Exported run timeline", { timeline_markdown_path: body.timeline_markdown_path });
   } catch (error) {
     log(`Timeline export failed: ${error.message}`);
+  }
+});
+
+el("compareMetricsBtn").addEventListener("click", async () => {
+  try {
+    const body = await api(`/api/session/${state.sessionId}/metrics/compare`, { method: "POST" });
+    renderEvidence(body.evidence);
+    el("metricComparisonPreview").textContent = body.metric_comparison_markdown;
+    await refreshWorkflow();
+    log("Exported metric comparison", { metric_comparison_markdown_path: body.metric_comparison_markdown_path });
+  } catch (error) {
+    log(`Metric comparison failed: ${error.message}`);
   }
 });
 

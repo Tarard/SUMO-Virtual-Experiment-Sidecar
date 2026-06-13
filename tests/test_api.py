@@ -68,6 +68,20 @@ def test_homepage_exposes_structured_change_record_action(tmp_path: Path) -> Non
     assert "/change/record" in script_response.text
 
 
+def test_homepage_exposes_metric_comparison_action(tmp_path: Path) -> None:
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+
+    index_response = client.get("/")
+    script_response = client.get("/static/app.js")
+
+    assert index_response.status_code == 200
+    assert script_response.status_code == 200
+    assert "compareMetricsBtn" in index_response.text
+    assert "Compare Metrics" in index_response.text
+    assert "/metrics/compare" in script_response.text
+
+
 def test_minimal_demo_metadata_api_returns_usable_paths(tmp_path: Path) -> None:
     app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
     client = TestClient(app)
@@ -191,6 +205,8 @@ def test_minimal_demo_full_workflow_gui_api_exports_review_ready_bundle(tmp_path
     assert "output-inspection.md" in artifact_paths
     assert "visual-diff.json" in artifact_paths
     assert "visual-diff.md" in artifact_paths
+    assert "metric-comparison.json" in artifact_paths
+    assert "metric-comparison.md" in artifact_paths
     assert "timeline.json" in artifact_paths
     assert "timeline-review.json" in artifact_paths
     assert "codex-packet.md" in artifact_paths
@@ -689,6 +705,97 @@ def test_change_record_api_writes_structured_evidence_and_timeline_event(tmp_pat
     assert "max_green: 30 -> 45" in timeline_body["timeline_markdown"]
 
 
+def test_metric_comparison_api_writes_completion_first_delta_report(tmp_path: Path) -> None:
+    baseline = tmp_path / "baseline.sumocfg"
+    variant = tmp_path / "variant.sumocfg"
+    baseline.write_text("<configuration/>", encoding="utf-8")
+    variant.write_text("<configuration/>", encoding="utf-8")
+
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+
+    create_response = client.post(
+        "/api/session/create",
+        json={
+            "name": "metric-demo",
+            "baseline_config": str(baseline),
+            "variant_config": str(variant),
+        },
+    )
+    session_id = create_response.json()["id"]
+    client.post(
+        f"/api/session/{session_id}/change/record",
+        json={
+            "label": "max-green-change",
+            "parameter": "max_green",
+            "before_value": "30",
+            "after_value": "45",
+            "rationale": "Test whether extra green reduces delay without reducing completion.",
+        },
+    )
+    baseline_summary = tmp_path / "baseline-summary.xml"
+    variant_summary = tmp_path / "variant-summary.xml"
+    baseline_tripinfo = tmp_path / "baseline-tripinfo.xml"
+    variant_tripinfo = tmp_path / "variant-tripinfo.xml"
+    baseline_summary.write_text(
+        '<summary><step time="10" loaded="2" inserted="2" running="0" waiting="0" arrived="2" teleports="0"/></summary>',
+        encoding="utf-8",
+    )
+    variant_summary.write_text(
+        '<summary><step time="10" loaded="2" inserted="2" running="0" waiting="0" arrived="2" teleports="0"/></summary>',
+        encoding="utf-8",
+    )
+    baseline_tripinfo.write_text(
+        '<tripinfos><tripinfo id="b0" duration="10" waitingTime="1" timeLoss="2"/><tripinfo id="b1" duration="20" waitingTime="3" timeLoss="4"/></tripinfos>',
+        encoding="utf-8",
+    )
+    variant_tripinfo.write_text(
+        '<tripinfos><tripinfo id="v0" duration="8" waitingTime="0" timeLoss="1"/><tripinfo id="v1" duration="18" waitingTime="2" timeLoss="3"/></tripinfos>',
+        encoding="utf-8",
+    )
+    client.post(
+        f"/api/session/{session_id}/outputs/inspect",
+        json={
+            "baseline_summary": str(baseline_summary),
+            "baseline_tripinfo": str(baseline_tripinfo),
+            "variant_summary": str(variant_summary),
+            "variant_tripinfo": str(variant_tripinfo),
+        },
+    )
+
+    response = client.post(f"/api/session/{session_id}/metrics/compare")
+
+    assert response.status_code == 200
+    body = response.json()
+    report = body["metric_comparison"]
+    assert report["status"] == "pass"
+    assert report["change_records"][0]["parameter"] == "max_green"
+    summary_by_metric = {item["metric"]: item for item in report["completion_metrics"]}
+    tripinfo_by_metric = {item["metric"]: item for item in report["tripinfo_metrics"]}
+    assert summary_by_metric["completion_ratio"]["baseline"] == 1.0
+    assert summary_by_metric["completion_ratio"]["variant"] == 1.0
+    assert summary_by_metric["completion_ratio"]["delta"] == 0.0
+    assert tripinfo_by_metric["mean_duration"]["baseline"] == 15.0
+    assert tripinfo_by_metric["mean_duration"]["variant"] == 13.0
+    assert tripinfo_by_metric["mean_duration"]["delta"] == -2.0
+    assert Path(body["metric_comparison_json_path"]).exists()
+    assert Path(body["metric_comparison_markdown_path"]).exists()
+    assert "Completion-first metrics" in body["metric_comparison_markdown"]
+    assert "max_green" in body["metric_comparison_markdown"]
+    assert "diagnostic metric comparison" in body["metric_comparison_markdown"]
+    artifact_paths = {item["relative_path"] for item in body["evidence"]["artifacts"]}
+    assert "metric-comparison.json" in artifact_paths
+    assert "metric-comparison.md" in artifact_paths
+
+    timeline_response = client.post(f"/api/session/{session_id}/timeline/export")
+
+    assert timeline_response.status_code == 200
+    timeline_body = timeline_response.json()
+    event_kinds = [event["kind"] for event in timeline_body["timeline"]["events"]]
+    assert "metric-comparison" in event_kinds
+    assert "metric-comparison.md" in timeline_body["timeline_markdown"]
+
+
 def test_workflow_status_guides_incomplete_session_next_actions(tmp_path: Path) -> None:
     baseline = tmp_path / "baseline.sumocfg"
     variant = tmp_path / "variant.sumocfg"
@@ -779,6 +886,7 @@ def test_workflow_status_reports_review_ready_session(tmp_path: Path) -> None:
             "variant_summary": str(variant_summary),
         },
     )
+    client.post(f"/api/session/{session_id}/metrics/compare")
     client.post(f"/api/session/{session_id}/visual-diff/export")
     client.post(f"/api/session/{session_id}/timeline/export")
     client.post(f"/api/session/{session_id}/packet/export")
@@ -793,10 +901,11 @@ def test_workflow_status_reports_review_ready_session(tmp_path: Path) -> None:
     assert checklist["first_checkpoint"]["status"] == "pass"
     assert checklist["template_pair"]["status"] == "pass"
     assert checklist["output_inspection"]["status"] == "pass"
+    assert checklist["metric_comparison"]["status"] == "pass"
     assert checklist["visual_diff"]["status"] in {"pass", "warn"}
     assert checklist["timeline"]["status"] == "pass"
     assert checklist["codex_packet"]["status"] == "pass"
-    assert body["next_actions"] == ["Ask Codex to inspect codex-packet.md, timeline.md, visual-diff.md, and output-inspection.md."]
+    assert body["next_actions"] == ["Ask Codex to inspect codex-packet.md, timeline.md, metric-comparison.md, visual-diff.md, and output-inspection.md."]
 
 
 def test_config_preflight_api_reports_pair_risks(tmp_path: Path) -> None:

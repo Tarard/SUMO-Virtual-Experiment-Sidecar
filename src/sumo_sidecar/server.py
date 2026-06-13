@@ -166,6 +166,7 @@ def create_app(
                 "After stepping both paired demo GUI sessions by 2 simulation steps.",
             )
             visual_diff = manager.export_visual_diff(session.id)
+            metric_comparison = manager.export_metric_comparison(session.id)
             packet = manager.export_packet(session.id)
             timeline = manager.export_timeline(session.id, preset="full")
             review_timeline = manager.export_timeline(session.id, preset="review")
@@ -196,6 +197,12 @@ def create_app(
                     "visual_diff_json_path": str(visual_diff["visual_diff_json_path"]),
                     "visual_diff_markdown_path": str(visual_diff["visual_diff_markdown_path"]),
                     "visual_diff_markdown": visual_diff["visual_diff_markdown"],
+                },
+                "metric_comparison": {
+                    "metric_comparison": metric_comparison["metric_comparison"],
+                    "metric_comparison_json_path": str(metric_comparison["metric_comparison_json_path"]),
+                    "metric_comparison_markdown_path": str(metric_comparison["metric_comparison_markdown_path"]),
+                    "metric_comparison_markdown": metric_comparison["metric_comparison_markdown"],
                 },
                 "packet": {
                     "packet_path": str(packet["packet_path"]),
@@ -384,6 +391,22 @@ def create_app(
             return {
                 "change": change,
                 "evidence": manager.evidence(session_id).model_dump(mode="json"),
+            }
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @app.post("/api/session/{session_id}/metrics/compare")
+    def compare_metrics(session_id: str) -> dict[str, Any]:
+        try:
+            comparison = manager.export_metric_comparison(session_id)
+            return {
+                "metric_comparison": comparison["metric_comparison"],
+                "metric_comparison_json_path": str(comparison["metric_comparison_json_path"]),
+                "metric_comparison_markdown_path": str(comparison["metric_comparison_markdown_path"]),
+                "metric_comparison_markdown": comparison["metric_comparison_markdown"],
+                "evidence": comparison["evidence"].model_dump(mode="json"),
             }
         except KeyError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc

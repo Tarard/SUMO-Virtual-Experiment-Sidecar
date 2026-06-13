@@ -69,9 +69,9 @@ CHECKPOINT_TEMPLATES = {
 
 TIMELINE_PRESETS = {
     "full": None,
-    "review": {"session-created", "user-note", "change-record", "screenshot-checkpoint", "output-inspection", "visual-diff", "codex-packet"},
+    "review": {"session-created", "user-note", "change-record", "screenshot-checkpoint", "output-inspection", "metric-comparison", "visual-diff", "codex-packet"},
     "visual": {"session-created", "screenshot-checkpoint", "visual-diff"},
-    "outputs": {"session-created", "output-inspection"},
+    "outputs": {"session-created", "output-inspection", "metric-comparison"},
     "notes": {"session-created", "user-note", "change-record"},
 }
 
@@ -293,6 +293,10 @@ class SessionManager:
             "",
             output_inspection,
             "",
+            "## Metric Comparison",
+            "",
+            self._read_optional_text(session.session_dir / "metric-comparison.md", "No metric comparison exported yet."),
+            "",
             "## Claim Boundary",
             "",
             "GUI screenshots are diagnostic visual evidence. Formal claims still require paired outputs, completion status, metric definitions, and reproducibility checks.",
@@ -381,6 +385,36 @@ class SessionManager:
         self._write_manifest(session)
         return entry
 
+    def export_metric_comparison(self, session_id: str) -> dict[str, Any]:
+        session = self.get(session_id)
+        output_inspection = session.manifest.get("output_inspection")
+        if not output_inspection:
+            raise ValueError("output inspection must be persisted before metric comparison")
+        output_json_path = Path(output_inspection.get("json", ""))
+        if not output_json_path.exists():
+            raise ValueError(f"output inspection json not found: {output_json_path}")
+        report_data = json.loads(output_json_path.read_text(encoding="utf-8"))
+        metric_comparison = self._build_metric_comparison(session, report_data)
+        metric_markdown = self._render_metric_comparison_markdown(metric_comparison)
+        json_path = session.session_dir / "metric-comparison.json"
+        markdown_path = session.session_dir / "metric-comparison.md"
+        json_path.write_text(json.dumps(metric_comparison, indent=2), encoding="utf-8")
+        markdown_path.write_text(metric_markdown, encoding="utf-8")
+        session.manifest["metric_comparison"] = {
+            "status": metric_comparison["status"],
+            "json": str(json_path),
+            "markdown": str(markdown_path),
+            "updated_at": _utc_now(),
+        }
+        self._write_manifest(session)
+        return {
+            "metric_comparison": metric_comparison,
+            "metric_comparison_json_path": json_path,
+            "metric_comparison_markdown_path": markdown_path,
+            "metric_comparison_markdown": metric_markdown,
+            "evidence": self.evidence(session_id),
+        }
+
     def workflow_status(self, session_id: str) -> dict[str, Any]:
         session = self.get(session_id)
         relative_paths = {item.relative_path for item in self._list_artifacts(session)}
@@ -390,6 +424,7 @@ class SessionManager:
         has_timeline_note = bool(session.manifest.get("timeline_notes"))
         has_change_record = bool(session.manifest.get("change_records"))
         output_inspection = session.manifest.get("output_inspection")
+        metric_comparison = session.manifest.get("metric_comparison")
         visual_diff = session.manifest.get("visual_diff")
         has_timeline = "timeline" in session.manifest and "timeline.md" in relative_paths
         has_packet = "codex_packet" in session.manifest and "codex-packet.md" in relative_paths
@@ -426,6 +461,13 @@ class SessionManager:
                 "Persist completion-first SUMO output inspection",
                 bool(output_inspection),
                 output_inspection.get("status", "missing") if output_inspection else "missing",
+            ),
+            self._workflow_item(
+                "metric_comparison",
+                "Export completion-first metric comparison",
+                bool(metric_comparison),
+                metric_comparison.get("status", "missing") if metric_comparison else "missing",
+                missing_status="warn",
             ),
             self._workflow_item(
                 "visual_diff",
@@ -564,6 +606,8 @@ class SessionManager:
             actions.append("Record Change with the parameter, before value, after value, and rationale.")
         if status_by_id["output_inspection"] == "missing":
             actions.append("Inspect Outputs with summary.xml and tripinfo.xml.")
+        if status_by_id["metric_comparison"] == "warn":
+            actions.append("Compare Metrics after output inspection is persisted.")
         if status_by_id["visual_diff"] == "warn":
             actions.append("Export Visual Diff after before/after checkpoints exist.")
         if status_by_id["timeline"] == "missing":
@@ -571,7 +615,7 @@ class SessionManager:
         if status_by_id["codex_packet"] == "missing":
             actions.append("Export Codex Packet.")
         if not actions:
-            actions.append("Ask Codex to inspect codex-packet.md, timeline.md, visual-diff.md, and output-inspection.md.")
+            actions.append("Ask Codex to inspect codex-packet.md, timeline.md, metric-comparison.md, visual-diff.md, and output-inspection.md.")
         return actions
 
     def _build_timeline(self, session: PairedSession) -> dict[str, Any]:
@@ -648,6 +692,24 @@ class SessionManager:
                     "artifacts": [
                         self._relative_artifact(session, inspection.get("json", "")),
                         self._relative_artifact(session, inspection.get("markdown", "")),
+                    ],
+                }
+            )
+        if "metric_comparison" in session.manifest:
+            comparison = session.manifest["metric_comparison"]
+            events.append(
+                {
+                    "sequence": len(events) + 1,
+                    "kind": "metric-comparison",
+                    "label": "Metric comparison",
+                    "simulation_time": None,
+                    "wall_time": comparison.get("updated_at"),
+                    "status": comparison.get("status", "unknown"),
+                    "template": None,
+                    "note": "completion-first baseline-vs-variant metric deltas",
+                    "artifacts": [
+                        self._relative_artifact(session, comparison.get("json", "")),
+                        self._relative_artifact(session, comparison.get("markdown", "")),
                     ],
                 }
             )
@@ -878,6 +940,113 @@ class SessionManager:
                 lines.extend(f"- Pixel warning: {warning}" for warning in pixel_diff["warnings"])
                 lines.append("")
         return "\n".join(lines)
+
+    def _build_metric_comparison(self, session: PairedSession, report_data: dict[str, Any]) -> dict[str, Any]:
+        baseline = report_data.get("baseline", {})
+        variant = report_data.get("variant", {})
+        return {
+            "session_id": session.id,
+            "session_name": session.name,
+            "status": report_data.get("status", "unknown"),
+            "change_records": session.manifest.get("change_records", []),
+            "paired_warnings": report_data.get("paired_warnings", []),
+            "completion_metrics": self._metric_rows(
+                baseline.get("summary") or {},
+                variant.get("summary") or {},
+                [
+                    ("loaded", "Loaded vehicles"),
+                    ("inserted", "Inserted vehicles"),
+                    ("arrived", "Arrived vehicles"),
+                    ("running", "Vehicles still running"),
+                    ("waiting", "Vehicles waiting for insertion"),
+                    ("teleports", "Teleports"),
+                    ("completion_ratio", "Completion ratio"),
+                ],
+            ),
+            "tripinfo_metrics": self._metric_rows(
+                baseline.get("tripinfo") or {},
+                variant.get("tripinfo") or {},
+                [
+                    ("trip_count", "Tripinfo records"),
+                    ("mean_duration", "Mean duration"),
+                    ("mean_waiting_time", "Mean waiting time"),
+                    ("mean_time_loss", "Mean time loss"),
+                ],
+            ),
+            "claim_boundary": "This is a diagnostic metric comparison. It compares persisted paired output evidence, but formal claims still require matched demand, seeds, horizon, controller logs, and reproducible runs.",
+        }
+
+    def _metric_rows(
+        self,
+        baseline_metrics: dict[str, Any],
+        variant_metrics: dict[str, Any],
+        metrics: list[tuple[str, str]],
+    ) -> list[dict[str, Any]]:
+        rows = []
+        for metric, label in metrics:
+            baseline_value = baseline_metrics.get(metric)
+            variant_value = variant_metrics.get(metric)
+            rows.append(
+                {
+                    "metric": metric,
+                    "label": label,
+                    "baseline": baseline_value,
+                    "variant": variant_value,
+                    "delta": self._metric_delta(baseline_value, variant_value),
+                    "delta_definition": "variant - baseline",
+                }
+            )
+        return rows
+
+    def _metric_delta(self, baseline_value: Any, variant_value: Any) -> float | int | None:
+        if isinstance(baseline_value, (int, float)) and isinstance(variant_value, (int, float)):
+            delta = variant_value - baseline_value
+            return round(delta, 10) if isinstance(delta, float) else delta
+        return None
+
+    def _render_metric_comparison_markdown(self, comparison: dict[str, Any]) -> str:
+        lines = [
+            f"# SUMO Metric Comparison: {comparison['session_name']}",
+            "",
+            "This diagnostic metric comparison is built from persisted `output-inspection.json`; it does not re-run SUMO and it does not certify a performance claim.",
+            "",
+            f"- Status: `{comparison['status']}`",
+            f"- Claim boundary: {comparison['claim_boundary']}",
+            "",
+            "## Change records",
+            "",
+        ]
+        if comparison["change_records"]:
+            lines.extend(
+                f"- `{record['parameter']}`: `{record['before_value']}` -> `{record['after_value']}` ({record['rationale']})"
+                for record in comparison["change_records"]
+            )
+        else:
+            lines.append("- none")
+        lines.extend(["", "## Paired warnings", ""])
+        if comparison["paired_warnings"]:
+            lines.extend(f"- {warning}" for warning in comparison["paired_warnings"])
+        else:
+            lines.append("- none")
+        lines.extend(["", "## Completion-first metrics", ""])
+        lines.extend(self._render_metric_table(comparison["completion_metrics"]))
+        lines.extend(["", "## Tripinfo metrics", ""])
+        lines.extend(self._render_metric_table(comparison["tripinfo_metrics"]))
+        return "\n".join(lines)
+
+    def _render_metric_table(self, rows: list[dict[str, Any]]) -> list[str]:
+        lines = [
+            "| Metric | Baseline | Variant | Delta |",
+            "|---|---:|---:|---:|",
+        ]
+        for row in rows:
+            lines.append(
+                f"| {row['label']} (`{row['metric']}`) | {self._format_metric_value(row['baseline'])} | {self._format_metric_value(row['variant'])} | {self._format_metric_value(row['delta'])} |"
+            )
+        return lines
+
+    def _format_metric_value(self, value: Any) -> str:
+        return "" if value is None else f"`{value}`"
 
     def _write_change_records(self, session: PairedSession) -> None:
         records = session.manifest.get("change_records", [])
