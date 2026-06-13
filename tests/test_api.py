@@ -233,9 +233,13 @@ def test_homepage_exposes_experiment_state_board_export(tmp_path: Path) -> None:
     assert "/experiment-state-board/export" in script_response.text
     assert "renderExperimentStateBoard" in script_response.text
     assert "renderExperimentStateBoardLane" in script_response.text
+    assert "renderExperimentStateBoardLanePreview" in script_response.text
+    assert "renderMetricLanePreview" in script_response.text
+    assert "renderAgentLoopLanePreview" in script_response.text
     assert "makeArtifactLink" in script_response.text
     assert ".state-board" in style_response.text
     assert ".state-board-lane" in style_response.text
+    assert ".state-board-preview" in style_response.text
 
 
 def test_homepage_exposes_next_action_review_action(tmp_path: Path) -> None:
@@ -2580,11 +2584,37 @@ def test_experiment_state_board_exports_visual_metric_agent_gate_overview(tmp_pa
     lanes = {lane["id"]: lane for lane in board["lanes"]}
     assert lanes["visual_comparison"]["status"] == "pass"
     assert "visual-diff.md" in lanes["visual_comparison"]["artifacts"]
+    assert lanes["visual_comparison"]["preview"]["kind"] == "visual_diff"
+    assert lanes["visual_comparison"]["preview"]["pair_count"] == 1
+    assert lanes["visual_comparison"]["preview"]["first_pair"]["before_template"] == "before-change"
+    assert lanes["visual_comparison"]["preview"]["first_pair"]["after_template"] == "after-change"
+    assert lanes["visual_comparison"]["preview"]["first_pair"]["pixel_status"] in {"ready", "unavailable"}
     assert lanes["metric_evidence"]["status"] == "pass"
     assert "metric-comparison.md" in lanes["metric_evidence"]["artifacts"]
+    assert lanes["metric_evidence"]["preview"]["kind"] == "metric_highlights"
+    metric_preview = {
+        row["metric"]: row for row in lanes["metric_evidence"]["preview"]["metrics"]
+    }
+    assert metric_preview["completion_ratio"]["delta"] == 0.0
+    assert metric_preview["mean_duration"]["delta"] == -2.0
+    assert metric_preview["mean_waiting_time"]["delta"] == -1.0
     assert lanes["agent_loop"]["status"] == "pass"
     assert "agent-loop-review.md" in lanes["agent_loop"]["artifacts"]
+    assert lanes["agent_loop"]["preview"]["kind"] == "agent_loop"
+    assert lanes["agent_loop"]["preview"]["next_step"].startswith("Review recorded outcome")
+    assert {
+        step["id"]: step["status"]
+        for step in lanes["agent_loop"]["preview"]["steps"]
+    } == {
+        "agent_prompt": "pass",
+        "agent_feedback": "pass",
+        "agent_action_plan": "pass",
+        "agent_action_outcome": "pass",
+    }
     assert lanes["claim_gate"]["status"] in {"ready-to-compare", "ready-for-agent-review", "review-ready"}
+    assert lanes["claim_gate"]["preview"]["kind"] == "claim_gate"
+    assert lanes["claim_gate"]["preview"]["readiness_status"] == board["readiness_status"]
+    assert lanes["claim_gate"]["preview"]["workflow_status"] == board["workflow_status"]
     assert "Inspect the board lanes" in board["primary_focus"]
     assert Path(body["experiment_state_board_json_path"]).name == "experiment-state-board.json"
     assert Path(body["experiment_state_board_markdown_path"]).name == "experiment-state-board.md"

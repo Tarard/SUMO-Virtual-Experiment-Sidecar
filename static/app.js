@@ -1126,8 +1126,122 @@ function renderExperimentStateBoardLane(lane) {
     }
   }
 
-  card.append(titleRow, summary, artifactList);
+  card.append(titleRow, summary);
+  card.append(renderExperimentStateBoardLanePreview(lane.preview));
+  card.append(artifactList);
   return card;
+}
+
+function renderExperimentStateBoardLanePreview(preview) {
+  const panel = document.createElement("div");
+  panel.className = "state-board-preview";
+  if (!preview || !preview.kind) {
+    panel.textContent = "No structured preview yet.";
+    return panel;
+  }
+  if (preview.kind === "visual_diff") {
+    return renderVisualDiffLanePreview(preview);
+  }
+  if (preview.kind === "metric_highlights") {
+    return renderMetricLanePreview(preview);
+  }
+  if (preview.kind === "agent_loop") {
+    return renderAgentLoopLanePreview(preview);
+  }
+  if (preview.kind === "claim_gate") {
+    return renderClaimGateLanePreview(preview);
+  }
+  panel.textContent = `${preview.kind}: preview not supported.`;
+  return panel;
+}
+
+function renderVisualDiffLanePreview(preview) {
+  const panel = document.createElement("div");
+  panel.className = "state-board-preview";
+  panel.append(makeStateBoardPreviewRow("Pairs", preview.pair_count ?? 0));
+  const firstPair = preview.first_pair;
+  if (!firstPair) {
+    panel.append(makeStateBoardPreviewRow("First pair", "not available"));
+    return panel;
+  }
+  panel.append(
+    makeStateBoardPreviewRow("Templates", `${firstPair.before_template || "before"} -> ${firstPair.after_template || "after"}`),
+    makeStateBoardPreviewRow("Pixel diff", firstPair.pixel_status || "unknown"),
+  );
+  for (const row of firstPair.matrix || []) {
+    const ratio = formatPixelRatio(row) || "ratio n/a";
+    panel.append(makeStateBoardPreviewRow(row.label || row.role || "Run", ratio));
+  }
+  return panel;
+}
+
+function renderMetricLanePreview(preview) {
+  const panel = document.createElement("div");
+  panel.className = "state-board-preview";
+  const metrics = preview.metrics || [];
+  if (!metrics.length) {
+    panel.textContent = "No metric highlights yet.";
+    return panel;
+  }
+  for (const row of metrics) {
+    const label = row.label || row.metric;
+    const value = `${formatMetricValue(row.baseline)} -> ${formatMetricValue(row.variant)} (${formatMetricDelta(row.delta)})`;
+    panel.append(makeStateBoardPreviewRow(label, value));
+  }
+  return panel;
+}
+
+function renderAgentLoopLanePreview(preview) {
+  const panel = document.createElement("div");
+  panel.className = "state-board-preview";
+  panel.append(makeStateBoardPreviewRow("Loop", preview.status || "missing"));
+  for (const step of preview.steps || []) {
+    panel.append(makeStateBoardPreviewRow(step.label || step.id, step.status || "unknown"));
+  }
+  if (preview.next_step) {
+    panel.append(makeStateBoardPreviewRow("Next", preview.next_step));
+  }
+  return panel;
+}
+
+function renderClaimGateLanePreview(preview) {
+  const panel = document.createElement("div");
+  panel.className = "state-board-preview";
+  panel.append(
+    makeStateBoardPreviewRow("Readiness", preview.readiness_status || "unknown"),
+    makeStateBoardPreviewRow("Workflow", preview.workflow_status || "unknown"),
+    makeStateBoardPreviewRow("Claim", preview.claim_status || preview.workflow_claim_status || "unknown"),
+  );
+  return panel;
+}
+
+function makeStateBoardPreviewRow(label, value) {
+  const row = document.createElement("div");
+  row.className = "state-board-preview-row";
+
+  const labelNode = document.createElement("span");
+  labelNode.textContent = label || "Item";
+
+  const valueNode = document.createElement("strong");
+  valueNode.textContent = value === null || value === undefined || value === "" ? "n/a" : String(value);
+
+  row.append(labelNode, valueNode);
+  return row;
+}
+
+function formatMetricValue(value) {
+  if (value === null || value === undefined) {
+    return "n/a";
+  }
+  return String(value);
+}
+
+function formatMetricDelta(value) {
+  if (value === null || value === undefined) {
+    return "delta n/a";
+  }
+  const prefix = typeof value === "number" && value > 0 ? "+" : "";
+  return `delta ${prefix}${value}`;
 }
 
 function makeStateBoardTag(label, value) {

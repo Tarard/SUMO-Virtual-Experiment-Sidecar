@@ -301,6 +301,38 @@ button:disabled {
   color: var(--accent);
 }
 
+.state-board-preview {
+  display: grid;
+  gap: 6px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+  padding: 8px;
+  min-width: 0;
+}
+
+.state-board-preview-row {
+  display: grid;
+  grid-template-columns: minmax(72px, 0.7fr) minmax(0, 1.3fr);
+  gap: 8px;
+  align-items: start;
+  min-width: 0;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.state-board-preview-row span {
+  color: var(--muted);
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.state-board-preview-row strong {
+  color: var(--ink);
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
 .state-board-lanes {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

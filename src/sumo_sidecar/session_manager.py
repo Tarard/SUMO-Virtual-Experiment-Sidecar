@@ -2172,6 +2172,7 @@ class SessionManager:
                 if visual_status == "pass"
                 else "export visual diff after paired before/after checkpoints",
                 visual_artifacts,
+                self._visual_diff_preview(session),
             ),
             self._experiment_state_lane(
                 "metric_evidence",
@@ -2181,6 +2182,7 @@ class SessionManager:
                 if metric_status == "pass"
                 else "inspect SUMO outputs and compare completion-first metrics",
                 metric_artifacts,
+                self._metric_lane_preview(session),
             ),
             self._experiment_state_lane(
                 "agent_loop",
@@ -2188,6 +2190,7 @@ class SessionManager:
                 agent_status,
                 f"agent bridge loop status: {agent_loop_status or 'not exported'}",
                 agent_artifacts,
+                self._agent_loop_preview(session),
             ),
             self._experiment_state_lane(
                 "claim_gate",
@@ -2195,6 +2198,7 @@ class SessionManager:
                 claim_status,
                 f"comparison readiness: {readiness['status']}; workflow: {workflow['status']}",
                 claim_artifacts,
+                self._claim_gate_preview(readiness, workflow),
             ),
         ]
         if visual_status != "pass":
@@ -2235,14 +2239,18 @@ class SessionManager:
         status: str,
         summary: str,
         artifacts: list[str],
+        preview: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        return {
+        lane = {
             "id": lane_id,
             "label": label,
             "status": status,
             "summary": summary,
             "artifacts": artifacts,
         }
+        if preview is not None:
+            lane["preview"] = preview
+        return lane
 
     def _existing_artifacts(self, relative_paths: set[str], candidates: list[str]) -> list[str]:
         return [path for path in candidates if path in relative_paths]
@@ -2253,6 +2261,85 @@ class SessionManager:
             if action and action not in deduped:
                 deduped.append(action)
         return deduped
+
+    def _visual_diff_preview(self, session: PairedSession) -> dict[str, Any]:
+        visual_diff = self._read_session_json(session, "visual-diff.json")
+        pairs = visual_diff.get("pairs", []) if isinstance(visual_diff.get("pairs"), list) else []
+        preview: dict[str, Any] = {
+            "kind": "visual_diff",
+            "status": visual_diff.get("status", "missing"),
+            "pair_count": len(pairs),
+            "first_pair": None,
+        }
+        if not pairs:
+            return preview
+
+        first_pair = pairs[0]
+        before = first_pair.get("before", {})
+        after = first_pair.get("after", {})
+        pixel_diff = first_pair.get("pixel_diff", {})
+        matrix = first_pair.get("matrix", [])
+        preview["first_pair"] = {
+            "index": first_pair.get("index"),
+            "before_label": before.get("label"),
+            "after_label": after.get("label"),
+            "before_template": before.get("template"),
+            "after_template": after.get("template"),
+            "baseline_before": first_pair.get("baseline_before"),
+            "baseline_after": first_pair.get("baseline_after"),
+            "variant_before": first_pair.get("variant_before"),
+            "variant_after": first_pair.get("variant_after"),
+            "baseline_pixel_diff": first_pair.get("baseline_pixel_diff"),
+            "variant_pixel_diff": first_pair.get("variant_pixel_diff"),
+            "pixel_status": pixel_diff.get("status", "unknown"),
+            "matrix": matrix if isinstance(matrix, list) else [],
+        }
+        return preview
+
+    def _metric_lane_preview(self, session: PairedSession) -> dict[str, Any]:
+        return {
+            "kind": "metric_highlights",
+            "metrics": self._metric_highlights(session),
+        }
+
+    def _agent_loop_preview(self, session: PairedSession) -> dict[str, Any]:
+        review = self._read_session_json(session, "agent-loop-review.json")
+        steps = review.get("loop_steps", []) if isinstance(review.get("loop_steps"), list) else []
+        return {
+            "kind": "agent_loop",
+            "status": review.get("status", "missing"),
+            "next_step": review.get("next_step", "Export Agent Loop Review after agent feedback and action outcome are recorded."),
+            "steps": [
+                {
+                    "id": step.get("id"),
+                    "label": step.get("label"),
+                    "status": step.get("status"),
+                    "artifact": step.get("artifact"),
+                }
+                for step in steps
+                if isinstance(step, dict)
+            ],
+        }
+
+    def _claim_gate_preview(self, readiness: dict[str, Any], workflow: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "kind": "claim_gate",
+            "readiness_status": readiness.get("status"),
+            "workflow_status": workflow.get("status"),
+            "claim_status": readiness.get("claim_status"),
+            "workflow_claim_status": workflow.get("claim_status"),
+            "next_actions": self._dedupe_actions(readiness.get("next_actions", []) + workflow.get("next_actions", [])),
+        }
+
+    def _read_session_json(self, session: PairedSession, relative_path: str) -> dict[str, Any]:
+        path = session.session_dir / relative_path
+        if not path.exists():
+            return {}
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return {}
+        return data if isinstance(data, dict) else {}
 
     def _build_agent_loop_review(self, session: PairedSession, workflow: dict[str, Any]) -> dict[str, Any]:
         relative_paths = {item.relative_path for item in self._list_artifacts(session)}
