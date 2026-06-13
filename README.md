@@ -164,6 +164,8 @@ Use `Export Experiment State Board` when you want one compact control panel for 
 
 Use `Check Evidence Loop` before `Run Evidence Loop` when you want to know whether the loop is blocked by missing source evidence or only missing review indexes. Source evidence covers paired output inspection and before/after screenshots. Review indexes cover metric comparison, chart, visual diff, review timeline, review summary, agent prompt, and live state board.
 
+Use `Guide Source Evidence` when `Check Evidence Loop` reports `needs-source-evidence`. It turns the missing source items into manual UI steps such as `Inspect Outputs` with required output paths or `Capture Template Checkpoint` with `before-change` and `after-change` templates. It does not run SUMO, search arbitrary folders, launch GUI, or create screenshots by itself.
+
 Use `Run Evidence Loop` when a session already has enough source evidence and you want the Sidecar to attempt the non-GUI review exports in order: workflow status, metric comparison, metric chart, visual diff, review timeline, review summary, agent prompt, and live state board. Failed steps are logged and later steps still run. This does not launch SUMO GUI, mutate configs, capture screenshots, or certify the experiment.
 
 Use the `Timeline preset` selector before `Export Timeline` when a session is long. Presets include `full`, `review`, `visual`, `outputs`, and `notes`.
@@ -245,6 +247,7 @@ GET  /api/session/{id}/state
 GET  /api/session/{id}/workflow/status
 GET  /api/session/{id}/comparison/readiness
 GET  /api/session/{id}/evidence-loop/status
+GET  /api/session/{id}/source-evidence/guide
 GET  /api/session/{id}/evidence
 GET  /api/session/{id}/artifact/{path}
 POST /api/session/{id}/packet/export
@@ -353,6 +356,8 @@ Scenario templates prefill `scenario-plan.md` inputs for common workflows. They 
 `experiment-state-board.md` is the top-level state board for the session. It groups visual comparison, metric evidence, agent loop status, and claim gate status into four lanes, names the primary focus, and links the relevant artifacts. The web page also renders those four lanes as scan-friendly cards with embedded before/after/diff thumbnails, the metric delta chart, key metric deltas, agent-loop steps, and claim-gate readiness. After the board is exported once, the web UI refreshes it after key evidence updates such as metric comparison, metric chart, visual diff, guided visual observation, and agent action outcome records. It is a control panel over evidence, not a validity certificate.
 
 `evidence-loop/status` separates source-evidence blockers from missing review indexes. It reports `needs-source-evidence` when paired output inspection or before/after checkpoints are missing, `ready-to-run-loop` when the source evidence exists but review indexes are missing, and `review-index-ready` when the loop outputs are already available.
+
+`source-evidence/guide` turns missing source evidence into manual Sidecar steps. For output evidence it names `Inspect Outputs`, required `baseline_summary` / `variant_summary` inputs, and optional tripinfo inputs. For visual evidence it names `Capture Template Checkpoint` with the missing `before-change` or `after-change` templates. It is a guide, not an executor.
 
 `Run Evidence Loop` is the web UI shortcut for collecting the review-facing non-GUI indexes. It attempts workflow status, metric comparison, metric chart, visual diff, review timeline, review summary, agent prompt, and live state board in sequence. A missing artifact or failed export is logged as a failed step instead of stopping the loop. It does not launch SUMO GUI, capture screenshots, mutate configs, or prove that the comparison is valid.
 

@@ -32,6 +32,7 @@ function setControls(enabled) {
     "exportExperimentStateBoardBtn",
     "enableLiveExperimentStateBoardBtn",
     "checkEvidenceLoopBtn",
+    "guideSourceEvidenceBtn",
     "runEvidenceLoopBtn",
     "evidenceBtn",
     "exportPacketBtn",
@@ -924,6 +925,16 @@ async function refreshEvidenceLoopStatus() {
   return body;
 }
 
+async function refreshSourceEvidenceGuide() {
+  const body = await api(`/api/session/${state.sessionId}/source-evidence/guide`);
+  renderSourceEvidenceGuide(body);
+  log("Guided source evidence", {
+    status: body.status,
+    evidence_loop_status: body.evidence_loop_status,
+  });
+  return body;
+}
+
 async function refreshScenario() {
   const body = await api(`/api/session/${state.sessionId}/scenario/status`);
   renderScenarioStatus(body);
@@ -993,6 +1004,34 @@ function renderEvidenceLoopStatus(body) {
     "",
     "next_actions:",
     actions || "- none",
+    "",
+    `claim_boundary: ${body.claim_boundary}`,
+  ].join("\n");
+}
+
+function renderSourceEvidenceGuide(body) {
+  const steps = (body.steps || [])
+    .map((step) => [
+      `${step.status.toUpperCase()} ${step.title}`,
+      `  id: ${step.id}`,
+      `  source_evidence_id: ${step.source_evidence_id}`,
+      `  ui_action: ${step.ui_action}`,
+      `  endpoint: ${step.endpoint}`,
+      `  required_inputs: ${(step.required_inputs || []).join(", ") || "none"}`,
+      `  optional_inputs: ${(step.optional_inputs || []).join(", ") || "none"}`,
+      `  manual_gate: ${step.manual_gate}`,
+      "  guidance:",
+      ...((step.guidance || []).map((item) => `    - ${item}`)),
+    ].join("\n"))
+    .join("\n\n");
+  el("sourceEvidenceGuideOutput").textContent = [
+    `status: ${body.status}`,
+    `evidence_loop_status: ${body.evidence_loop_status}`,
+    `source_status: ${body.source_status}`,
+    `review_status: ${body.review_status}`,
+    "",
+    "steps:",
+    steps || "- none",
     "",
     `claim_boundary: ${body.claim_boundary}`,
   ].join("\n");
@@ -1088,6 +1127,14 @@ el("checkEvidenceLoopBtn").addEventListener("click", async () => {
     await refreshEvidenceLoopStatus();
   } catch (error) {
     log(`Evidence loop readiness failed: ${error.message}`);
+  }
+});
+
+el("guideSourceEvidenceBtn").addEventListener("click", async () => {
+  try {
+    await refreshSourceEvidenceGuide();
+  } catch (error) {
+    log(`Source evidence guide failed: ${error.message}`);
   }
 });
 

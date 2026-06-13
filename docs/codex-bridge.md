@@ -437,6 +437,14 @@ Invoke-RestMethod http://127.0.0.1:8765/api/session/<session_id>/evidence-loop/s
 
 This response separates `source_evidence` from `review_exports`. Use `needs-source-evidence` as a signal to inspect outputs or capture before/after checkpoints first. Use `ready-to-run-loop` as a signal that the web UI `Run Evidence Loop` can collect the review indexes. Use `review-index-ready` as a signal to inspect the generated board, summary, timeline, chart, visual diff, and output inspection. This is still a workflow readiness screen, not a validity certificate.
 
+If `evidence-loop/status` reports `needs-source-evidence`, ask for manual source-evidence steps:
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:8765/api/session/<session_id>/source-evidence/guide
+```
+
+The guide returns `steps` with `ui_action`, `endpoint`, `required_inputs`, `optional_inputs`, and `manual_gate`. Use it to tell the user exactly which Sidecar panel to use next. The guide is read-only; it does not run SUMO, launch GUI, capture screenshots, mutate configs, or certify validity.
+
 In the web UI, `Run Evidence Loop` is the fastest non-GUI review path after a session has source evidence. It attempts workflow status, metric comparison, metric chart, visual diff, the `review` timeline preset, review summary, agent review prompt, and live state board in order. Failed steps are logged and the loop continues. It does not launch SUMO GUI, mutate configs, capture screenshots, or certify experiment validity.
 
 Check workflow status before asking Codex for review:

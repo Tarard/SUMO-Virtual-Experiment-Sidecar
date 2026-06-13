@@ -1133,6 +1133,110 @@ class SessionManager:
             "claim_boundary": "Evidence loop readiness separates source evidence from review indexes. It is not a validity certificate and does not prove causality, controller performance, or publishable correctness.",
         }
 
+    def source_evidence_guide(self, session_id: str) -> dict[str, Any]:
+        session = self.get(session_id)
+        loop = self.evidence_loop_status(session_id)
+        source_by_id = {item["id"]: item for item in loop["source_evidence"]}
+        steps: list[dict[str, Any]] = []
+
+        if source_by_id["output_inspection"]["status"] == "missing":
+            steps.append(
+                {
+                    "id": "inspect_outputs",
+                    "source_evidence_id": "output_inspection",
+                    "status": "needed",
+                    "title": "Inspect paired SUMO outputs",
+                    "ui_action": "Inspect Outputs",
+                    "endpoint": f"POST /api/session/{session.id}/outputs/inspect",
+                    "required_inputs": ["baseline_summary", "variant_summary"],
+                    "optional_inputs": ["baseline_tripinfo", "variant_tripinfo"],
+                    "guidance": [
+                        "Use baseline and variant output files from the same demand, seed, horizon, and completion rule.",
+                        "Prefer summary.xml plus tripinfo.xml when available, because completion must be checked before trip-level averages.",
+                        "If outputs are missing, run SUMO outside this guide and return with the generated file paths.",
+                    ],
+                    "manual_gate": "Manual gate: the user chooses the output files; this guide does not run SUMO, search arbitrary folders, or create output evidence.",
+                }
+            )
+
+        templates = {item.template for item in session.evidence if item.template}
+        missing_templates = [
+            template for template in ("before-change", "after-change")
+            if template not in templates
+        ]
+        if missing_templates:
+            steps.append(
+                {
+                    "id": "capture_before_after_checkpoints",
+                    "source_evidence_id": "before_after_checkpoints",
+                    "status": "needed",
+                    "title": "Capture paired before/after visual checkpoints",
+                    "ui_action": "Capture Template Checkpoint",
+                    "endpoint": f"POST /api/session/{session.id}/checkpoint/template",
+                    "required_inputs": [f"template={template}" for template in missing_templates],
+                    "optional_inputs": ["note"],
+                    "guidance": [
+                        "Use before-change before the parameter or controller change is applied.",
+                        "Use after-change after the change has been applied and the paired GUI views are at the intended comparison point.",
+                        "Keep visual checkpoints diagnostic until paired output evidence confirms completion and metrics.",
+                    ],
+                    "manual_gate": "Manual gate: the user controls the SUMO GUI state and chooses when each screenshot checkpoint is meaningful.",
+                }
+            )
+
+        if not steps:
+            if loop["status"] == "review-index-ready":
+                guide_status = "review-index-ready"
+                steps.append(
+                    {
+                        "id": "inspect_review_package",
+                        "source_evidence_id": "review_exports",
+                        "status": "ready",
+                        "title": "Inspect the generated review package",
+                        "ui_action": "Review Evidence",
+                        "endpoint": "web-ui",
+                        "required_inputs": [],
+                        "optional_inputs": [],
+                        "guidance": [
+                            "Open experiment-state-board.md first, then review-summary.md, timeline-review.md, metric-delta-chart.md, visual-diff.md, and output-inspection.md.",
+                            "Treat these files as diagnostic indexes over evidence, not proof of experiment validity.",
+                        ],
+                        "manual_gate": "Manual gate: the user or Codex reviews the artifacts before making any claim.",
+                    }
+                )
+            else:
+                guide_status = "source-ready"
+                steps.append(
+                    {
+                        "id": "run_evidence_loop",
+                        "source_evidence_id": "review_exports",
+                        "status": "ready",
+                        "title": "Collect review-facing non-GUI indexes",
+                        "ui_action": "Run Evidence Loop",
+                        "endpoint": "web-ui",
+                        "required_inputs": [],
+                        "optional_inputs": [],
+                        "guidance": [
+                            "Run Evidence Loop to attempt metric comparison, metric chart, visual diff, review timeline, review summary, agent prompt, and live state board.",
+                            "Failed review-export steps are logged and do not erase the source evidence.",
+                        ],
+                        "manual_gate": "Manual gate: the user decides when to run the loop; it does not launch SUMO GUI, mutate configs, or capture screenshots.",
+                    }
+                )
+        else:
+            guide_status = "needs-source-evidence"
+
+        return {
+            "session_id": session.id,
+            "session_name": session.name,
+            "status": guide_status,
+            "evidence_loop_status": loop["status"],
+            "source_status": loop["source_status"],
+            "review_status": loop["review_status"],
+            "steps": steps,
+            "claim_boundary": "Source evidence guide is a manual workflow aid. It does not launch SUMO GUI, mutate configs, execute arbitrary SUMO commands, prove causality, certify controller performance, or replace paired output evidence.",
+        }
+
     def export_visual_diff(self, session_id: str) -> dict[str, Any]:
         session = self.get(session_id)
         visual_diff = self._build_visual_diff(session)

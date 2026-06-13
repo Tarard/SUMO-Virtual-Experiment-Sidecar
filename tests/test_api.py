@@ -300,6 +300,25 @@ def test_homepage_exposes_evidence_loop_status(tmp_path: Path) -> None:
     assert "review_exports" in script_response.text
 
 
+def test_homepage_exposes_source_evidence_guide(tmp_path: Path) -> None:
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+
+    index_response = client.get("/")
+    script_response = client.get("/static/app.js")
+
+    assert index_response.status_code == 200
+    assert script_response.status_code == 200
+    assert "guideSourceEvidenceBtn" in index_response.text
+    assert "Guide Source Evidence" in index_response.text
+    assert "sourceEvidenceGuideOutput" in index_response.text
+    assert "/source-evidence/guide" in script_response.text
+    assert "refreshSourceEvidenceGuide" in script_response.text
+    assert "renderSourceEvidenceGuide" in script_response.text
+    assert "ui_action" in script_response.text
+    assert "required_inputs" in script_response.text
+
+
 def test_homepage_exposes_next_action_review_action(tmp_path: Path) -> None:
     app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
     client = TestClient(app)
@@ -2911,6 +2930,90 @@ def test_evidence_loop_status_separates_source_evidence_from_review_exports(tmp_
     assert all(item["status"] == "pass" for item in complete["review_exports"])
     assert complete["next_actions"] == ["Review experiment-state-board.md, review-summary.md, timeline-review.md, metric-delta-chart.md, visual-diff.md, and output-inspection.md."]
     assert "not a validity certificate" in complete["claim_boundary"]
+
+
+def test_source_evidence_guide_turns_missing_sources_into_manual_ui_steps(tmp_path: Path) -> None:
+    baseline = tmp_path / "baseline.sumocfg"
+    variant = tmp_path / "variant.sumocfg"
+    baseline.write_text("<configuration/>", encoding="utf-8")
+    variant.write_text("<configuration/>", encoding="utf-8")
+
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+
+    create_response = client.post(
+        "/api/session/create",
+        json={
+            "name": "source-guide-demo",
+            "baseline_config": str(baseline),
+            "variant_config": str(variant),
+        },
+    )
+    session_id = create_response.json()["id"]
+
+    missing_response = client.get(f"/api/session/{session_id}/source-evidence/guide")
+
+    assert missing_response.status_code == 200
+    missing = missing_response.json()
+    assert missing["status"] == "needs-source-evidence"
+    assert missing["evidence_loop_status"] == "needs-source-evidence"
+    steps = {step["id"]: step for step in missing["steps"]}
+    assert {"inspect_outputs", "capture_before_after_checkpoints"}.issubset(steps)
+    assert steps["inspect_outputs"]["source_evidence_id"] == "output_inspection"
+    assert steps["inspect_outputs"]["ui_action"] == "Inspect Outputs"
+    assert steps["inspect_outputs"]["endpoint"] == f"POST /api/session/{session_id}/outputs/inspect"
+    assert {"baseline_summary", "variant_summary"}.issubset(steps["inspect_outputs"]["required_inputs"])
+    assert {"baseline_tripinfo", "variant_tripinfo"}.issubset(steps["inspect_outputs"]["optional_inputs"])
+    assert steps["capture_before_after_checkpoints"]["source_evidence_id"] == "before_after_checkpoints"
+    assert steps["capture_before_after_checkpoints"]["ui_action"] == "Capture Template Checkpoint"
+    assert steps["capture_before_after_checkpoints"]["endpoint"] == f"POST /api/session/{session_id}/checkpoint/template"
+    assert "template=before-change" in steps["capture_before_after_checkpoints"]["required_inputs"]
+    assert "template=after-change" in steps["capture_before_after_checkpoints"]["required_inputs"]
+    assert all("manual" in step["manual_gate"].lower() for step in missing["steps"])
+    assert "does not launch SUMO GUI" in missing["claim_boundary"]
+
+    client.post(f"/api/session/{session_id}/checkpoint/template", json={"template": "before-change"})
+    client.post(f"/api/session/{session_id}/step", json={"count": 2})
+    client.post(f"/api/session/{session_id}/checkpoint/template", json={"template": "after-change"})
+    baseline_summary = tmp_path / "baseline-summary.xml"
+    variant_summary = tmp_path / "variant-summary.xml"
+    baseline_tripinfo = tmp_path / "baseline-tripinfo.xml"
+    variant_tripinfo = tmp_path / "variant-tripinfo.xml"
+    baseline_summary.write_text(
+        '<summary><step time="10" loaded="2" inserted="2" running="0" waiting="0" arrived="2" teleports="0"/></summary>',
+        encoding="utf-8",
+    )
+    variant_summary.write_text(
+        '<summary><step time="10" loaded="2" inserted="2" running="0" waiting="0" arrived="2" teleports="0"/></summary>',
+        encoding="utf-8",
+    )
+    baseline_tripinfo.write_text(
+        '<tripinfos><tripinfo id="b0" duration="10" waitingTime="1" timeLoss="2"/><tripinfo id="b1" duration="20" waitingTime="3" timeLoss="4"/></tripinfos>',
+        encoding="utf-8",
+    )
+    variant_tripinfo.write_text(
+        '<tripinfos><tripinfo id="v0" duration="9" waitingTime="1" timeLoss="2"/><tripinfo id="v1" duration="19" waitingTime="2" timeLoss="3"/></tripinfos>',
+        encoding="utf-8",
+    )
+    client.post(
+        f"/api/session/{session_id}/outputs/inspect",
+        json={
+            "baseline_summary": str(baseline_summary),
+            "baseline_tripinfo": str(baseline_tripinfo),
+            "variant_summary": str(variant_summary),
+            "variant_tripinfo": str(variant_tripinfo),
+        },
+    )
+
+    ready_response = client.get(f"/api/session/{session_id}/source-evidence/guide")
+
+    assert ready_response.status_code == 200
+    ready = ready_response.json()
+    assert ready["status"] == "source-ready"
+    assert ready["evidence_loop_status"] == "ready-to-run-loop"
+    assert ready["steps"][0]["id"] == "run_evidence_loop"
+    assert ready["steps"][0]["ui_action"] == "Run Evidence Loop"
+    assert ready["steps"][0]["endpoint"] == "web-ui"
 
 
 def test_config_preflight_api_reports_pair_risks(tmp_path: Path) -> None:
