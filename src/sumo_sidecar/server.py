@@ -11,6 +11,7 @@ from fastapi.staticfiles import StaticFiles
 from .config_preflight import preflight_pair
 from .demo_runner import minimal_paired_metadata, run_minimal_paired_guided, run_minimal_paired_headless
 from .models import (
+    ChangeRecordRequest,
     ConfigPreflightRequest,
     CreateSessionRequest,
     OutputInspectionRequest,
@@ -142,6 +143,17 @@ def create_app(
                 "demo-workflow",
                 "Bundled minimal demo full workflow: guided config/output evidence plus paired GUI checkpoints.",
             )
+            change_record = manager.record_change(
+                session.id,
+                ChangeRecordRequest(
+                    label="demo-step-change",
+                    parameter="paired_demo_step_count",
+                    before_value="0",
+                    after_value="2",
+                    rationale="Create a small before/after visual interval for the bundled public demo.",
+                    note="This records the demonstration action, not a controller-performance change.",
+                ),
+            )
             before_checkpoint = manager.checkpoint(
                 session.id,
                 "before-change",
@@ -178,6 +190,7 @@ def create_app(
                     "after": after_checkpoint.model_dump(mode="json"),
                 },
                 "timeline_note": timeline_note,
+                "change_record": change_record,
                 "visual_diff": {
                     "visual_diff": visual_diff["visual_diff"],
                     "visual_diff_json_path": str(visual_diff["visual_diff_json_path"]),
@@ -357,6 +370,19 @@ def create_app(
             note = manager.add_timeline_note(session_id, request.label, request.note)
             return {
                 "note": note,
+                "evidence": manager.evidence(session_id).model_dump(mode="json"),
+            }
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @app.post("/api/session/{session_id}/change/record")
+    def record_change(session_id: str, request: ChangeRecordRequest) -> dict[str, Any]:
+        try:
+            change = manager.record_change(session_id, request)
+            return {
+                "change": change,
                 "evidence": manager.evidence(session_id).model_dump(mode="json"),
             }
         except KeyError as exc:

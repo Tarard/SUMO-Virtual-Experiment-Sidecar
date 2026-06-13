@@ -54,6 +54,20 @@ def test_homepage_exposes_full_workflow_demo_action(tmp_path: Path) -> None:
     assert "/api/examples/minimal-paired/launch-full-workflow-gui" in script_response.text
 
 
+def test_homepage_exposes_structured_change_record_action(tmp_path: Path) -> None:
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+
+    index_response = client.get("/")
+    script_response = client.get("/static/app.js")
+
+    assert index_response.status_code == 200
+    assert script_response.status_code == 200
+    assert "recordChangeBtn" in index_response.text
+    assert "Record Change" in index_response.text
+    assert "/change/record" in script_response.text
+
+
 def test_minimal_demo_metadata_api_returns_usable_paths(tmp_path: Path) -> None:
     app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
     client = TestClient(app)
@@ -183,6 +197,8 @@ def test_minimal_demo_full_workflow_gui_api_exports_review_ready_bundle(tmp_path
     assert any(path.endswith("first-checkpoint.png") for path in artifact_paths)
     assert any(path.endswith("before-change.png") for path in artifact_paths)
     assert any(path.endswith("after-change.png") for path in artifact_paths)
+    assert "change-records.json" in artifact_paths
+    assert "change-records.md" in artifact_paths
 
 
 def test_first_checkpoint_api_captures_pair_and_returns_refreshed_evidence(tmp_path: Path) -> None:
@@ -619,6 +635,60 @@ def test_timeline_note_api_records_user_event_without_screenshot(tmp_path: Path)
     assert "Changed max green from 30 to 45 seconds." in timeline_body["timeline_markdown"]
 
 
+def test_change_record_api_writes_structured_evidence_and_timeline_event(tmp_path: Path) -> None:
+    baseline = tmp_path / "baseline.sumocfg"
+    variant = tmp_path / "variant.sumocfg"
+    baseline.write_text("<configuration/>", encoding="utf-8")
+    variant.write_text("<configuration/>", encoding="utf-8")
+
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+
+    create_response = client.post(
+        "/api/session/create",
+        json={
+            "name": "change-record-demo",
+            "baseline_config": str(baseline),
+            "variant_config": str(variant),
+        },
+    )
+    session_id = create_response.json()["id"]
+
+    response = client.post(
+        f"/api/session/{session_id}/change/record",
+        json={
+            "label": "max green tuning",
+            "parameter": "max_green",
+            "before_value": "30",
+            "after_value": "45",
+            "rationale": "Allow longer discharge after queue build-up.",
+            "note": "Use before/after checkpoints to inspect the visual effect.",
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["change"]["label"] == "max-green-tuning"
+    assert body["change"]["parameter"] == "max_green"
+    assert body["change"]["before_value"] == "30"
+    assert body["change"]["after_value"] == "45"
+    assert body["evidence"]["manifest"]["change_records"][0]["parameter"] == "max_green"
+    artifact_paths = {item["relative_path"] for item in body["evidence"]["artifacts"]}
+    assert "change-records.json" in artifact_paths
+    assert "change-records.md" in artifact_paths
+    change_markdown = Path(tmp_path / "runs" / session_id / "change-records.md").read_text(encoding="utf-8")
+    assert "max_green" in change_markdown
+    assert "`30` -> `45`" in change_markdown
+
+    timeline_response = client.post(f"/api/session/{session_id}/timeline/export")
+
+    assert timeline_response.status_code == 200
+    timeline_body = timeline_response.json()
+    event_kinds = [event["kind"] for event in timeline_body["timeline"]["events"]]
+    assert "change-record" in event_kinds
+    assert "max_green: 30 -> 45" in timeline_body["timeline_markdown"]
+
+
 def test_workflow_status_guides_incomplete_session_next_actions(tmp_path: Path) -> None:
     baseline = tmp_path / "baseline.sumocfg"
     variant = tmp_path / "variant.sumocfg"
@@ -681,6 +751,16 @@ def test_workflow_status_reports_review_ready_session(tmp_path: Path) -> None:
     client.post(
         f"/api/session/{session_id}/timeline/note",
         json={"label": "parameter-change", "note": "Changed max green."},
+    )
+    client.post(
+        f"/api/session/{session_id}/change/record",
+        json={
+            "label": "max-green-change",
+            "parameter": "max_green",
+            "before_value": "30",
+            "after_value": "45",
+            "rationale": "Record the controller parameter changed between before/after checkpoints.",
+        },
     )
     baseline_summary = tmp_path / "baseline-summary.xml"
     variant_summary = tmp_path / "variant-summary.xml"

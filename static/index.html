@@ -105,6 +105,31 @@
             Timeline note
             <input id="timelineNoteText" placeholder="Record a parameter change, observation, or assumption.">
           </label>
+          <label>
+            Change label
+            <input id="changeLabel" value="parameter-change">
+          </label>
+          <label>
+            Parameter
+            <input id="changeParameter" placeholder="max_green, detector_map, route_demand, controller_weight">
+          </label>
+          <label>
+            Before value
+            <input id="changeBefore" placeholder="30">
+          </label>
+          <label>
+            After value
+            <input id="changeAfter" placeholder="45">
+          </label>
+          <label>
+            Rationale
+            <input id="changeRationale" placeholder="Why this change should affect the observed behavior.">
+          </label>
+          <button id="recordChangeBtn" type="button" disabled>Record Change</button>
+          <label>
+            Change note
+            <input id="changeNote" placeholder="Optional link to checkpoint intent or expected metric change.">
+          </label>
         </div>
         <div class="row">
           <button id="firstCheckpointBtn" type="button" disabled>Capture First Checkpoint</button>

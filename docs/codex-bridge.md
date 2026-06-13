@@ -36,7 +36,7 @@ It does not embed Codex inside SUMO, and it does not require VS Code. The user k
 6. Ask Codex to inspect the session folder:
 
    ```text
-   Read runs/<session_id>/manifest.json, comparison.md, timeline.md, visual-diff.md, output-inspection.md, and codex-packet.md if present.
+   Read runs/<session_id>/manifest.json, comparison.md, change-records.md, timeline.md, visual-diff.md, output-inspection.md, and codex-packet.md if present.
    Tell me what visual differences are supported by the evidence, what output evidence exists, and what claims remain unsupported.
    ```
 
@@ -156,6 +156,25 @@ Invoke-RestMethod `
   }'
 ```
 
+Record the structured change that should connect before/after checkpoints to output evidence:
+
+```powershell
+Invoke-RestMethod `
+  -Uri http://127.0.0.1:8765/api/session/<session_id>/change/record `
+  -Method Post `
+  -ContentType "application/json" `
+  -Body '{
+    "label": "max-green-change",
+    "parameter": "max_green",
+    "before_value": "30",
+    "after_value": "45",
+    "rationale": "Allow longer discharge after queue build-up.",
+    "note": "Pair this with before-change and after-change screenshots."
+  }'
+```
+
+This writes `change-records.json` and `change-records.md` into the evidence bundle and adds a `change-record` event to exported timelines.
+
 Load the evidence:
 
 ```powershell
@@ -209,3 +228,5 @@ They are not sufficient for performance claims. Travel time, delay, waiting time
 Use screenshot evidence as a diagnostic signal first. Promote it into a report only after it is paired with reproducible output data.
 
 Pixel-level visual diff artifacts are also diagnostic. They can show that pixels changed between before/after screenshots, but they do not explain why the change happened and do not replace SUMO output metrics.
+
+Structured change records close part of that gap by recording what was intentionally changed, but they still do not prove causality. They should be read together with paired outputs, completion status, and reproduced runs.

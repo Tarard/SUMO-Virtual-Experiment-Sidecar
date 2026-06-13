@@ -15,6 +15,7 @@ MVP focus:
 - capture a fixed first visual checkpoint into the evidence bundle;
 - capture named `before-change`, `after-change`, `queue-build-up`, and `final-state` checkpoints with notes;
 - record user-authored timeline notes without taking screenshots;
+- record structured parameter/controller changes with before value, after value, and rationale;
 - export a before/after visual-diff index for paired template checkpoints;
 - generate pixel-level visual-diff PNGs when before/after screenshots are valid raster images;
 - report workflow status and next actions for the active evidence bundle;
@@ -103,6 +104,8 @@ Use `Capture Template Checkpoint` for before/after work. The built-in templates 
 
 Use `Add Timeline Note` to record parameter changes, observations, or assumptions without taking another screenshot.
 
+Use `Record Change` when you want Codex to know exactly what changed between two checkpoints. Record the parameter or controller element, before value, after value, and rationale before interpreting visual or metric differences.
+
 Use `Export Visual Diff` after capturing at least one `before-change` and one `after-change` checkpoint. It builds a four-view baseline/variant before/after index for visual inspection. When screenshots are valid raster images with matching dimensions, it also writes pixel-level diff PNGs.
 
 Use `Refresh Workflow` to see which evidence steps are complete, which are missing, and what should happen next before asking Codex to review the session.
@@ -129,13 +132,14 @@ Typical workflow:
 3. Create a paired baseline/variant session in the web page.
 4. Capture the first paired checkpoint, then capture named before/after checkpoints while watching the SUMO GUI windows.
 5. Add timeline notes when you change parameters, observe a behavior, or record an assumption.
-6. Inspect `summary.xml` and `tripinfo.xml` output evidence before interpreting performance metrics.
-7. Export the visual diff index for the paired before/after checkpoints.
-8. Export a run timeline, optionally with a preset, to align checkpoints, notes, output inspection, and packet evidence.
-9. Export a Codex packet when the session has enough screenshots and output evidence.
-10. Refresh workflow status and follow remaining next actions.
-11. Ask Codex to inspect the evidence folder, visual diff, packet, timeline, workflow status, or local API.
-12. Use the generated `comparison.md`, `visual-diff.md`, `timeline.md`, and `codex-packet.md` as diagnostic evidence indexes, then pair them with SUMO output files before making formal claims.
+6. Record structured changes so Codex can connect what changed to visual checkpoints and output metrics.
+7. Inspect `summary.xml` and `tripinfo.xml` output evidence before interpreting performance metrics.
+8. Export the visual diff index for the paired before/after checkpoints.
+9. Export a run timeline, optionally with a preset, to align checkpoints, change records, notes, output inspection, and packet evidence.
+10. Export a Codex packet when the session has enough screenshots and output evidence.
+11. Refresh workflow status and follow remaining next actions.
+12. Ask Codex to inspect the evidence folder, visual diff, packet, timeline, workflow status, or local API.
+13. Use the generated `comparison.md`, `change-records.md`, `visual-diff.md`, `timeline.md`, and `codex-packet.md` as diagnostic evidence indexes, then pair them with SUMO output files before making formal claims.
 
 See [docs/codex-bridge.md](docs/codex-bridge.md) for exact prompts and API examples.
 
@@ -165,6 +169,7 @@ GET  /api/session/{id}/artifact/{path}
 POST /api/session/{id}/packet/export
 POST /api/session/{id}/timeline/export?preset=full
 POST /api/session/{id}/timeline/note
+POST /api/session/{id}/change/record
 POST /api/session/{id}/visual-diff/export
 POST /api/session/{id}/close
 ```
@@ -178,6 +183,8 @@ runs/<session_id>/
   manifest.json
   comparison.md
   codex-packet.md
+  change-records.json
+  change-records.md
   timeline.json
   timeline.md
   visual-diff.json
@@ -196,9 +203,11 @@ The web page renders PNG artifacts as screenshot previews through a session-scop
 
 `codex-packet.md` is a single Markdown entrypoint for agent review. It lists the session, artifacts, comparison notes, output inspection when available, and the claim boundary. It is an index over evidence, not an automatic scientific conclusion.
 
-`timeline.md` aligns session creation, screenshot checkpoints, user notes, output inspection, visual diffs, and exported Codex packets. This is the quickest way to see what evidence was produced before and after a controller or configuration change.
+`change-records.md` records structured edits such as controller parameters, detector mappings, route settings, or experiment assumptions with before value, after value, and rationale. It is the link between "what changed" and the visual/output evidence.
 
-Timeline presets write separate files such as `timeline-visual.md`, `timeline-outputs.md`, and `timeline-notes.md`. The default `full` preset keeps the existing `timeline.md` / `timeline.json` names.
+`timeline.md` aligns session creation, screenshot checkpoints, user notes, structured change records, output inspection, visual diffs, and exported Codex packets. This is the quickest way to see what evidence was produced before and after a controller or configuration change.
+
+Timeline presets write separate files such as `timeline-visual.md`, `timeline-outputs.md`, and `timeline-notes.md`. The default `full` preset keeps the existing `timeline.md` / `timeline.json` names. The `review` and `notes` presets include structured change records.
 
 `visual-diff.md` pairs `before-change` and `after-change` screenshots and lists the four key views: baseline before, baseline after, variant before, and variant after. This is still diagnostic visual evidence; it does not replace output-based performance checks.
 

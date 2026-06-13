@@ -49,6 +49,15 @@ class TimelineNoteRequest(BaseModel):
     note: str
 
 
+class ChangeRecordRequest(BaseModel):
+    label: str = "parameter-change"
+    parameter: str
+    before_value: str
+    after_value: str
+    rationale: str
+    note: str | None = None
+
+
 class SessionState(BaseModel):
     id: str
     name: str

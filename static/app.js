@@ -17,6 +17,7 @@ function setControls(enabled) {
     "screenshotBtn",
     "templateCheckpointBtn",
     "addTimelineNoteBtn",
+    "recordChangeBtn",
     "firstCheckpointBtn",
     "stateBtn",
     "workflowBtn",
@@ -505,6 +506,31 @@ el("addTimelineNoteBtn").addEventListener("click", async () => {
     log("Added timeline note", body.note);
   } catch (error) {
     log(`Timeline note failed: ${error.message}`);
+  }
+});
+
+el("recordChangeBtn").addEventListener("click", async () => {
+  try {
+    const note = el("changeNote").value.trim();
+    const body = await api(`/api/session/${state.sessionId}/change/record`, {
+      method: "POST",
+      body: JSON.stringify({
+        label: el("changeLabel").value,
+        parameter: el("changeParameter").value,
+        before_value: el("changeBefore").value,
+        after_value: el("changeAfter").value,
+        rationale: el("changeRationale").value,
+        note: note || null,
+      }),
+    });
+    renderEvidence(body.evidence);
+    const timeline = await exportTimelineWithPreset();
+    renderEvidence(timeline.evidence);
+    el("timelinePreview").textContent = timeline.timeline_markdown;
+    await refreshWorkflow();
+    log("Recorded structured change", body.change);
+  } catch (error) {
+    log(`Change record failed: ${error.message}`);
   }
 });
 

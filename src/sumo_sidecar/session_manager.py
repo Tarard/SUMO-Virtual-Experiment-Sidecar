@@ -12,6 +12,7 @@ from typing import Any, Callable, Protocol
 from PIL import Image
 
 from .models import (
+    ChangeRecordRequest,
     CreateSessionRequest,
     EvidenceArtifact,
     EvidenceResponse,
@@ -68,10 +69,10 @@ CHECKPOINT_TEMPLATES = {
 
 TIMELINE_PRESETS = {
     "full": None,
-    "review": {"session-created", "user-note", "screenshot-checkpoint", "output-inspection", "visual-diff", "codex-packet"},
+    "review": {"session-created", "user-note", "change-record", "screenshot-checkpoint", "output-inspection", "visual-diff", "codex-packet"},
     "visual": {"session-created", "screenshot-checkpoint", "visual-diff"},
     "outputs": {"session-created", "output-inspection"},
-    "notes": {"session-created", "user-note"},
+    "notes": {"session-created", "user-note", "change-record"},
 }
 
 
@@ -119,6 +120,7 @@ class SessionManager:
             "options": options,
             "evidence": [],
             "timeline_notes": [],
+            "change_records": [],
         }
 
         baseline: SumoRun | None = None
@@ -283,6 +285,10 @@ class SessionManager:
             "",
             evidence.comparison_markdown or "No comparison notes exported yet.",
             "",
+            "## Change Records",
+            "",
+            self._read_optional_text(session.session_dir / "change-records.md", "No structured change records exported yet."),
+            "",
             "## Output Inspection",
             "",
             output_inspection,
@@ -346,6 +352,35 @@ class SessionManager:
         self._write_manifest(session)
         return entry
 
+    def record_change(self, session_id: str, request: ChangeRecordRequest) -> dict[str, Any]:
+        session = self.get(session_id)
+        parameter = request.parameter.strip()
+        before_value = request.before_value.strip()
+        after_value = request.after_value.strip()
+        rationale = request.rationale.strip()
+        note = request.note.strip() if request.note and request.note.strip() else None
+        if not parameter:
+            raise ValueError("change parameter cannot be empty")
+        if not before_value:
+            raise ValueError("change before_value cannot be empty")
+        if not after_value:
+            raise ValueError("change after_value cannot be empty")
+        if not rationale:
+            raise ValueError("change rationale cannot be empty")
+        entry = {
+            "label": _safe_label(request.label),
+            "parameter": parameter,
+            "before_value": before_value,
+            "after_value": after_value,
+            "rationale": rationale,
+            "note": note,
+            "created_at": _utc_now(),
+        }
+        session.manifest.setdefault("change_records", []).append(entry)
+        self._write_change_records(session)
+        self._write_manifest(session)
+        return entry
+
     def workflow_status(self, session_id: str) -> dict[str, Any]:
         session = self.get(session_id)
         relative_paths = {item.relative_path for item in self._list_artifacts(session)}
@@ -353,6 +388,7 @@ class SessionManager:
         has_first_checkpoint = any(item.label == "first-checkpoint" for item in session.evidence)
         has_before_after = {"before-change", "after-change"}.issubset(templates)
         has_timeline_note = bool(session.manifest.get("timeline_notes"))
+        has_change_record = bool(session.manifest.get("change_records"))
         output_inspection = session.manifest.get("output_inspection")
         visual_diff = session.manifest.get("visual_diff")
         has_timeline = "timeline" in session.manifest and "timeline.md" in relative_paths
@@ -376,6 +412,13 @@ class SessionManager:
                 "Record at least one timeline note",
                 has_timeline_note,
                 f"{len(session.manifest.get('timeline_notes', []))} timeline note(s)",
+                missing_status="warn",
+            ),
+            self._workflow_item(
+                "change_record",
+                "Record the structured parameter or controller change",
+                has_change_record,
+                f"{len(session.manifest.get('change_records', []))} change record(s)",
                 missing_status="warn",
             ),
             self._workflow_item(
@@ -517,6 +560,8 @@ class SessionManager:
             actions.append("Capture Template Checkpoint for before-change and after-change.")
         if status_by_id["timeline_note"] == "warn":
             actions.append("Add Timeline Note for the parameter change or observation.")
+        if status_by_id["change_record"] == "warn":
+            actions.append("Record Change with the parameter, before value, after value, and rationale.")
         if status_by_id["output_inspection"] == "missing":
             actions.append("Inspect Outputs with summary.xml and tripinfo.xml.")
         if status_by_id["visual_diff"] == "warn":
@@ -572,6 +617,20 @@ class SessionManager:
                     "template": None,
                     "note": note.get("note"),
                     "artifacts": ["manifest.json"],
+                }
+            )
+        for change in session.manifest.get("change_records", []):
+            events.append(
+                {
+                    "sequence": len(events) + 1,
+                    "kind": "change-record",
+                    "label": change.get("label", "change"),
+                    "simulation_time": None,
+                    "wall_time": change.get("created_at"),
+                    "status": "recorded",
+                    "template": None,
+                    "note": f"{change.get('parameter')}: {change.get('before_value')} -> {change.get('after_value')}",
+                    "artifacts": ["change-records.json", "change-records.md"],
                 }
             )
         if "output_inspection" in session.manifest:
@@ -820,6 +879,53 @@ class SessionManager:
                 lines.append("")
         return "\n".join(lines)
 
+    def _write_change_records(self, session: PairedSession) -> None:
+        records = session.manifest.get("change_records", [])
+        json_path = session.session_dir / "change-records.json"
+        markdown_path = session.session_dir / "change-records.md"
+        json_path.write_text(
+            json.dumps(
+                {
+                    "session_id": session.id,
+                    "session_name": session.name,
+                    "records": records,
+                },
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+        markdown_path.write_text(self._render_change_records_markdown(session, records), encoding="utf-8")
+        session.manifest["change_records_artifact"] = {
+            "json": str(json_path),
+            "markdown": str(markdown_path),
+            "updated_at": _utc_now(),
+        }
+
+    def _render_change_records_markdown(self, session: PairedSession, records: list[dict[str, Any]]) -> str:
+        lines = [
+            f"# SUMO Change Records: {session.name}",
+            "",
+            "Structured change records connect parameter edits to before/after screenshots and output evidence. They do not prove causality by themselves.",
+            "",
+        ]
+        if not records:
+            lines.append("No structured change records have been recorded yet.")
+            return "\n".join(lines)
+        for index, record in enumerate(records, start=1):
+            lines.extend(
+                [
+                    f"## {index}. {record['label']}",
+                    "",
+                    f"- Parameter: `{record['parameter']}`",
+                    f"- Change: `{record['before_value']}` -> `{record['after_value']}`",
+                    f"- Rationale: {record['rationale']}",
+                    f"- Note: {record.get('note') or 'none'}",
+                    f"- Recorded at: `{record['created_at']}`",
+                    "",
+                ]
+            )
+        return "\n".join(lines)
+
     def _render_timeline_markdown(self, timeline: dict[str, Any]) -> str:
         lines = [
             f"# SUMO Run Timeline: {timeline['session_name']}",
@@ -840,6 +946,9 @@ class SessionManager:
 
     def _markdown_table_cell(self, value: str) -> str:
         return value.replace("\n", " ").replace("|", "\\|")
+
+    def _read_optional_text(self, path: Path, default: str) -> str:
+        return path.read_text(encoding="utf-8") if path.exists() else default
 
     def _relative_artifact(self, session: PairedSession, path_value: str | Path) -> str:
         if not path_value:
