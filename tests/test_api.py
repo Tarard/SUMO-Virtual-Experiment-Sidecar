@@ -181,6 +181,21 @@ def test_homepage_exposes_visual_observation_controls(tmp_path: Path) -> None:
     assert "renderVisualObservation" in script_response.text
 
 
+def test_homepage_exposes_guided_visual_observation_action(tmp_path: Path) -> None:
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+
+    index_response = client.get("/")
+    script_response = client.get("/static/app.js")
+
+    assert index_response.status_code == 200
+    assert script_response.status_code == 200
+    assert "recordGuidedVisualObservationBtn" in index_response.text
+    assert "Record Guided Observation" in index_response.text
+    assert "/visual-observation/guided-record" in script_response.text
+    assert "renderGuidedVisualObservation" in script_response.text
+
+
 def test_visual_observation_taxonomy_api_returns_claim_bounded_entries(tmp_path: Path) -> None:
     app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
     client = TestClient(app)
@@ -1291,6 +1306,69 @@ def test_next_action_review_includes_taxonomy_missing_evidence_guidance(tmp_path
     assert "possible-spillback" in body["next_action_review_markdown"]
     assert "output-inspection.md" in body["next_action_review_markdown"]
     assert "does not prove causality" in body["next_action_review_markdown"]
+
+
+def test_guided_visual_observation_records_and_exports_next_action_review(tmp_path: Path) -> None:
+    baseline = tmp_path / "baseline.sumocfg"
+    variant = tmp_path / "variant.sumocfg"
+    baseline.write_text("<configuration/>", encoding="utf-8")
+    variant.write_text("<configuration/>", encoding="utf-8")
+
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+    create_response = client.post(
+        "/api/session/create",
+        json={
+            "name": "guided-observation-demo",
+            "baseline_config": str(baseline),
+            "variant_config": str(variant),
+        },
+    )
+    session_id = create_response.json()["id"]
+    client.post(f"/api/session/{session_id}/checkpoint/template", json={"template": "before-change"})
+    client.post(f"/api/session/{session_id}/step", json={"count": 3})
+    client.post(f"/api/session/{session_id}/checkpoint/template", json={"template": "after-change"})
+    client.post(f"/api/session/{session_id}/visual-diff/export")
+
+    response = client.post(
+        f"/api/session/{session_id}/visual-observation/guided-record",
+        json={
+            "label": "guided-spillback",
+            "observation_type": "spillback",
+            "evidence_artifact": "visual-diff.md",
+            "confidence": "diagnostic",
+            "comparison_role": "variant",
+            "visual_view": "after",
+            "location": "west approach",
+            "movement": "westbound through",
+            "link_or_lane": "edge_W_in lane 0",
+            "visual_anchor": "variant / after, queue touches upstream junction",
+            "note": "The downstream queue appears to block the upstream approach.",
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["observation"]["label"] == "guided-spillback"
+    assert body["observation"]["observation_type"] == "spillback"
+    assert body["timeline"]["preset"] == "visual"
+    assert "visual-observation" in {event["kind"] for event in body["timeline"]["events"]}
+    assert "guided-spillback" in body["timeline_markdown"]
+    review = body["next_action_review"]
+    assert review["observation_guidance"][0]["label"] == "guided-spillback"
+    assert review["observation_guidance"][0]["taxonomy_label"] == "Spillback"
+    assert "output-inspection.md" in review["observation_guidance"][0]["missing_evidence_targets"]
+    assert review["recommended_actions"][0]["action"] == "Inspect Outputs"
+    assert "variant / after" in body["next_action_review_markdown"]
+    assert "output-inspection.md" in body["next_action_review_markdown"]
+    assert Path(body["timeline_json_path"]).name == "timeline-visual.json"
+    assert Path(body["timeline_markdown_path"]).name == "timeline-visual.md"
+    assert Path(body["next_action_review_json_path"]).name == "next-action-review.json"
+    assert Path(body["next_action_review_markdown_path"]).name == "next-action-review.md"
+    artifact_paths = {item["relative_path"] for item in body["evidence"]["artifacts"]}
+    assert "visual-observations.md" in artifact_paths
+    assert "timeline-visual.md" in artifact_paths
+    assert "next-action-review.md" in artifact_paths
 
 
 def test_timeline_note_api_records_user_event_without_screenshot(tmp_path: Path) -> None:

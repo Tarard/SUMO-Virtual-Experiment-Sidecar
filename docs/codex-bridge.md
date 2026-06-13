@@ -103,6 +103,27 @@ Invoke-RestMethod `
 
 This writes `visual-observations.json` and `visual-observations.md`. Optional anchor fields tell Codex where to look in the paired evidence. Treat these observations as human annotations over visual evidence, not as formal output evidence.
 
+For the fastest human-in-the-loop path, use the guided endpoint after a GUI observation:
+
+```powershell
+Invoke-RestMethod `
+  -Uri http://127.0.0.1:8765/api/session/<session_id>/visual-observation/guided-record `
+  -Method Post `
+  -ContentType "application/json" `
+  -Body '{
+    "label": "possible-spillback",
+    "observation_type": "spillback",
+    "evidence_artifact": "visual-diff.md",
+    "confidence": "diagnostic",
+    "comparison_role": "variant",
+    "visual_view": "after",
+    "visual_anchor": "variant / after cell in the visual-diff matrix",
+    "note": "The downstream queue appears to block the upstream approach."
+  }'
+```
+
+This records the observation, exports `timeline-visual.md`, and exports `next-action-review.md` in one call. Use it when the user has just noticed a visual difference and wants Codex to move directly to the next evidence check.
+
 After evidence has accumulated, export the next-action review:
 
 ```powershell

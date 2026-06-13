@@ -38,6 +38,7 @@ function setControls(enabled) {
     "exportReviewSummaryBtn",
     "exportVisualDiffBtn",
     "recordVisualObservationBtn",
+    "recordGuidedVisualObservationBtn",
     "closeBtn",
   ]) {
     el(id).disabled = !enabled;
@@ -1157,6 +1158,24 @@ el("recordVisualObservationBtn").addEventListener("click", async () => {
   }
 });
 
+el("recordGuidedVisualObservationBtn").addEventListener("click", async () => {
+  try {
+    const body = await api(`/api/session/${state.sessionId}/visual-observation/guided-record`, {
+      method: "POST",
+      body: JSON.stringify(visualObservationPayload()),
+    });
+    renderGuidedVisualObservation(body);
+    await refreshWorkflow();
+    log("Recorded guided visual observation", {
+      label: body.observation.label,
+      timeline_markdown_path: body.timeline_markdown_path,
+      next_action_review_markdown_path: body.next_action_review_markdown_path,
+    });
+  } catch (error) {
+    log(`Guided visual observation failed: ${error.message}`);
+  }
+});
+
 el("loadVisualObservationTaxonomyBtn").addEventListener("click", async () => {
   try {
     const body = await loadVisualObservationTaxonomy();
@@ -1186,6 +1205,13 @@ function renderVisualObservation(body) {
     "",
     observation.note,
   ].join("\n");
+}
+
+function renderGuidedVisualObservation(body) {
+  renderVisualObservation(body);
+  renderEvidence(body.evidence);
+  el("timelinePreview").textContent = body.timeline_markdown || "No visual timeline exported.";
+  el("nextActionReviewPreview").textContent = body.next_action_review_markdown || "No next action review exported.";
 }
 
 function renderVisualDiff(visualDiff) {

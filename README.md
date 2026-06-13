@@ -132,6 +132,8 @@ Use `Record Change` when you want Codex to know exactly what changed between two
 
 Use `Record Visual Observation` after looking at the SUMO GUI or the visual-diff matrix. Record what you saw, which artifact supports it, how confident you are, and optional anchors such as baseline/variant, before/after/diff, movement, link/lane, location, or screenshot region. This helps Codex inspect the right part of the evidence bundle without treating the observation as proof.
 
+Use `Record Guided Observation` when you want immediate feedback after noticing a visual difference. It records the visual observation, exports the visual timeline, and exports the next-action review in one step, so the Sidecar can tell you which evidence target to inspect next.
+
 Use `Load Observation Types` before recording a visual observation when you want guided labels and evidence checks. The taxonomy helps classify observations such as queue growth, spillback, phase mismatch, insertion/teleport symptoms, density change, deadlock/gridlock, or route/demand mismatch suspicion. It is not automatic image understanding.
 
 Use `Compare Metrics` after output inspection. It exports a completion-first baseline/variant/delta table from `output-inspection.json`, with completion and unfinished-vehicle evidence placed before tripinfo means.
@@ -178,7 +180,7 @@ Typical workflow:
 6. Capture the first paired checkpoint, then capture named before/after checkpoints while watching the SUMO GUI windows.
 7. Add timeline notes when you change parameters, observe a behavior, or record an assumption.
 8. Record structured changes, or use Record Scenario Change, so Codex can connect what changed to visual checkpoints and output metrics.
-9. Record visual observations when you notice queue growth, spillback, phase mismatch, deadlock, or other GUI-visible behavior.
+9. Record visual observations when you notice queue growth, spillback, phase mismatch, deadlock, or other GUI-visible behavior. Use Record Guided Observation when you want the timeline and next-action review exported immediately after the note.
 10. Inspect `summary.xml` and `tripinfo.xml` output evidence before interpreting performance metrics.
 11. Export metric comparison so completion status and tripinfo deltas are visible together.
 12. Export a metric chart so the metric deltas are visible as an artifact.
@@ -227,6 +229,7 @@ GET  /api/session/{id}/scenario/status
 POST /api/session/{id}/change/record
 GET  /api/visual-observation/taxonomy
 POST /api/session/{id}/visual-observation/record
+POST /api/session/{id}/visual-observation/guided-record
 POST /api/session/{id}/metrics/compare
 POST /api/session/{id}/metrics/chart
 POST /api/session/{id}/review/summary
@@ -285,6 +288,8 @@ Scenario templates prefill `scenario-plan.md` inputs for common workflows. They 
 `change-records.md` records structured edits such as controller parameters, detector mappings, route settings, or experiment assumptions with before value, after value, and rationale. It is the link between "what changed" and the visual/output evidence.
 
 `visual-observations.md` records what the user noticed in the SUMO GUI or visual-diff matrix, such as queue growth, spillback, phase mismatch, deadlock, or density changes. It can also store human-authored visual anchors: role, view, movement, link/lane, location, and where to look in the screenshot or matrix. When a known observation type is used, it also stores taxonomy guidance with evidence targets, suggested checks, next actions, and a claim boundary. It is a diagnostic annotation that should be checked against paired outputs before being used in a claim.
+
+`visual-observation/guided-record` is the shortcut for the human-in-the-loop path: "I saw this in the GUI; what should I inspect next?" It writes `visual-observations.md`, `timeline-visual.md`, and `next-action-review.md` from the same request.
 
 `next-action-review.md` turns the current evidence state into a concrete next Sidecar operation. It also uses visual-observation taxonomy guidance when available, so a `spillback` or `phase-mismatch` note can point to the missing output, timeline, change-record, or controller evidence that should be checked next. It is a diagnostic control screen, not a claim generator.
 

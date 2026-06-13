@@ -547,6 +547,29 @@ def create_app(
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
+    @app.post("/api/session/{session_id}/visual-observation/guided-record")
+    def record_guided_visual_observation(session_id: str, request: VisualObservationRequest) -> dict[str, Any]:
+        try:
+            observation = manager.record_visual_observation(session_id, request)
+            timeline = manager.export_timeline(session_id, preset="visual")
+            review = manager.export_next_action_review(session_id)
+            return {
+                "observation": observation,
+                "timeline": timeline["timeline"],
+                "timeline_json_path": str(timeline["timeline_json_path"]),
+                "timeline_markdown_path": str(timeline["timeline_markdown_path"]),
+                "timeline_markdown": timeline["timeline_markdown"],
+                "next_action_review": review["next_action_review"],
+                "next_action_review_json_path": str(review["next_action_review_json_path"]),
+                "next_action_review_markdown_path": str(review["next_action_review_markdown_path"]),
+                "next_action_review_markdown": review["next_action_review_markdown"],
+                "evidence": review["evidence"].model_dump(mode="json"),
+            }
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
     @app.post("/api/session/{session_id}/metrics/compare")
     def compare_metrics(session_id: str) -> dict[str, Any]:
         try:
