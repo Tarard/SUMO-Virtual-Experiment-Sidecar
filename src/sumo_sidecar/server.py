@@ -113,6 +113,99 @@ def create_app(
         except (FileNotFoundError, RuntimeError) as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
+    @app.post("/api/examples/minimal-paired/launch-full-workflow-gui")
+    def api_launch_minimal_paired_full_workflow_gui() -> dict[str, Any]:
+        metadata = minimal_paired_metadata(repo_root)
+        try:
+            guided_demo = run_minimal_paired_guided(repo_root)
+            session = manager.create(
+                CreateSessionRequest(
+                    name=metadata["gui_session_name"],
+                    baseline_config=Path(metadata["baseline_config"]),
+                    variant_config=Path(metadata["variant_config"]),
+                    start=False,
+                    quit_on_end=False,
+                )
+            )
+            output_inspection = manager.inspect_outputs(
+                session.id,
+                OutputInspectionRequest(
+                    baseline_summary=Path(metadata["baseline_summary"]),
+                    baseline_tripinfo=Path(metadata["baseline_tripinfo"]),
+                    variant_summary=Path(metadata["variant_summary"]),
+                    variant_tripinfo=Path(metadata["variant_tripinfo"]),
+                ),
+            )
+            first_checkpoint = manager.screenshot(session.id, "first-checkpoint")
+            timeline_note = manager.add_timeline_note(
+                session.id,
+                "demo-workflow",
+                "Bundled minimal demo full workflow: guided config/output evidence plus paired GUI checkpoints.",
+            )
+            before_checkpoint = manager.checkpoint(
+                session.id,
+                "before-change",
+                "Before stepping the paired demo GUI sessions.",
+            )
+            manager.step(session.id, 2)
+            after_checkpoint = manager.checkpoint(
+                session.id,
+                "after-change",
+                "After stepping both paired demo GUI sessions by 2 simulation steps.",
+            )
+            visual_diff = manager.export_visual_diff(session.id)
+            packet = manager.export_packet(session.id)
+            timeline = manager.export_timeline(session.id, preset="full")
+            review_timeline = manager.export_timeline(session.id, preset="review")
+            workflow = manager.workflow_status(session.id)
+            evidence = manager.evidence(session.id)
+
+            if "fail" in {guided_demo["status"], output_inspection.status}:
+                status = "fail"
+            elif workflow["status"] == "review-ready-with-warnings":
+                status = "warn"
+            else:
+                status = "pass"
+
+            return {
+                "status": status,
+                "guided_demo": guided_demo,
+                "session": manager.state(session.id).model_dump(mode="json"),
+                "output_inspection": output_inspection.model_dump(mode="json"),
+                "checkpoints": {
+                    "first": first_checkpoint.model_dump(mode="json"),
+                    "before": before_checkpoint.model_dump(mode="json"),
+                    "after": after_checkpoint.model_dump(mode="json"),
+                },
+                "timeline_note": timeline_note,
+                "visual_diff": {
+                    "visual_diff": visual_diff["visual_diff"],
+                    "visual_diff_json_path": str(visual_diff["visual_diff_json_path"]),
+                    "visual_diff_markdown_path": str(visual_diff["visual_diff_markdown_path"]),
+                    "visual_diff_markdown": visual_diff["visual_diff_markdown"],
+                },
+                "packet": {
+                    "packet_path": str(packet["packet_path"]),
+                    "packet_markdown": packet["packet_markdown"],
+                },
+                "timeline": {
+                    "timeline": timeline["timeline"],
+                    "timeline_json_path": str(timeline["timeline_json_path"]),
+                    "timeline_markdown_path": str(timeline["timeline_markdown_path"]),
+                    "timeline_markdown": timeline["timeline_markdown"],
+                },
+                "review_timeline": {
+                    "timeline": review_timeline["timeline"],
+                    "timeline_json_path": str(review_timeline["timeline_json_path"]),
+                    "timeline_markdown_path": str(review_timeline["timeline_markdown_path"]),
+                    "timeline_markdown": review_timeline["timeline_markdown"],
+                },
+                "workflow": workflow,
+                "evidence": evidence.model_dump(mode="json"),
+            }
+        except (FileNotFoundError, RuntimeError, ValueError) as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
     @app.post("/api/config/preflight")
     def api_config_preflight(request: ConfigPreflightRequest) -> dict[str, Any]:
         try:

@@ -184,6 +184,27 @@ async function renderGuidedGuiLaunch(body) {
   ].join("\n");
 }
 
+function renderFullWorkflowLaunch(body) {
+  renderGuidedDemo(body.guided_demo);
+  renderState(body.session);
+  renderOutputInspection(body.output_inspection);
+  renderEvidence(body.evidence);
+  renderVisualDiff(body.visual_diff.visual_diff);
+  renderWorkflow(body.workflow);
+  el("visualDiffMarkdown").textContent = body.visual_diff.visual_diff_markdown;
+  el("packetPreview").textContent = body.packet.packet_markdown;
+  el("timelinePreview").textContent = body.timeline.timeline_markdown;
+  el("configPreflightOutput").textContent += [
+    "",
+    "full_workflow_session:",
+    `- ${body.session.id}`,
+    "- first checkpoint captured",
+    "- before/after checkpoints captured",
+    "- output inspection, visual diff, timeline, review timeline, and Codex packet exported",
+    `- workflow: ${body.workflow.status}`,
+  ].join("\n");
+}
+
 function outputInspectionPayload() {
   const payload = {};
   if (el("baselineSummary").value.trim()) payload.baseline_summary = el("baselineSummary").value.trim();
@@ -341,6 +362,16 @@ el("launchGuidedGuiBtn").addEventListener("click", async () => {
     log("Launched guided demo GUI session", body);
   } catch (error) {
     log(`Launch guided GUI failed: ${error.message}`);
+  }
+});
+
+el("launchFullWorkflowGuiBtn").addEventListener("click", async () => {
+  try {
+    const body = await api("/api/examples/minimal-paired/launch-full-workflow-gui", { method: "POST" });
+    renderFullWorkflowLaunch(body);
+    log("Launched full workflow demo GUI session", body);
+  } catch (error) {
+    log(`Launch full workflow failed: ${error.message}`);
   }
 });
 

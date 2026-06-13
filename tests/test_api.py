@@ -40,6 +40,20 @@ def test_preflight_reports_available_fields(tmp_path: Path) -> None:
     assert "traci_available" in body
 
 
+def test_homepage_exposes_full_workflow_demo_action(tmp_path: Path) -> None:
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+
+    index_response = client.get("/")
+    script_response = client.get("/static/app.js")
+
+    assert index_response.status_code == 200
+    assert script_response.status_code == 200
+    assert "launchFullWorkflowGuiBtn" in index_response.text
+    assert "Launch Full Workflow" in index_response.text
+    assert "/api/examples/minimal-paired/launch-full-workflow-gui" in script_response.text
+
+
 def test_minimal_demo_metadata_api_returns_usable_paths(tmp_path: Path) -> None:
     app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
     client = TestClient(app)
@@ -133,6 +147,42 @@ def test_minimal_demo_launch_guided_gui_api_persists_output_evidence(tmp_path: P
     artifact_paths = {item["relative_path"] for item in body["evidence"]["artifacts"]}
     assert "output-inspection.json" in artifact_paths
     assert "output-inspection.md" in artifact_paths
+
+
+def test_minimal_demo_full_workflow_gui_api_exports_review_ready_bundle(tmp_path: Path) -> None:
+    if which("sumo") is None:
+        pytest.skip("sumo binary is not available on PATH")
+
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+
+    response = client.post("/api/examples/minimal-paired/launch-full-workflow-gui")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "pass"
+    assert body["guided_demo"]["status"] == "pass"
+    assert body["session"]["name"] == "minimal-paired-gui"
+    assert body["output_inspection"]["status"] == "pass"
+    assert body["visual_diff"]["visual_diff"]["status"] == "ready"
+    assert body["timeline"]["timeline"]["preset"] == "full"
+    assert body["review_timeline"]["timeline"]["preset"] == "review"
+    assert Path(body["packet"]["packet_path"]).name == "codex-packet.md"
+    assert "Output Inspection" in body["packet"]["packet_markdown"]
+    assert body["workflow"]["status"] == "review-ready"
+    assert body["workflow"]["claim_status"] == "evidence-index-ready"
+
+    artifact_paths = {item["relative_path"] for item in body["evidence"]["artifacts"]}
+    assert "output-inspection.json" in artifact_paths
+    assert "output-inspection.md" in artifact_paths
+    assert "visual-diff.json" in artifact_paths
+    assert "visual-diff.md" in artifact_paths
+    assert "timeline.json" in artifact_paths
+    assert "timeline-review.json" in artifact_paths
+    assert "codex-packet.md" in artifact_paths
+    assert any(path.endswith("first-checkpoint.png") for path in artifact_paths)
+    assert any(path.endswith("before-change.png") for path in artifact_paths)
+    assert any(path.endswith("after-change.png") for path in artifact_paths)
 
 
 def test_first_checkpoint_api_captures_pair_and_returns_refreshed_evidence(tmp_path: Path) -> None:

@@ -19,6 +19,7 @@ MVP focus:
 - generate pixel-level visual-diff PNGs when before/after screenshots are valid raster images;
 - report workflow status and next actions for the active evidence bundle;
 - export timeline presets for full, review, visual, output, or note-focused evidence review;
+- run a bundled full workflow demo that produces a review-ready evidence bundle;
 - write `manifest.json` and `comparison.md` for Codex to inspect.
 
 Not in this release:
@@ -94,6 +95,8 @@ Use `Launch Demo GUI` to open the same bundled baseline and variant as a paired 
 
 Use `Launch Guided GUI` to run the guided demo first, then open a paired GUI session with the output inspection report already written into the session evidence bundle.
 
+Use `Launch Full Workflow` to run the guided demo, open the paired GUI session, capture first and before/after checkpoints, add a timeline note, export visual diff, export full and review timelines, export a Codex packet, and return a review-ready workflow status. This is the shortest public demonstration of the full evidence loop.
+
 After a GUI session is active, use `Capture First Checkpoint` to write the first paired visual checkpoint and refresh the Codex evidence panel immediately.
 
 Use `Capture Template Checkpoint` for before/after work. The built-in templates are `before-change`, `after-change`, `queue-build-up`, and `final-state`. The optional note is written into `comparison.md` and `timeline.md`.
@@ -145,6 +148,7 @@ POST /api/examples/minimal-paired/run-headless
 POST /api/examples/minimal-paired/run-guided
 POST /api/examples/minimal-paired/launch-gui
 POST /api/examples/minimal-paired/launch-guided-gui
+POST /api/examples/minimal-paired/launch-full-workflow-gui
 POST /api/config/preflight
 POST /api/outputs/inspect
 POST /api/session/{id}/outputs/inspect

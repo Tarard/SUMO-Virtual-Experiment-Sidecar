@@ -40,6 +40,14 @@ It does not embed Codex inside SUMO, and it does not require VS Code. The user k
    Tell me what visual differences are supported by the evidence, what output evidence exists, and what claims remain unsupported.
    ```
 
+For the bundled public demo, the shortest end-to-end path is:
+
+```powershell
+Invoke-RestMethod -Uri http://127.0.0.1:8765/api/examples/minimal-paired/launch-full-workflow-gui -Method Post
+```
+
+This runs the guided demo, launches a paired GUI session, captures first and before/after checkpoints, adds a timeline note, exports visual diff, exports full and review timelines, exports a Codex packet, and returns workflow status. It is a diagnostic workflow demonstration, not a controller-performance claim.
+
 Before creating a session, Codex can also inspect the paired `.sumocfg` files:
 
 ```powershell
