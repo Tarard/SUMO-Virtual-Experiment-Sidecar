@@ -162,6 +162,8 @@ Use `Check Compare Readiness` to see whether the active session has the core bef
 
 Use `Export Experiment State Board` when you want one compact control panel for the current session. It groups visual comparison, metric evidence, agent loop state, and claim gate status, then names the next focus. Use `Enable Live Board` to export the board and keep it refreshed after key evidence updates in the current session.
 
+Use `Check Evidence Loop` before `Run Evidence Loop` when you want to know whether the loop is blocked by missing source evidence or only missing review indexes. Source evidence covers paired output inspection and before/after screenshots. Review indexes cover metric comparison, chart, visual diff, review timeline, review summary, agent prompt, and live state board.
+
 Use `Run Evidence Loop` when a session already has enough source evidence and you want the Sidecar to attempt the non-GUI review exports in order: workflow status, metric comparison, metric chart, visual diff, review timeline, review summary, agent prompt, and live state board. Failed steps are logged and later steps still run. This does not launch SUMO GUI, mutate configs, capture screenshots, or certify the experiment.
 
 Use the `Timeline preset` selector before `Export Timeline` when a session is long. Presets include `full`, `review`, `visual`, `outputs`, and `notes`.
@@ -242,6 +244,7 @@ POST /api/session/{id}/checkpoint/template
 GET  /api/session/{id}/state
 GET  /api/session/{id}/workflow/status
 GET  /api/session/{id}/comparison/readiness
+GET  /api/session/{id}/evidence-loop/status
 GET  /api/session/{id}/evidence
 GET  /api/session/{id}/artifact/{path}
 POST /api/session/{id}/packet/export
@@ -348,6 +351,8 @@ Scenario templates prefill `scenario-plan.md` inputs for common workflows. They 
 `agent-loop-review.md` is the compact control-loop dashboard for the agent bridge. It shows whether `agent-review-prompt.md`, `agent-feedback.md`, `agent-action-plan.md`, and `agent-action-outcomes.md` exist, identifies the next missing step, and lists artifacts to open. It is a workflow index, not proof that the agent advice or experiment is valid.
 
 `experiment-state-board.md` is the top-level state board for the session. It groups visual comparison, metric evidence, agent loop status, and claim gate status into four lanes, names the primary focus, and links the relevant artifacts. The web page also renders those four lanes as scan-friendly cards with embedded before/after/diff thumbnails, the metric delta chart, key metric deltas, agent-loop steps, and claim-gate readiness. After the board is exported once, the web UI refreshes it after key evidence updates such as metric comparison, metric chart, visual diff, guided visual observation, and agent action outcome records. It is a control panel over evidence, not a validity certificate.
+
+`evidence-loop/status` separates source-evidence blockers from missing review indexes. It reports `needs-source-evidence` when paired output inspection or before/after checkpoints are missing, `ready-to-run-loop` when the source evidence exists but review indexes are missing, and `review-index-ready` when the loop outputs are already available.
 
 `Run Evidence Loop` is the web UI shortcut for collecting the review-facing non-GUI indexes. It attempts workflow status, metric comparison, metric chart, visual diff, review timeline, review summary, agent prompt, and live state board in sequence. A missing artifact or failed export is logged as a failed step instead of stopping the loop. It does not launch SUMO GUI, capture screenshots, mutate configs, or prove that the comparison is valid.
 

@@ -31,6 +31,7 @@ function setControls(enabled) {
     "compareReadinessBtn",
     "exportExperimentStateBoardBtn",
     "enableLiveExperimentStateBoardBtn",
+    "checkEvidenceLoopBtn",
     "runEvidenceLoopBtn",
     "evidenceBtn",
     "exportPacketBtn",
@@ -912,6 +913,17 @@ async function refreshWorkflow() {
   log("Refreshed workflow", { status: body.status, claim_status: body.claim_status });
 }
 
+async function refreshEvidenceLoopStatus() {
+  const body = await api(`/api/session/${state.sessionId}/evidence-loop/status`);
+  renderEvidenceLoopStatus(body);
+  log("Checked evidence loop", {
+    status: body.status,
+    source_status: body.source_status,
+    review_status: body.review_status,
+  });
+  return body;
+}
+
 async function refreshScenario() {
   const body = await api(`/api/session/${state.sessionId}/scenario/status`);
   renderScenarioStatus(body);
@@ -952,6 +964,32 @@ function renderComparisonReadiness(body) {
     "",
     "checklist:",
     checklist || "- none",
+    "",
+    "next_actions:",
+    actions || "- none",
+    "",
+    `claim_boundary: ${body.claim_boundary}`,
+  ].join("\n");
+}
+
+function renderEvidenceLoopStatus(body) {
+  const sourceEvidence = (body.source_evidence || [])
+    .map((item) => `${item.status.toUpperCase()} ${item.label}\n  evidence: ${item.evidence}`)
+    .join("\n");
+  const reviewExports = (body.review_exports || [])
+    .map((item) => `${item.status.toUpperCase()} ${item.label}\n  evidence: ${item.evidence}`)
+    .join("\n");
+  const actions = (body.next_actions || []).map((item) => `- ${item}`).join("\n");
+  el("evidenceLoopOutput").textContent = [
+    `status: ${body.status}`,
+    `source_status: ${body.source_status}`,
+    `review_status: ${body.review_status}`,
+    "",
+    "source_evidence:",
+    sourceEvidence || "- none",
+    "",
+    "review_exports:",
+    reviewExports || "- none",
     "",
     "next_actions:",
     actions || "- none",
@@ -1042,6 +1080,14 @@ el("compareReadinessBtn").addEventListener("click", async () => {
     log("Checked comparison readiness", { status: body.status, claim_status: body.claim_status });
   } catch (error) {
     log(`Comparison readiness failed: ${error.message}`);
+  }
+});
+
+el("checkEvidenceLoopBtn").addEventListener("click", async () => {
+  try {
+    await refreshEvidenceLoopStatus();
+  } catch (error) {
+    log(`Evidence loop readiness failed: ${error.message}`);
   }
 });
 
@@ -1513,6 +1559,7 @@ el("runEvidenceLoopBtn").addEventListener("click", runGuidedEvidenceLoop);
 
 async function runGuidedEvidenceLoop() {
   const results = [];
+  results.push(await runEvidenceLoopStep("evidence loop status", async () => refreshEvidenceLoopStatus()));
   results.push(await runEvidenceLoopStep("workflow status", async () => refreshWorkflow()));
   results.push(await runEvidenceLoopStep("metric comparison", async () => {
     const body = await api(`/api/session/${state.sessionId}/metrics/compare`, { method: "POST" });
@@ -1552,6 +1599,7 @@ async function runGuidedEvidenceLoop() {
   }));
   results.push(await runEvidenceLoopStep("live state board", async () => enableLiveExperimentStateBoard()));
   await refreshWorkflow();
+  await refreshEvidenceLoopStatus();
   log("Guided evidence loop finished", { results });
 }
 

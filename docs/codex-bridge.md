@@ -429,6 +429,14 @@ This writes `experiment-state-board.json` and `experiment-state-board.md`. The b
 
 In the web UI, `Enable Live Board` exports the board and activates that guarded refresh behavior for the current session. It does not create new scientific evidence; it keeps the existing evidence index current.
 
+Check evidence-loop readiness before running the non-GUI review loop:
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:8765/api/session/<session_id>/evidence-loop/status
+```
+
+This response separates `source_evidence` from `review_exports`. Use `needs-source-evidence` as a signal to inspect outputs or capture before/after checkpoints first. Use `ready-to-run-loop` as a signal that the web UI `Run Evidence Loop` can collect the review indexes. Use `review-index-ready` as a signal to inspect the generated board, summary, timeline, chart, visual diff, and output inspection. This is still a workflow readiness screen, not a validity certificate.
+
 In the web UI, `Run Evidence Loop` is the fastest non-GUI review path after a session has source evidence. It attempts workflow status, metric comparison, metric chart, visual diff, the `review` timeline preset, review summary, agent review prompt, and live state board in order. Failed steps are logged and the loop continues. It does not launch SUMO GUI, mutate configs, capture screenshots, or certify experiment validity.
 
 Check workflow status before asking Codex for review:

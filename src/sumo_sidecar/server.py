@@ -410,6 +410,13 @@ def create_app(
         except KeyError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
 
+    @app.get("/api/session/{session_id}/evidence-loop/status")
+    def get_evidence_loop_status(session_id: str) -> dict[str, Any]:
+        try:
+            return manager.evidence_loop_status(session_id)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+
     @app.get("/api/session/{session_id}/evidence")
     def get_evidence(session_id: str) -> dict[str, Any]:
         try:

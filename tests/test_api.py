@@ -281,6 +281,25 @@ def test_homepage_exposes_guided_evidence_loop(tmp_path: Path) -> None:
     assert "Guided evidence loop finished" in script_response.text
 
 
+def test_homepage_exposes_evidence_loop_status(tmp_path: Path) -> None:
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+
+    index_response = client.get("/")
+    script_response = client.get("/static/app.js")
+
+    assert index_response.status_code == 200
+    assert script_response.status_code == 200
+    assert "checkEvidenceLoopBtn" in index_response.text
+    assert "Check Evidence Loop" in index_response.text
+    assert "evidenceLoopOutput" in index_response.text
+    assert "/evidence-loop/status" in script_response.text
+    assert "refreshEvidenceLoopStatus" in script_response.text
+    assert "renderEvidenceLoopStatus" in script_response.text
+    assert "source_evidence" in script_response.text
+    assert "review_exports" in script_response.text
+
+
 def test_homepage_exposes_next_action_review_action(tmp_path: Path) -> None:
     app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
     client = TestClient(app)
@@ -2793,6 +2812,105 @@ def test_workflow_status_reports_review_ready_session(tmp_path: Path) -> None:
     assert checklist["timeline"]["status"] == "pass"
     assert checklist["codex_packet"]["status"] == "pass"
     assert body["next_actions"] == ["Ask Codex to inspect codex-packet.md, timeline.md, metric-comparison.md, visual-diff.md, and output-inspection.md."]
+
+
+def test_evidence_loop_status_separates_source_evidence_from_review_exports(tmp_path: Path) -> None:
+    baseline = tmp_path / "baseline.sumocfg"
+    variant = tmp_path / "variant.sumocfg"
+    baseline.write_text("<configuration/>", encoding="utf-8")
+    variant.write_text("<configuration/>", encoding="utf-8")
+
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+
+    create_response = client.post(
+        "/api/session/create",
+        json={
+            "name": "evidence-loop-status-demo",
+            "baseline_config": str(baseline),
+            "variant_config": str(variant),
+        },
+    )
+    session_id = create_response.json()["id"]
+
+    initial_response = client.get(f"/api/session/{session_id}/evidence-loop/status")
+
+    assert initial_response.status_code == 200
+    initial = initial_response.json()
+    assert initial["status"] == "needs-source-evidence"
+    assert initial["source_status"] == "missing"
+    assert initial["review_status"] == "not-ready"
+    source = {item["id"]: item for item in initial["source_evidence"]}
+    review = {item["id"]: item for item in initial["review_exports"]}
+    assert source["output_inspection"]["status"] == "missing"
+    assert source["before_after_checkpoints"]["status"] == "missing"
+    assert review["metric_comparison"]["status"] == "pending"
+    assert any("Inspect Outputs" in action for action in initial["next_actions"])
+    assert any("before-change and after-change" in action for action in initial["next_actions"])
+
+    client.post(f"/api/session/{session_id}/checkpoint/template", json={"template": "before-change"})
+    client.post(f"/api/session/{session_id}/step", json={"count": 2})
+    client.post(f"/api/session/{session_id}/checkpoint/template", json={"template": "after-change"})
+    baseline_summary = tmp_path / "baseline-summary.xml"
+    variant_summary = tmp_path / "variant-summary.xml"
+    baseline_tripinfo = tmp_path / "baseline-tripinfo.xml"
+    variant_tripinfo = tmp_path / "variant-tripinfo.xml"
+    baseline_summary.write_text(
+        '<summary><step time="10" loaded="2" inserted="2" running="0" waiting="0" arrived="2" teleports="0"/></summary>',
+        encoding="utf-8",
+    )
+    variant_summary.write_text(
+        '<summary><step time="10" loaded="2" inserted="2" running="0" waiting="0" arrived="2" teleports="0"/></summary>',
+        encoding="utf-8",
+    )
+    baseline_tripinfo.write_text(
+        '<tripinfos><tripinfo id="b0" duration="10" waitingTime="1" timeLoss="2"/><tripinfo id="b1" duration="20" waitingTime="3" timeLoss="4"/></tripinfos>',
+        encoding="utf-8",
+    )
+    variant_tripinfo.write_text(
+        '<tripinfos><tripinfo id="v0" duration="9" waitingTime="1" timeLoss="2"/><tripinfo id="v1" duration="19" waitingTime="2" timeLoss="3"/></tripinfos>',
+        encoding="utf-8",
+    )
+    client.post(
+        f"/api/session/{session_id}/outputs/inspect",
+        json={
+            "baseline_summary": str(baseline_summary),
+            "baseline_tripinfo": str(baseline_tripinfo),
+            "variant_summary": str(variant_summary),
+            "variant_tripinfo": str(variant_tripinfo),
+        },
+    )
+
+    ready_response = client.get(f"/api/session/{session_id}/evidence-loop/status")
+
+    assert ready_response.status_code == 200
+    ready = ready_response.json()
+    assert ready["status"] == "ready-to-run-loop"
+    assert ready["source_status"] == "ready"
+    assert ready["review_status"] == "missing-review-indexes"
+    assert all(item["status"] == "pass" for item in ready["source_evidence"])
+    ready_review = {item["id"]: item for item in ready["review_exports"]}
+    assert ready_review["metric_comparison"]["status"] == "missing"
+    assert ready["next_actions"] == ["Run Evidence Loop."]
+
+    client.post(f"/api/session/{session_id}/metrics/compare")
+    client.post(f"/api/session/{session_id}/metrics/chart")
+    client.post(f"/api/session/{session_id}/visual-diff/export")
+    client.post(f"/api/session/{session_id}/timeline/export?preset=review")
+    client.post(f"/api/session/{session_id}/review/summary")
+    client.post(f"/api/session/{session_id}/agent-review-prompt/export")
+    client.post(f"/api/session/{session_id}/experiment-state-board/export")
+
+    complete_response = client.get(f"/api/session/{session_id}/evidence-loop/status")
+
+    assert complete_response.status_code == 200
+    complete = complete_response.json()
+    assert complete["status"] == "review-index-ready"
+    assert complete["source_status"] == "ready"
+    assert complete["review_status"] == "complete"
+    assert all(item["status"] == "pass" for item in complete["review_exports"])
+    assert complete["next_actions"] == ["Review experiment-state-board.md, review-summary.md, timeline-review.md, metric-delta-chart.md, visual-diff.md, and output-inspection.md."]
+    assert "not a validity certificate" in complete["claim_boundary"]
 
 
 def test_config_preflight_api_reports_pair_risks(tmp_path: Path) -> None:

@@ -1005,6 +1005,134 @@ class SessionManager:
             "claim_boundary": "Readiness means the sidecar has enough diagnostic evidence for before/after review. It does not certify causality, controller performance, or publishable validity.",
         }
 
+    def evidence_loop_status(self, session_id: str) -> dict[str, Any]:
+        session = self.get(session_id)
+        relative_paths = {item.relative_path for item in self._list_artifacts(session)}
+        templates = {item.template for item in session.evidence if item.template}
+        output_inspection = session.manifest.get("output_inspection")
+        has_before_after = {"before-change", "after-change"}.issubset(templates)
+
+        source_evidence = [
+            self._status_item(
+                "output_inspection",
+                "Inspect Outputs with paired SUMO output files",
+                output_inspection.get("status", "pass") if output_inspection else "missing",
+                output_inspection.get("status", "missing") if output_inspection else "missing",
+            ),
+            self._status_item(
+                "before_after_checkpoints",
+                "Capture before-change and after-change screenshots",
+                "pass" if has_before_after else "missing",
+                ", ".join(sorted(template for template in templates if template)) or "missing",
+            ),
+        ]
+        missing_source = [item for item in source_evidence if item["status"] == "missing"]
+        source_warnings = [item for item in source_evidence if item["status"] == "warn"]
+        if missing_source:
+            source_status = "missing"
+        elif source_warnings:
+            source_status = "ready-with-warnings"
+        else:
+            source_status = "ready"
+
+        review_ready = not missing_source
+        review_exports = [
+            self._review_export_item(
+                session,
+                relative_paths,
+                "workflow_status",
+                "Refresh Workflow status",
+                manifest_key=None,
+                markdown_name=None,
+                review_ready=review_ready,
+            ),
+            self._review_export_item(
+                session,
+                relative_paths,
+                "metric_comparison",
+                "Export metric comparison",
+                "metric_comparison",
+                "metric-comparison.md",
+                review_ready,
+            ),
+            self._review_export_item(
+                session,
+                relative_paths,
+                "metric_chart",
+                "Export metric chart",
+                "metric_chart",
+                "metric-delta-chart.md",
+                review_ready,
+            ),
+            self._review_export_item(
+                session,
+                relative_paths,
+                "visual_diff",
+                "Export visual diff",
+                "visual_diff",
+                "visual-diff.md",
+                review_ready,
+            ),
+            self._review_export_item(
+                session,
+                relative_paths,
+                "review_timeline",
+                "Export review timeline",
+                "timeline_review",
+                "timeline-review.md",
+                review_ready,
+            ),
+            self._review_export_item(
+                session,
+                relative_paths,
+                "review_summary",
+                "Export review summary",
+                "review_summary",
+                "review-summary.md",
+                review_ready,
+            ),
+            self._review_export_item(
+                session,
+                relative_paths,
+                "agent_prompt",
+                "Export agent review prompt",
+                "agent_review_prompt",
+                "agent-review-prompt.md",
+                review_ready,
+            ),
+            self._review_export_item(
+                session,
+                relative_paths,
+                "live_state_board",
+                "Enable live experiment state board",
+                "experiment_state_board",
+                "experiment-state-board.md",
+                review_ready,
+            ),
+        ]
+
+        if not review_ready:
+            review_status = "not-ready"
+            status = "needs-source-evidence"
+        elif all(item["status"] == "pass" for item in review_exports):
+            review_status = "complete"
+            status = "review-index-ready"
+        else:
+            review_status = "missing-review-indexes"
+            status = "ready-to-run-loop"
+
+        return {
+            "session_id": session.id,
+            "session_name": session.name,
+            "status": status,
+            "source_status": source_status,
+            "review_status": review_status,
+            "source_evidence": source_evidence,
+            "review_exports": review_exports,
+            "next_actions": self._evidence_loop_next_actions(source_evidence, review_exports),
+            "claim_boundary": "Evidence loop readiness separates source evidence from review indexes. It is not a validity certificate and does not prove causality, controller performance, or publishable correctness.",
+        }
+
     def export_visual_diff(self, session_id: str) -> dict[str, Any]:
         session = self.get(session_id)
         visual_diff = self._build_visual_diff(session)
@@ -1109,6 +1237,32 @@ class SessionManager:
             "evidence": evidence,
         }
 
+    def _status_item(self, item_id: str, label: str, status: str, evidence: str) -> dict[str, str]:
+        return {
+            "id": item_id,
+            "label": label,
+            "status": status,
+            "evidence": evidence,
+        }
+
+    def _review_export_item(
+        self,
+        session: PairedSession,
+        relative_paths: set[str],
+        item_id: str,
+        label: str,
+        manifest_key: str | None,
+        markdown_name: str | None,
+        review_ready: bool,
+    ) -> dict[str, str]:
+        if not review_ready:
+            return self._status_item(item_id, label, "pending", "waiting for source evidence")
+        if manifest_key is None:
+            return self._status_item(item_id, label, "pass", "available on demand")
+        if manifest_key in session.manifest and markdown_name in relative_paths:
+            return self._status_item(item_id, label, "pass", markdown_name or "available")
+        return self._status_item(item_id, label, "missing", markdown_name or "missing")
+
     def _workflow_next_actions(self, checklist: list[dict[str, str]]) -> list[str]:
         status_by_id = {item["id"]: item["status"] for item in checklist}
         actions: list[str] = []
@@ -1133,6 +1287,23 @@ class SessionManager:
         if not actions:
             actions.append("Ask Codex to inspect codex-packet.md, timeline.md, metric-comparison.md, visual-diff.md, and output-inspection.md.")
         return actions
+
+    def _evidence_loop_next_actions(
+        self,
+        source_evidence: list[dict[str, str]],
+        review_exports: list[dict[str, str]],
+    ) -> list[str]:
+        source_status = {item["id"]: item["status"] for item in source_evidence}
+        actions: list[str] = []
+        if source_status.get("output_inspection") == "missing":
+            actions.append("Inspect Outputs with paired summary.xml and tripinfo.xml.")
+        if source_status.get("before_after_checkpoints") == "missing":
+            actions.append("Capture before-change and after-change checkpoints.")
+        if actions:
+            return actions
+        if any(item["status"] != "pass" for item in review_exports):
+            return ["Run Evidence Loop."]
+        return ["Review experiment-state-board.md, review-summary.md, timeline-review.md, metric-delta-chart.md, visual-diff.md, and output-inspection.md."]
 
     def _comparison_readiness_actions(self, checklist: list[dict[str, str]]) -> list[str]:
         status_by_id = {item["id"]: item["status"] for item in checklist}
