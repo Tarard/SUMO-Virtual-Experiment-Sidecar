@@ -28,6 +28,7 @@ function setControls(enabled) {
     "stateBtn",
     "workflowBtn",
     "compareReadinessBtn",
+    "exportExperimentStateBoardBtn",
     "evidenceBtn",
     "exportPacketBtn",
     "exportAgentPromptBtn",
@@ -1037,6 +1038,25 @@ el("compareReadinessBtn").addEventListener("click", async () => {
     log(`Comparison readiness failed: ${error.message}`);
   }
 });
+
+el("exportExperimentStateBoardBtn").addEventListener("click", async () => {
+  try {
+    const body = await api(`/api/session/${state.sessionId}/experiment-state-board/export`, { method: "POST" });
+    renderExperimentStateBoard(body);
+    await refreshWorkflow();
+    log("Exported experiment state board", {
+      experiment_state_board_markdown_path: body.experiment_state_board_markdown_path,
+    });
+  } catch (error) {
+    log(`Experiment state board export failed: ${error.message}`);
+  }
+});
+
+function renderExperimentStateBoard(body) {
+  renderEvidence(body.evidence);
+  el("experimentStateBoardPreview").textContent =
+    body.experiment_state_board_markdown || "No experiment state board exported.";
+}
 
 el("evidenceBtn").addEventListener("click", async () => {
   try {

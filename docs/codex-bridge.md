@@ -419,6 +419,14 @@ Invoke-RestMethod -Uri http://127.0.0.1:8765/api/session/<session_id>/agent-loop
 
 This writes `agent-loop-review.json` and `agent-loop-review.md`. The review summarizes `prompt -> feedback -> action plan -> outcome`, identifies the next missing bridge step, lists artifacts to open, and repeats the claim boundary. It is a workflow dashboard, not a validation result.
 
+Export the top-level experiment state board when you want one compact view of visual evidence, metric evidence, agent-loop status, and claim-gate status:
+
+```powershell
+Invoke-RestMethod -Uri http://127.0.0.1:8765/api/session/<session_id>/experiment-state-board/export -Method Post
+```
+
+This writes `experiment-state-board.json` and `experiment-state-board.md`. The board groups the session into four lanes: visual comparison, metric evidence, agent loop, and claim gate. Use it as the first artifact to inspect before opening deeper files. It is still an evidence control panel, not a validity certificate.
+
 Check workflow status before asking Codex for review:
 
 ```powershell

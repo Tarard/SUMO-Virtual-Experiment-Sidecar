@@ -75,7 +75,7 @@ CHECKPOINT_TEMPLATES = {
 
 TIMELINE_PRESETS = {
     "full": None,
-    "review": {"session-created", "scenario-plan", "user-note", "change-record", "visual-observation", "screenshot-checkpoint", "output-inspection", "metric-comparison", "metric-chart", "visual-diff", "codex-packet", "review-summary", "next-action-review", "agent-feedback", "agent-action-plan", "agent-action-outcome", "agent-loop-review"},
+    "review": {"session-created", "scenario-plan", "user-note", "change-record", "visual-observation", "screenshot-checkpoint", "output-inspection", "metric-comparison", "metric-chart", "visual-diff", "codex-packet", "review-summary", "next-action-review", "agent-feedback", "agent-action-plan", "agent-action-outcome", "agent-loop-review", "experiment-state-board"},
     "visual": {"session-created", "screenshot-checkpoint", "visual-observation", "visual-diff"},
     "outputs": {"session-created", "output-inspection", "metric-comparison", "metric-chart"},
     "notes": {"session-created", "scenario-plan", "user-note", "change-record"},
@@ -479,6 +479,31 @@ class SessionManager:
             "agent_loop_review_json_path": json_path,
             "agent_loop_review_markdown_path": markdown_path,
             "agent_loop_review_markdown": review_markdown,
+            "evidence": self.evidence(session_id),
+        }
+
+    def export_experiment_state_board(self, session_id: str) -> dict[str, Any]:
+        session = self.get(session_id)
+        readiness = self.comparison_readiness(session_id)
+        workflow = self.workflow_status(session_id)
+        board = self._build_experiment_state_board(session, readiness, workflow)
+        board_markdown = self._render_experiment_state_board_markdown(board)
+        json_path = session.session_dir / "experiment-state-board.json"
+        markdown_path = session.session_dir / "experiment-state-board.md"
+        json_path.write_text(json.dumps(board, indent=2), encoding="utf-8")
+        markdown_path.write_text(board_markdown, encoding="utf-8")
+        session.manifest["experiment_state_board"] = {
+            "status": board["status"],
+            "json": str(json_path),
+            "markdown": str(markdown_path),
+            "updated_at": _utc_now(),
+        }
+        self._write_manifest(session)
+        return {
+            "experiment_state_board": board,
+            "experiment_state_board_json_path": json_path,
+            "experiment_state_board_markdown_path": markdown_path,
+            "experiment_state_board_markdown": board_markdown,
             "evidence": self.evidence(session_id),
         }
 
@@ -1459,6 +1484,24 @@ class SessionManager:
                     ],
                 }
             )
+        if "experiment_state_board" in session.manifest:
+            board = session.manifest["experiment_state_board"]
+            events.append(
+                {
+                    "sequence": len(events) + 1,
+                    "kind": "experiment-state-board",
+                    "label": "Experiment state board",
+                    "simulation_time": None,
+                    "wall_time": board.get("updated_at"),
+                    "status": board.get("status", "unknown"),
+                    "template": None,
+                    "note": "compact visual-metric-agent-claim state overview",
+                    "artifacts": [
+                        self._relative_artifact(session, board.get("json", "")),
+                        self._relative_artifact(session, board.get("markdown", "")),
+                    ],
+                }
+            )
         return {
             "session_id": session.id,
             "session_name": session.name,
@@ -1905,6 +1948,12 @@ class SessionManager:
                 "Agent loop review",
                 session.manifest.get("agent_loop_review"),
             ),
+            self._review_manifest_card(
+                session,
+                "experiment_state_board",
+                "Experiment state board",
+                session.manifest.get("experiment_state_board"),
+            ),
             self._review_card(
                 "workflow",
                 "Workflow control screen",
@@ -1987,6 +2036,7 @@ class SessionManager:
 
     def _review_artifacts_to_review(self, session: PairedSession) -> list[str]:
         candidates = [
+            "experiment-state-board.md",
             "agent-loop-review.md",
             "agent-action-outcomes.md",
             "agent-action-plan.md",
@@ -2047,6 +2097,7 @@ class SessionManager:
 
     def _agent_prompt_artifacts_to_open(self, session: PairedSession) -> list[str]:
         candidates = [
+            "experiment-state-board.md",
             "agent-loop-review.md",
             "agent-action-outcomes.md",
             "agent-action-plan.md",
@@ -2068,6 +2119,140 @@ class SessionManager:
             "manifest.json",
         ]
         return [path for path in candidates if (session.session_dir / path).exists()]
+
+    def _build_experiment_state_board(
+        self,
+        session: PairedSession,
+        readiness: dict[str, Any],
+        workflow: dict[str, Any],
+    ) -> dict[str, Any]:
+        relative_paths = {item.relative_path for item in self._list_artifacts(session)}
+        visual_artifacts = self._existing_artifacts(
+            relative_paths,
+            ["visual-diff.md", "visual-observations.md", "comparison.md"],
+        )
+        metric_artifacts = self._existing_artifacts(
+            relative_paths,
+            ["output-inspection.md", "metric-comparison.md", "metric-delta-chart.md", "metric-delta-chart.svg"],
+        )
+        agent_artifacts = self._existing_artifacts(
+            relative_paths,
+            [
+                "agent-loop-review.md",
+                "agent-action-outcomes.md",
+                "agent-action-plan.md",
+                "agent-feedback.md",
+                "agent-review-prompt.md",
+            ],
+        )
+        claim_artifacts = self._existing_artifacts(
+            relative_paths,
+            ["experiment-state-board.md", "review-summary.md", "timeline-review.md", "timeline.md", "codex-packet.md"],
+        )
+        visual_status = "pass" if "visual-diff.md" in relative_paths else ("warn" if visual_artifacts else "missing")
+        metric_status = (
+            "pass"
+            if {"output-inspection.md", "metric-comparison.md"}.issubset(relative_paths)
+            else ("warn" if metric_artifacts else "missing")
+        )
+        agent_loop_status = session.manifest.get("agent_loop_review", {}).get("status")
+        agent_status = (
+            "pass"
+            if "agent-loop-review.md" in relative_paths and agent_loop_status == "outcome-recorded"
+            else ("warn" if agent_artifacts else "missing")
+        )
+        claim_status = workflow["status"] if workflow["status"] == "review-ready" else readiness["status"]
+        claim_ready = claim_status in {"ready-to-compare", "ready-for-agent-review", "review-ready"}
+        lanes = [
+            self._experiment_state_lane(
+                "visual_comparison",
+                "Visual comparison",
+                visual_status,
+                "before/after visual-diff evidence is available"
+                if visual_status == "pass"
+                else "export visual diff after paired before/after checkpoints",
+                visual_artifacts,
+            ),
+            self._experiment_state_lane(
+                "metric_evidence",
+                "Metric evidence",
+                metric_status,
+                "output inspection and metric comparison are available"
+                if metric_status == "pass"
+                else "inspect SUMO outputs and compare completion-first metrics",
+                metric_artifacts,
+            ),
+            self._experiment_state_lane(
+                "agent_loop",
+                "Agent loop",
+                agent_status,
+                f"agent bridge loop status: {agent_loop_status or 'not exported'}",
+                agent_artifacts,
+            ),
+            self._experiment_state_lane(
+                "claim_gate",
+                "Claim gate",
+                claim_status,
+                f"comparison readiness: {readiness['status']}; workflow: {workflow['status']}",
+                claim_artifacts,
+            ),
+        ]
+        if visual_status != "pass":
+            primary_focus = "Export Visual Diff so the before/after GUI evidence has a compact index."
+        elif metric_status != "pass":
+            primary_focus = "Inspect SUMO outputs and export Metric Comparison before interpreting visual differences."
+        elif agent_status != "pass":
+            primary_focus = "Export Agent Loop Review after recording the Codex/Claude prompt, feedback, plan, and outcome."
+        elif not claim_ready:
+            fallback_actions = readiness.get("next_actions", []) + workflow.get("next_actions", [])
+            primary_focus = fallback_actions[0] if fallback_actions else "Refresh Workflow and Check Compare Readiness."
+        else:
+            primary_focus = "Inspect the board lanes with SUMO output files before making any claim."
+        status = (
+            "review-board-ready"
+            if visual_status == "pass" and metric_status == "pass" and agent_status == "pass" and claim_ready
+            else "needs-evidence"
+        )
+        return {
+            "session_id": session.id,
+            "session_name": session.name,
+            "session_dir": str(session.session_dir),
+            "status": status,
+            "readiness_status": readiness["status"],
+            "workflow_status": workflow["status"],
+            "claim_status": readiness["claim_status"],
+            "lanes": lanes,
+            "metric_highlights": self._metric_highlights(session),
+            "primary_focus": primary_focus,
+            "next_actions": self._dedupe_actions([primary_focus] + readiness.get("next_actions", []) + workflow.get("next_actions", [])),
+            "claim_boundary": "This board is a compact state overview. It does not run SUMO, validate causality, certify controller performance, or replace paired output files.",
+        }
+
+    def _experiment_state_lane(
+        self,
+        lane_id: str,
+        label: str,
+        status: str,
+        summary: str,
+        artifacts: list[str],
+    ) -> dict[str, Any]:
+        return {
+            "id": lane_id,
+            "label": label,
+            "status": status,
+            "summary": summary,
+            "artifacts": artifacts,
+        }
+
+    def _existing_artifacts(self, relative_paths: set[str], candidates: list[str]) -> list[str]:
+        return [path for path in candidates if path in relative_paths]
+
+    def _dedupe_actions(self, actions: list[str]) -> list[str]:
+        deduped = []
+        for action in actions:
+            if action and action not in deduped:
+                deduped.append(action)
+        return deduped
 
     def _build_agent_loop_review(self, session: PairedSession, workflow: dict[str, Any]) -> dict[str, Any]:
         relative_paths = {item.relative_path for item in self._list_artifacts(session)}
@@ -3082,6 +3267,49 @@ class SessionManager:
             ]
         )
         return "\n".join(lines)
+
+    def _render_experiment_state_board_markdown(self, board: dict[str, Any]) -> str:
+        lane_lines = []
+        for lane in board["lanes"]:
+            artifacts = ", ".join(f"`{artifact}`" for artifact in lane["artifacts"]) or "none"
+            lane_lines.append(
+                f"| {self._markdown_table_cell(lane['label'])} | `{lane['status']}` | {self._markdown_table_cell(lane['summary'])} | {artifacts} |"
+            )
+        metric_lines = self._render_metric_table(board["metric_highlights"]) if board["metric_highlights"] else ["No metric highlights exported yet."]
+        action_lines = [f"- {action}" for action in board["next_actions"]] or ["- none"]
+        return "\n".join(
+            [
+                f"# Experiment State Board: {board['session_name']}",
+                "",
+                "A compact visual-metric-agent-claim overview for the current SUMO Sidecar session.",
+                "",
+                "## Status",
+                "",
+                f"- Board status: `{board['status']}`",
+                f"- Comparison readiness: `{board['readiness_status']}`",
+                f"- Workflow status: `{board['workflow_status']}`",
+                f"- Claim status: `{board['claim_status']}`",
+                f"- Primary focus: {board['primary_focus']}",
+                "",
+                "## Board lanes",
+                "",
+                "| Lane | Status | Summary | Artifacts |",
+                "|---|---:|---|---|",
+                *lane_lines,
+                "",
+                "## Metric highlights",
+                "",
+                *metric_lines,
+                "",
+                "## Next actions",
+                "",
+                *action_lines,
+                "",
+                "## Claim boundary",
+                "",
+                board["claim_boundary"],
+            ]
+        )
 
     def _render_agent_loop_review_markdown(self, review: dict[str, Any]) -> str:
         step_lines = [

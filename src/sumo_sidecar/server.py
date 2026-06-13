@@ -516,6 +516,20 @@ def create_app(
         except KeyError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
 
+    @app.post("/api/session/{session_id}/experiment-state-board/export")
+    def export_experiment_state_board(session_id: str) -> dict[str, Any]:
+        try:
+            board = manager.export_experiment_state_board(session_id)
+            return {
+                "experiment_state_board": board["experiment_state_board"],
+                "experiment_state_board_json_path": str(board["experiment_state_board_json_path"]),
+                "experiment_state_board_markdown_path": str(board["experiment_state_board_markdown_path"]),
+                "experiment_state_board_markdown": board["experiment_state_board_markdown"],
+                "evidence": board["evidence"].model_dump(mode="json"),
+            }
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+
     @app.post("/api/session/{session_id}/next-action-review/export")
     def export_next_action_review(session_id: str) -> dict[str, Any]:
         try:

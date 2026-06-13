@@ -215,6 +215,22 @@ def test_homepage_exposes_agent_loop_review_export(tmp_path: Path) -> None:
     assert "renderAgentLoopReview" in script_response.text
 
 
+def test_homepage_exposes_experiment_state_board_export(tmp_path: Path) -> None:
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+
+    index_response = client.get("/")
+    script_response = client.get("/static/app.js")
+
+    assert index_response.status_code == 200
+    assert script_response.status_code == 200
+    assert "exportExperimentStateBoardBtn" in index_response.text
+    assert "Export Experiment State Board" in index_response.text
+    assert "experimentStateBoardPreview" in index_response.text
+    assert "/experiment-state-board/export" in script_response.text
+    assert "renderExperimentStateBoard" in script_response.text
+
+
 def test_homepage_exposes_next_action_review_action(tmp_path: Path) -> None:
     app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
     client = TestClient(app)
@@ -2443,6 +2459,148 @@ def test_agent_loop_review_exports_closed_agent_control_loop(tmp_path: Path) -> 
     card_ids = {card["id"] for card in summary["review_summary"]["cards"]}
     assert "agent_loop_review" in card_ids
     assert "agent-loop-review.md" in summary["review_summary_markdown"]
+
+
+def test_experiment_state_board_exports_visual_metric_agent_gate_overview(tmp_path: Path) -> None:
+    baseline = tmp_path / "baseline.sumocfg"
+    variant = tmp_path / "variant.sumocfg"
+    baseline.write_text("<configuration/>", encoding="utf-8")
+    variant.write_text("<configuration/>", encoding="utf-8")
+
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+
+    create_response = client.post(
+        "/api/session/create",
+        json={
+            "name": "experiment-state-board-demo",
+            "baseline_config": str(baseline),
+            "variant_config": str(variant),
+        },
+    )
+    session_id = create_response.json()["id"]
+    client.post(
+        f"/api/session/{session_id}/scenario/plan",
+        json={
+            "label": "board-demo-change",
+            "parameter": "max_green",
+            "before_value": "30",
+            "after_value": "45",
+            "hypothesis": "Check whether longer green changes completion and duration evidence.",
+            "expected_metrics": ["completion_ratio", "mean_duration"],
+        },
+    )
+    client.post(f"/api/session/{session_id}/checkpoint/first")
+    client.post(f"/api/session/{session_id}/checkpoint/template", json={"template": "before-change"})
+    client.post(f"/api/session/{session_id}/step", json={"count": 2})
+    client.post(f"/api/session/{session_id}/checkpoint/template", json={"template": "after-change"})
+    client.post(
+        f"/api/session/{session_id}/change/record",
+        json={
+            "label": "max-green-change",
+            "parameter": "max_green",
+            "before_value": "30",
+            "after_value": "45",
+            "rationale": "Record the planned controller parameter change between checkpoints.",
+        },
+    )
+    baseline_summary = tmp_path / "baseline-summary.xml"
+    variant_summary = tmp_path / "variant-summary.xml"
+    baseline_tripinfo = tmp_path / "baseline-tripinfo.xml"
+    variant_tripinfo = tmp_path / "variant-tripinfo.xml"
+    baseline_summary.write_text(
+        '<summary><step time="10" loaded="2" inserted="2" running="0" waiting="0" arrived="2" teleports="0"/></summary>',
+        encoding="utf-8",
+    )
+    variant_summary.write_text(
+        '<summary><step time="10" loaded="2" inserted="2" running="0" waiting="0" arrived="2" teleports="0"/></summary>',
+        encoding="utf-8",
+    )
+    baseline_tripinfo.write_text(
+        '<tripinfos><tripinfo id="b0" duration="10" waitingTime="1" timeLoss="2"/><tripinfo id="b1" duration="20" waitingTime="3" timeLoss="4"/></tripinfos>',
+        encoding="utf-8",
+    )
+    variant_tripinfo.write_text(
+        '<tripinfos><tripinfo id="v0" duration="8" waitingTime="0" timeLoss="1"/><tripinfo id="v1" duration="18" waitingTime="2" timeLoss="3"/></tripinfos>',
+        encoding="utf-8",
+    )
+    client.post(
+        f"/api/session/{session_id}/outputs/inspect",
+        json={
+            "baseline_summary": str(baseline_summary),
+            "baseline_tripinfo": str(baseline_tripinfo),
+            "variant_summary": str(variant_summary),
+            "variant_tripinfo": str(variant_tripinfo),
+        },
+    )
+    client.post(f"/api/session/{session_id}/metrics/compare")
+    client.post(f"/api/session/{session_id}/metrics/chart")
+    client.post(f"/api/session/{session_id}/visual-diff/export")
+    client.post(f"/api/session/{session_id}/timeline/export?preset=review")
+    client.post(f"/api/session/{session_id}/review/summary")
+    client.post(f"/api/session/{session_id}/agent-review-prompt/export")
+    client.post(
+        f"/api/session/{session_id}/agent-feedback/record",
+        json={
+            "label": "codex-output-check",
+            "source_agent": "Codex",
+            "prompt_artifact": "agent-review-prompt.md",
+            "response_text": "Inspect output-inspection.md before making any performance claim.",
+            "recommended_action": "Inspect Outputs",
+            "claim_boundary": "Treat the current review as diagnostic only.",
+        },
+    )
+    client.post(f"/api/session/{session_id}/agent-action-plan/export")
+    client.post(
+        f"/api/session/{session_id}/agent-action-outcome/record",
+        json={
+            "label": "inspect-outputs-completed",
+            "action_plan_artifact": "agent-action-plan.md",
+            "action": "Inspect Outputs",
+            "outcome_status": "completed",
+            "evidence_artifact": "output-inspection.md",
+            "note": "Output inspection was run and completion evidence is now available.",
+        },
+    )
+    client.post(f"/api/session/{session_id}/agent-loop-review/export")
+
+    response = client.post(f"/api/session/{session_id}/experiment-state-board/export")
+
+    assert response.status_code == 200
+    body = response.json()
+    board = body["experiment_state_board"]
+    assert board["status"] == "review-board-ready"
+    lanes = {lane["id"]: lane for lane in board["lanes"]}
+    assert lanes["visual_comparison"]["status"] == "pass"
+    assert "visual-diff.md" in lanes["visual_comparison"]["artifacts"]
+    assert lanes["metric_evidence"]["status"] == "pass"
+    assert "metric-comparison.md" in lanes["metric_evidence"]["artifacts"]
+    assert lanes["agent_loop"]["status"] == "pass"
+    assert "agent-loop-review.md" in lanes["agent_loop"]["artifacts"]
+    assert lanes["claim_gate"]["status"] in {"ready-to-compare", "ready-for-agent-review", "review-ready"}
+    assert "Inspect the board lanes" in board["primary_focus"]
+    assert Path(body["experiment_state_board_json_path"]).name == "experiment-state-board.json"
+    assert Path(body["experiment_state_board_markdown_path"]).name == "experiment-state-board.md"
+    assert "Visual comparison" in body["experiment_state_board_markdown"]
+    assert "Metric evidence" in body["experiment_state_board_markdown"]
+    assert "Agent loop" in body["experiment_state_board_markdown"]
+    assert "Claim gate" in body["experiment_state_board_markdown"]
+    artifact_paths = {item["relative_path"] for item in body["evidence"]["artifacts"]}
+    assert "experiment-state-board.json" in artifact_paths
+    assert "experiment-state-board.md" in artifact_paths
+
+    timeline_response = client.post(f"/api/session/{session_id}/timeline/export?preset=review")
+    assert timeline_response.status_code == 200
+    timeline = timeline_response.json()
+    assert "experiment-state-board" in {event["kind"] for event in timeline["timeline"]["events"]}
+    assert "experiment-state-board.md" in timeline["timeline_markdown"]
+
+    summary_response = client.post(f"/api/session/{session_id}/review/summary")
+    assert summary_response.status_code == 200
+    summary = summary_response.json()
+    card_ids = {card["id"] for card in summary["review_summary"]["cards"]}
+    assert "experiment_state_board" in card_ids
+    assert "experiment-state-board.md" in summary["review_summary_markdown"]
 
 
 def test_workflow_status_guides_incomplete_session_next_actions(tmp_path: Path) -> None:
