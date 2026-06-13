@@ -922,6 +922,46 @@ button:disabled {
   aspect-ratio: 4 / 3;
 }
 
+.visual-diff-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.visual-diff-summary-card {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-left: 5px solid var(--accent-2);
+  border-radius: 6px;
+  background: #ffffff;
+  padding: 10px;
+}
+
+.visual-diff-summary-card span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.visual-diff-summary-card strong {
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.visual-diff-summary-card em {
+  color: var(--muted);
+  font-size: 12px;
+  font-style: normal;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
 pre {
   min-height: 96px;
   overflow: auto;
@@ -999,6 +1039,10 @@ code {
 
   .visual-diff-matrix {
     grid-template-columns: minmax(92px, 120px) repeat(3, minmax(160px, 1fr));
+  }
+
+  .visual-diff-summary {
+    grid-template-columns: 1fr;
   }
 
   .state-board-lanes {

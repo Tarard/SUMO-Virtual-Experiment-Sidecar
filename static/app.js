@@ -2327,6 +2327,7 @@ function renderVisualDiff(visualDiff) {
     container.textContent = (visualDiff.warnings || []).join("\n") || "No before/after visual pairs found.";
     return;
   }
+  container.append(renderVisualDiffSummary(visualDiff));
   for (const pair of pairs) {
     const article = document.createElement("article");
     article.className = "visual-diff-pair";
@@ -2339,6 +2340,60 @@ function renderVisualDiff(visualDiff) {
 
     container.append(article);
   }
+}
+
+function renderVisualDiffSummary(visualDiff) {
+  const summary = document.createElement("div");
+  summary.className = "visual-diff-summary";
+  const pairs = visualDiff.pairs || [];
+  summary.append(
+    makeVisualDiffSummaryCard("status", visualDiff.status || "unknown", "visual diff index status"),
+    makeVisualDiffSummaryCard("pairs", String(pairs.length), "paired before/after groups"),
+  );
+  if (pairs.length) {
+    summary.append(renderVisualDiffPairSummary(pairs[0]));
+  }
+  const warnings = visualDiff.warnings || [];
+  summary.append(
+    makeVisualDiffSummaryCard(
+      "boundary",
+      warnings.length ? `${warnings.length} warning(s)` : "diagnostic only",
+      "GUI screenshots still need output and completion evidence before claims.",
+    ),
+  );
+  return summary;
+}
+
+function renderVisualDiffPairSummary(pair) {
+  const dominantRow = dominantVisualDiffRow(pair);
+  const ratio = dominantRow ? formatPixelRatio(dominantRow) || "pixel ratio unavailable" : "no row";
+  const pixelStatus = pair.pixel_diff ? pair.pixel_diff.status || "unknown" : "index-only";
+  return makeVisualDiffSummaryCard(
+    "dominant_row",
+    dominantRow ? dominantRow.label || dominantRow.role || "unknown" : "not available",
+    `pixel_diff_status: ${pixelStatus}; ${ratio}`,
+  );
+}
+
+function dominantVisualDiffRow(pair) {
+  const rows = visualDiffRows(pair).filter((row) => typeof row.changed_pixel_ratio === "number");
+  if (!rows.length) {
+    return null;
+  }
+  return rows.reduce((best, row) => (row.changed_pixel_ratio > best.changed_pixel_ratio ? row : best), rows[0]);
+}
+
+function makeVisualDiffSummaryCard(label, value, detail) {
+  const card = document.createElement("div");
+  card.className = "visual-diff-summary-card";
+  const labelNode = document.createElement("span");
+  labelNode.textContent = label;
+  const valueNode = document.createElement("strong");
+  valueNode.textContent = value;
+  const detailNode = document.createElement("em");
+  detailNode.textContent = detail;
+  card.append(labelNode, valueNode, detailNode);
+  return card;
 }
 
 function renderVisualDiffMatrix(pair) {

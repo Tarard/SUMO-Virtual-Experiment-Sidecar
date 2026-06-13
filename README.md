@@ -399,6 +399,8 @@ Timeline presets write separate files such as `timeline-visual.md`, `timeline-ou
 
 `visual-diff.md` pairs `before-change` and `after-change` screenshots and lists a visual comparison matrix: Baseline before, Baseline after, Baseline pixel diff, Variant before, Variant after, and Variant pixel diff. This is still diagnostic visual evidence; it does not replace output-based performance checks.
 
+The web Visual Review drawer renders a compact visual-diff summary strip before the full matrix. It reports the visual-diff status, number of paired before/after groups, the row with the largest available changed-pixel ratio, and the diagnostic claim boundary so users know where to look first.
+
 When possible, the sidecar also writes pixel-level diff artifacts under `visual-diff/`. White pixels indicate changed pixels and black pixels indicate unchanged pixels. The matrix reports changed-pixel counts and ratios for quick screening. If screenshots are not valid raster images, or if image dimensions differ, the export remains available as an index and records the pixel-diff warning instead of failing.
 
 ## Config Pair Preflight
