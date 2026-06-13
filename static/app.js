@@ -30,6 +30,7 @@ function setControls(enabled) {
     "workflowBtn",
     "compareReadinessBtn",
     "exportExperimentStateBoardBtn",
+    "enableLiveExperimentStateBoardBtn",
     "evidenceBtn",
     "exportPacketBtn",
     "exportAgentPromptBtn",
@@ -1055,6 +1056,21 @@ el("exportExperimentStateBoardBtn").addEventListener("click", async () => {
     log(`Experiment state board export failed: ${error.message}`);
   }
 });
+
+el("enableLiveExperimentStateBoardBtn").addEventListener("click", enableLiveExperimentStateBoard);
+
+async function enableLiveExperimentStateBoard() {
+  try {
+    const body = await api(`/api/session/${state.sessionId}/experiment-state-board/export`, { method: "POST" });
+    renderExperimentStateBoard(body);
+    await refreshWorkflow();
+    log("Live experiment state board enabled", {
+      experiment_state_board_markdown_path: body.experiment_state_board_markdown_path,
+    });
+  } catch (error) {
+    log(`Live experiment state board failed: ${error.message}`);
+  }
+}
 
 async function refreshExperimentStateBoardIfAvailable(reason) {
   if (!state.sessionId || !state.hasExperimentStateBoard) {

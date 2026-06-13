@@ -427,6 +427,8 @@ Invoke-RestMethod -Uri http://127.0.0.1:8765/api/session/<session_id>/experiment
 
 This writes `experiment-state-board.json` and `experiment-state-board.md`. The board groups the session into four lanes: visual comparison, metric evidence, agent loop, and claim gate. The web page renders the same lanes with embedded before/after/diff thumbnails, the metric delta chart, key metric deltas, agent-loop steps, and claim-gate readiness. After the board is exported once, the web UI refreshes it after key evidence updates such as metric comparison, metric chart, visual diff, guided visual observation, and agent action outcome records. Use it as the first artifact to inspect before opening deeper files. It is still an evidence control panel, not a validity certificate.
 
+In the web UI, `Enable Live Board` exports the board and activates that guarded refresh behavior for the current session. It does not create new scientific evidence; it keeps the existing evidence index current.
+
 Check workflow status before asking Codex for review:
 
 ```powershell

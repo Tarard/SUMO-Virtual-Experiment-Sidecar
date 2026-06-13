@@ -228,9 +228,13 @@ def test_homepage_exposes_experiment_state_board_export(tmp_path: Path) -> None:
     assert style_response.status_code == 200
     assert "exportExperimentStateBoardBtn" in index_response.text
     assert "Export Experiment State Board" in index_response.text
+    assert "enableLiveExperimentStateBoardBtn" in index_response.text
+    assert "Enable Live Board" in index_response.text
     assert "experimentStateBoardCards" in index_response.text
     assert "experimentStateBoardPreview" in index_response.text
     assert "/experiment-state-board/export" in script_response.text
+    assert "enableLiveExperimentStateBoard" in script_response.text
+    assert "Live experiment state board enabled" in script_response.text
     assert "hasExperimentStateBoard: false" in script_response.text
     assert "refreshExperimentStateBoardIfAvailable" in script_response.text
     assert "state.hasExperimentStateBoard = true" in script_response.text

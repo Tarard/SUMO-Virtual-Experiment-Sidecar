@@ -160,7 +160,7 @@ Use `Refresh Workflow` to see which evidence steps are complete, which are missi
 
 Use `Check Compare Readiness` to see whether the active session has the core before/after evidence needed for diagnostic comparison: scenario plan, first checkpoint, before/after checkpoints, change record, output inspection, metric comparison, and visual diff. It will still recommend metric chart, timeline, review summary, and Codex packet before final agent review.
 
-Use `Export Experiment State Board` when you want one compact control panel for the current session. It groups visual comparison, metric evidence, agent loop state, and claim gate status, then names the next focus.
+Use `Export Experiment State Board` when you want one compact control panel for the current session. It groups visual comparison, metric evidence, agent loop state, and claim gate status, then names the next focus. Use `Enable Live Board` to export the board and keep it refreshed after key evidence updates in the current session.
 
 Use the `Timeline preset` selector before `Export Timeline` when a session is long. Presets include `full`, `review`, `visual`, `outputs`, and `notes`.
 
