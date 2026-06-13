@@ -32,6 +32,7 @@ function setControls(enabled) {
     "exportPacketBtn",
     "exportAgentPromptBtn",
     "exportAgentActionPlanBtn",
+    "exportAgentLoopReviewBtn",
     "recordAgentFeedbackBtn",
     "recordAgentActionOutcomeBtn",
     "exportNextActionReviewBtn",
@@ -1132,6 +1133,23 @@ function renderAgentActionOutcome(body) {
   renderEvidence(body.evidence);
   el("agentActionOutcomePreview").textContent =
     body.agent_action_outcome_markdown || "No agent action outcome recorded.";
+}
+
+el("exportAgentLoopReviewBtn").addEventListener("click", async () => {
+  try {
+    const body = await api(`/api/session/${state.sessionId}/agent-loop-review/export`, { method: "POST" });
+    renderAgentLoopReview(body);
+    await refreshWorkflow();
+    log("Exported agent loop review", { agent_loop_review_markdown_path: body.agent_loop_review_markdown_path });
+  } catch (error) {
+    log(`Agent loop review export failed: ${error.message}`);
+  }
+});
+
+function renderAgentLoopReview(body) {
+  renderEvidence(body.evidence);
+  el("agentLoopReviewPreview").textContent =
+    body.agent_loop_review_markdown || "No agent loop review exported.";
 }
 
 el("exportNextActionReviewBtn").addEventListener("click", async () => {

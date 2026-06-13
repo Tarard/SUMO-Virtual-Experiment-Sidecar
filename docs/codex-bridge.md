@@ -411,6 +411,14 @@ Invoke-RestMethod `
 
 This writes `agent-action-outcomes.json` and `agent-action-outcomes.md`, adds the outcome to review timelines, and surfaces it in `review-summary.md`. It records manual workflow execution; it is not proof that the experiment or agent recommendation is valid.
 
+Export a compact control-loop review when you want to see the whole bridge state in one artifact:
+
+```powershell
+Invoke-RestMethod -Uri http://127.0.0.1:8765/api/session/<session_id>/agent-loop-review/export -Method Post
+```
+
+This writes `agent-loop-review.json` and `agent-loop-review.md`. The review summarizes `prompt -> feedback -> action plan -> outcome`, identifies the next missing bridge step, lists artifacts to open, and repeats the claim boundary. It is a workflow dashboard, not a validation result.
+
 Check workflow status before asking Codex for review:
 
 ```powershell

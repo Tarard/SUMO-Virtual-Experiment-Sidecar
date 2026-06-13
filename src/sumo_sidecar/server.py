@@ -502,6 +502,20 @@ def create_app(
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
+    @app.post("/api/session/{session_id}/agent-loop-review/export")
+    def export_agent_loop_review(session_id: str) -> dict[str, Any]:
+        try:
+            review = manager.export_agent_loop_review(session_id)
+            return {
+                "agent_loop_review": review["agent_loop_review"],
+                "agent_loop_review_json_path": str(review["agent_loop_review_json_path"]),
+                "agent_loop_review_markdown_path": str(review["agent_loop_review_markdown_path"]),
+                "agent_loop_review_markdown": review["agent_loop_review_markdown"],
+                "evidence": review["evidence"].model_dump(mode="json"),
+            }
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+
     @app.post("/api/session/{session_id}/next-action-review/export")
     def export_next_action_review(session_id: str) -> dict[str, Any]:
         try:

@@ -150,6 +150,8 @@ Use `Export Agent Action Plan` after recording agent feedback. It turns the late
 
 Use `Record Agent Action Outcome` after you manually follow, skip, or block an agent action plan. It records what happened, which artifact changed, and whether the action was completed, blocked, skipped, or still needs evidence. It does not validate the experiment by itself.
 
+Use `Export Agent Loop Review` when you want one compact view of the Codex/Claude bridge loop. It summarizes prompt -> feedback -> action plan -> outcome, shows the missing step if the loop is incomplete, and lists the artifacts to open next.
+
 Use `Export Next Action Review` when you want the Sidecar to convert the current evidence gaps into a concrete next operation. It writes `next-action-review.json` and `next-action-review.md`. If visual observations use a known taxonomy type, the review also lists missing evidence targets, suggested checks, and claim boundaries for those observations. It is a diagnostic control screen, not a claim generator.
 
 Use `Export Visual Diff` after capturing at least one `before-change` and one `after-change` checkpoint. It builds a Baseline/Variant by Before/After/Diff matrix for direct visual inspection. When screenshots are valid raster images with matching dimensions, it also writes pixel-level diff PNGs and reports changed-pixel ratios for each row.
@@ -176,6 +178,7 @@ Codex can interact with the sidecar in two ways:
 10. A returned-agent-response record written by `/api/session/{id}/agent-feedback/record`.
 11. A manual-only agent action plan written by `/api/session/{id}/agent-action-plan/export`.
 12. A manual agent action outcome record written by `/api/session/{id}/agent-action-outcome/record`.
+13. A compact agent bridge loop review written by `/api/session/{id}/agent-loop-review/export`.
 
 This is intentionally not a VS Code extension. The bridge is designed for the Codex app or any local agent that can call localhost APIs and read files from the same machine.
 
@@ -201,9 +204,10 @@ Typical workflow:
 18. Paste the Codex or Claude response back through Record Agent Feedback so the Sidecar remembers what the agent recommended.
 19. Export an agent action plan to turn the pasted recommendation into a manual Sidecar checklist pointer.
 20. Manually follow, skip, or block the plan, then record the result with Record Agent Action Outcome.
-21. Refresh scenario/workflow status, check comparison readiness, and follow remaining next actions.
-22. Ask Codex to inspect the evidence folder, scenario plan, review summary, metric chart, metric comparison, visual observations, visual diff, packet, timeline, workflow status, agent prompt, agent feedback, agent action plan, agent action outcomes, or local API.
-23. Use the generated `scenario-plan.md`, `comparison.md`, `change-records.md`, `visual-observations.md`, `metric-comparison.md`, `metric-delta-chart.md`, `visual-diff.md`, `timeline.md`, `review-summary.md`, `codex-packet.md`, `agent-review-prompt.md`, `agent-feedback.md`, `agent-action-plan.md`, and `agent-action-outcomes.md` as diagnostic evidence indexes, then pair them with SUMO output files before making formal claims.
+21. Export an agent loop review to see whether the prompt -> feedback -> plan -> outcome loop is complete.
+22. Refresh scenario/workflow status, check comparison readiness, and follow remaining next actions.
+23. Ask Codex to inspect the evidence folder, scenario plan, review summary, metric chart, metric comparison, visual observations, visual diff, packet, timeline, workflow status, agent prompt, agent feedback, agent action plan, agent action outcomes, agent loop review, or local API.
+24. Use the generated `scenario-plan.md`, `comparison.md`, `change-records.md`, `visual-observations.md`, `metric-comparison.md`, `metric-delta-chart.md`, `visual-diff.md`, `timeline.md`, `review-summary.md`, `codex-packet.md`, `agent-review-prompt.md`, `agent-feedback.md`, `agent-action-plan.md`, `agent-action-outcomes.md`, and `agent-loop-review.md` as diagnostic evidence indexes, then pair them with SUMO output files before making formal claims.
 
 See [docs/codex-bridge.md](docs/codex-bridge.md) for exact prompts and API examples.
 
@@ -249,6 +253,7 @@ POST /api/session/{id}/agent-review-prompt/export
 POST /api/session/{id}/agent-feedback/record
 POST /api/session/{id}/agent-action-plan/export
 POST /api/session/{id}/agent-action-outcome/record
+POST /api/session/{id}/agent-loop-review/export
 POST /api/session/{id}/visual-diff/export
 POST /api/session/{id}/close
 ```
@@ -284,6 +289,8 @@ runs/<session_id>/
   agent-action-plan.md
   agent-action-outcomes.json
   agent-action-outcomes.md
+  agent-loop-review.json
+  agent-loop-review.md
   timeline.json
   timeline.md
   visual-diff.json
@@ -328,11 +335,13 @@ Scenario templates prefill `scenario-plan.md` inputs for common workflows. They 
 
 `agent-action-outcomes.md` records what happened after the user manually followed, skipped, or blocked an agent action plan. It links the action to an optional evidence artifact and keeps the Codex/Claude loop visible in review timelines. It documents workflow execution, not controller performance or experiment validity.
 
+`agent-loop-review.md` is the compact control-loop dashboard for the agent bridge. It shows whether `agent-review-prompt.md`, `agent-feedback.md`, `agent-action-plan.md`, and `agent-action-outcomes.md` exist, identifies the next missing step, and lists artifacts to open. It is a workflow index, not proof that the agent advice or experiment is valid.
+
 `comparison/readiness` is a status gate, not an artifact. It reports `needs-evidence`, `ready-to-compare`, or `ready-for-agent-review` based on the current session evidence. `ready-to-compare` means diagnostic before/after review is possible; it does not certify causality, controller performance, or publishable validity.
 
 `timeline.md` aligns session creation, scenario plan, screenshot checkpoints, user notes, structured change records, output inspection, metric comparison, visual diffs, and exported Codex packets. This is the quickest way to see what evidence was produced before and after a controller or configuration change.
 
-Timeline presets write separate files such as `timeline-visual.md`, `timeline-outputs.md`, and `timeline-notes.md`. The default `full` preset keeps the existing `timeline.md` / `timeline.json` names. The `review` preset includes metric comparison, metric chart, structured change records, visual diff, Codex packet, review summary, next-action review, agent feedback, agent action plan, and agent action outcomes; the `outputs` preset includes output inspection, metric comparison, and metric chart.
+Timeline presets write separate files such as `timeline-visual.md`, `timeline-outputs.md`, and `timeline-notes.md`. The default `full` preset keeps the existing `timeline.md` / `timeline.json` names. The `review` preset includes metric comparison, metric chart, structured change records, visual diff, Codex packet, review summary, next-action review, agent feedback, agent action plan, agent action outcomes, and agent loop review; the `outputs` preset includes output inspection, metric comparison, and metric chart.
 
 `visual-diff.md` pairs `before-change` and `after-change` screenshots and lists a visual comparison matrix: Baseline before, Baseline after, Baseline pixel diff, Variant before, Variant after, and Variant pixel diff. This is still diagnostic visual evidence; it does not replace output-based performance checks.
 

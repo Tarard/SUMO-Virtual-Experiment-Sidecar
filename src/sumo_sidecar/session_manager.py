@@ -75,7 +75,7 @@ CHECKPOINT_TEMPLATES = {
 
 TIMELINE_PRESETS = {
     "full": None,
-    "review": {"session-created", "scenario-plan", "user-note", "change-record", "visual-observation", "screenshot-checkpoint", "output-inspection", "metric-comparison", "metric-chart", "visual-diff", "codex-packet", "review-summary", "next-action-review", "agent-feedback", "agent-action-plan", "agent-action-outcome"},
+    "review": {"session-created", "scenario-plan", "user-note", "change-record", "visual-observation", "screenshot-checkpoint", "output-inspection", "metric-comparison", "metric-chart", "visual-diff", "codex-packet", "review-summary", "next-action-review", "agent-feedback", "agent-action-plan", "agent-action-outcome", "agent-loop-review"},
     "visual": {"session-created", "screenshot-checkpoint", "visual-observation", "visual-diff"},
     "outputs": {"session-created", "output-inspection", "metric-comparison", "metric-chart"},
     "notes": {"session-created", "scenario-plan", "user-note", "change-record"},
@@ -455,6 +455,30 @@ class SessionManager:
             "agent_action_outcome_json_path": session.session_dir / "agent-action-outcomes.json",
             "agent_action_outcome_markdown_path": session.session_dir / "agent-action-outcomes.md",
             "agent_action_outcome_markdown": (session.session_dir / "agent-action-outcomes.md").read_text(encoding="utf-8"),
+            "evidence": self.evidence(session_id),
+        }
+
+    def export_agent_loop_review(self, session_id: str) -> dict[str, Any]:
+        session = self.get(session_id)
+        workflow = self.workflow_status(session_id)
+        review = self._build_agent_loop_review(session, workflow)
+        review_markdown = self._render_agent_loop_review_markdown(review)
+        json_path = session.session_dir / "agent-loop-review.json"
+        markdown_path = session.session_dir / "agent-loop-review.md"
+        json_path.write_text(json.dumps(review, indent=2), encoding="utf-8")
+        markdown_path.write_text(review_markdown, encoding="utf-8")
+        session.manifest["agent_loop_review"] = {
+            "status": review["status"],
+            "json": str(json_path),
+            "markdown": str(markdown_path),
+            "updated_at": _utc_now(),
+        }
+        self._write_manifest(session)
+        return {
+            "agent_loop_review": review,
+            "agent_loop_review_json_path": json_path,
+            "agent_loop_review_markdown_path": markdown_path,
+            "agent_loop_review_markdown": review_markdown,
             "evidence": self.evidence(session_id),
         }
 
@@ -1417,6 +1441,24 @@ class SessionManager:
                     "artifacts": ["agent-action-outcomes.json", "agent-action-outcomes.md"],
                 }
             )
+        if "agent_loop_review" in session.manifest:
+            review = session.manifest["agent_loop_review"]
+            events.append(
+                {
+                    "sequence": len(events) + 1,
+                    "kind": "agent-loop-review",
+                    "label": "Agent loop review",
+                    "simulation_time": None,
+                    "wall_time": review.get("updated_at"),
+                    "status": review.get("status", "unknown"),
+                    "template": None,
+                    "note": "compact prompt-feedback-plan-outcome control loop",
+                    "artifacts": [
+                        self._relative_artifact(session, review.get("json", "")),
+                        self._relative_artifact(session, review.get("markdown", "")),
+                    ],
+                }
+            )
         return {
             "session_id": session.id,
             "session_name": session.name,
@@ -1857,6 +1899,12 @@ class SessionManager:
                 if session.manifest.get("agent_action_outcomes_artifact")
                 else [],
             ),
+            self._review_manifest_card(
+                session,
+                "agent_loop_review",
+                "Agent loop review",
+                session.manifest.get("agent_loop_review"),
+            ),
             self._review_card(
                 "workflow",
                 "Workflow control screen",
@@ -1939,6 +1987,7 @@ class SessionManager:
 
     def _review_artifacts_to_review(self, session: PairedSession) -> list[str]:
         candidates = [
+            "agent-loop-review.md",
             "agent-action-outcomes.md",
             "agent-action-plan.md",
             "next-action-review.md",
@@ -1998,6 +2047,7 @@ class SessionManager:
 
     def _agent_prompt_artifacts_to_open(self, session: PairedSession) -> list[str]:
         candidates = [
+            "agent-loop-review.md",
             "agent-action-outcomes.md",
             "agent-action-plan.md",
             "next-action-review.md",
@@ -2018,6 +2068,113 @@ class SessionManager:
             "manifest.json",
         ]
         return [path for path in candidates if (session.session_dir / path).exists()]
+
+    def _build_agent_loop_review(self, session: PairedSession, workflow: dict[str, Any]) -> dict[str, Any]:
+        relative_paths = {item.relative_path for item in self._list_artifacts(session)}
+        feedback_items = session.manifest.get("agent_feedback", [])
+        outcome_items = session.manifest.get("agent_action_outcomes", [])
+        has_prompt = bool(session.manifest.get("agent_review_prompt")) and "agent-review-prompt.md" in relative_paths
+        has_feedback = bool(feedback_items) and "agent-feedback.md" in relative_paths
+        has_plan = bool(session.manifest.get("agent_action_plan")) and "agent-action-plan.md" in relative_paths
+        has_outcome = bool(outcome_items) and "agent-action-outcomes.md" in relative_paths
+        loop_steps = [
+            self._agent_loop_step(
+                "agent_prompt",
+                "Agent review prompt",
+                has_prompt,
+                "agent-review-prompt.md",
+                "copyable Codex/Claude prompt exported" if has_prompt else "export the agent review prompt",
+            ),
+            self._agent_loop_step(
+                "agent_feedback",
+                "Agent feedback",
+                has_feedback,
+                "agent-feedback.md",
+                f"{len(feedback_items)} feedback record(s)" if has_feedback else "record the Codex/Claude response",
+            ),
+            self._agent_loop_step(
+                "agent_action_plan",
+                "Agent action plan",
+                has_plan,
+                "agent-action-plan.md",
+                "manual action plan exported" if has_plan else "export an action plan from the latest feedback",
+            ),
+            self._agent_loop_step(
+                "agent_action_outcome",
+                "Agent action outcome",
+                has_outcome,
+                "agent-action-outcomes.md",
+                f"{len(outcome_items)} outcome record(s)" if has_outcome else "record the manual action result",
+            ),
+        ]
+        if not has_prompt:
+            status = "needs-agent-prompt"
+            next_step = "Export Agent Prompt before asking Codex or Claude to inspect the session."
+        elif not has_feedback:
+            status = "needs-agent-feedback"
+            next_step = "Paste the Codex or Claude response back through Record Agent Feedback."
+        elif not has_plan:
+            status = "needs-agent-action-plan"
+            next_step = "Export Agent Action Plan to turn the latest feedback into a manual Sidecar pointer."
+        elif not has_outcome:
+            status = "needs-agent-action-outcome"
+            next_step = "Record Agent Action Outcome after manually following, skipping, or blocking the action plan."
+        else:
+            status = "outcome-recorded"
+            next_step = "Review recorded outcome evidence and continue with workflow status before making claims."
+        latest_feedback = feedback_items[-1] if feedback_items else None
+        latest_outcome = outcome_items[-1] if outcome_items else None
+        claim_boundary = (
+            latest_feedback.get("claim_boundary")
+            if latest_feedback and latest_feedback.get("claim_boundary")
+            else "This loop review records prompt, feedback, manual plan, and manual outcome state. It does not execute SUMO, validate agent advice, or prove experiment claims."
+        )
+        artifacts_to_open = [
+            path
+            for path in [
+                "agent-review-prompt.md",
+                "agent-feedback.md",
+                "agent-action-plan.md",
+                "agent-action-outcomes.md",
+                "review-summary.md",
+                "next-action-review.md",
+                "timeline-review.md",
+                "manifest.json",
+            ]
+            if path == "manifest.json" or path in relative_paths
+        ]
+        return {
+            "session_id": session.id,
+            "session_name": session.name,
+            "session_dir": str(session.session_dir),
+            "status": status,
+            "workflow_status": workflow["status"],
+            "workflow_claim_status": workflow["claim_status"],
+            "loop_definition": "prompt -> feedback -> action plan -> outcome",
+            "loop_steps": loop_steps,
+            "latest_feedback": latest_feedback,
+            "latest_outcome": latest_outcome,
+            "artifacts_to_open": artifacts_to_open,
+            "workflow_next_actions": workflow.get("next_actions", []),
+            "next_step": next_step,
+            "claim_boundary": claim_boundary,
+        }
+
+    def _agent_loop_step(
+        self,
+        step_id: str,
+        label: str,
+        passed: bool,
+        artifact: str,
+        summary: str,
+    ) -> dict[str, Any]:
+        return {
+            "id": step_id,
+            "label": label,
+            "status": "pass" if passed else "missing",
+            "artifact": artifact,
+            "summary": summary,
+        }
 
     def _build_agent_action_plan(
         self,
@@ -2925,6 +3082,63 @@ class SessionManager:
             ]
         )
         return "\n".join(lines)
+
+    def _render_agent_loop_review_markdown(self, review: dict[str, Any]) -> str:
+        step_lines = [
+            f"| {self._markdown_table_cell(step['label'])} | `{step['status']}` | `{step['artifact']}` | {self._markdown_table_cell(step['summary'])} |"
+            for step in review["loop_steps"]
+        ]
+        artifact_lines = [f"- `{artifact}`" for artifact in review["artifacts_to_open"]] or ["- none"]
+        workflow_lines = [f"- {action}" for action in review["workflow_next_actions"]] or ["- none"]
+        latest_feedback = review.get("latest_feedback") or {}
+        latest_outcome = review.get("latest_outcome") or {}
+        return "\n".join(
+            [
+                f"# Agent Loop Review: {review['session_name']}",
+                "",
+                "A compact control-loop view for the standalone Codex/Claude bridge.",
+                "",
+                "## Loop",
+                "",
+                f"`{review['loop_definition']}`",
+                "",
+                "| Step | Status | Artifact | Summary |",
+                "|---|---:|---|---|",
+                *step_lines,
+                "",
+                "## Status",
+                "",
+                f"- Loop status: `{review['status']}`",
+                f"- Workflow status: `{review['workflow_status']}`",
+                f"- Workflow claim status: `{review['workflow_claim_status']}`",
+                f"- Next step: {review['next_step']}",
+                "",
+                "## Latest feedback",
+                "",
+                f"- Label: `{latest_feedback.get('label', 'not recorded')}`",
+                f"- Source agent: `{latest_feedback.get('source_agent', 'not recorded')}`",
+                f"- Recommended action: {latest_feedback.get('recommended_action') or 'not recorded'}",
+                "",
+                "## Latest outcome",
+                "",
+                f"- Label: `{latest_outcome.get('label', 'not recorded')}`",
+                f"- Action: {latest_outcome.get('action') or 'not recorded'}",
+                f"- Outcome status: `{latest_outcome.get('outcome_status', 'not recorded')}`",
+                f"- Evidence artifact: `{latest_outcome.get('evidence_artifact') or 'not recorded'}`",
+                "",
+                "## Artifacts to open",
+                "",
+                *artifact_lines,
+                "",
+                "## Workflow next actions",
+                "",
+                *workflow_lines,
+                "",
+                "## Claim boundary",
+                "",
+                review["claim_boundary"],
+            ]
+        )
 
     def _render_timeline_markdown(self, timeline: dict[str, Any]) -> str:
         lines = [
