@@ -414,6 +414,34 @@ def test_homepage_exposes_agent_action_plan_focus_helper(tmp_path: Path) -> None
     assert "/screenshot" not in focus_function
 
 
+def test_homepage_prefills_agent_action_outcome_draft_from_action_plan(tmp_path: Path) -> None:
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+
+    index_response = client.get("/")
+    script_response = client.get("/static/app.js")
+
+    assert index_response.status_code == 200
+    assert script_response.status_code == 200
+    html = index_response.text
+    script = script_response.text
+    assert 'id="agentActionOutcomeDraftStatus"' in html
+    assert "function prefillAgentActionOutcomeDraft(plan)" in script
+    assert "prefillAgentActionOutcomeDraft(body.agent_action_plan || {})" in script
+    assert '"agentActionOutcomeAction"' in script
+    assert '"agentActionOutcomeEvidence"' in script
+    assert '"agentActionOutcomeStatus"' in script
+    assert '"agentActionOutcomeNote"' in script
+    draft_function = script.split("function prefillAgentActionOutcomeDraft", 1)[1].split("function ", 1)[0]
+    assert "/agent-action-outcome/record" not in draft_function
+    assert "/outputs/inspect" not in draft_function
+    assert "/metrics/compare" not in draft_function
+    assert "/visual-diff/export" not in draft_function
+    assert "/run" not in draft_function
+    assert "/step" not in draft_function
+    assert "/screenshot" not in draft_function
+
+
 def test_homepage_exposes_manual_copy_for_suggested_output_paths(tmp_path: Path) -> None:
     app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
     client = TestClient(app)

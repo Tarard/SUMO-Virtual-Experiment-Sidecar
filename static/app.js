@@ -1181,6 +1181,35 @@ function renderAgentActionPlanFocus(plan) {
   button.disabled = !state.sessionId || !target;
 }
 
+function prefillAgentActionOutcomeDraft(plan) {
+  const action = plan.recommended_action ? plan.recommended_action.action : "";
+  const evidenceTarget = plan.recommended_action ? plan.recommended_action.evidence_target : "";
+  const focusTarget =
+    plan.ui_focus_target || (plan.recommended_action ? plan.recommended_action.ui_focus_target : null) || {};
+  const draft = {
+    action: action || "",
+    evidence: evidenceTarget && evidenceTarget !== "manual-review" ? evidenceTarget : "",
+    status: action ? "pending-manual-action" : "",
+    note: focusTarget.manual_gate
+      ? `Planned action from agent action plan: ${focusTarget.manual_gate} After manually following, skipping, or blocking this action, update this note with what changed and then record the outcome.`
+      : "",
+  };
+  if (!draft.action) {
+    el("agentActionOutcomeDraftStatus").textContent = "No outcome draft prepared from an agent action plan.";
+    return draft;
+  }
+  el("agentActionOutcomeAction").value = draft.action;
+  el("agentActionOutcomeEvidence").value = draft.evidence;
+  el("agentActionOutcomeStatus").value = draft.status;
+  el("agentActionOutcomeNote").value = draft.note;
+  el("agentActionOutcomeDraftStatus").textContent = [
+    `Outcome draft prepared for: ${draft.action}`,
+    `Evidence target: ${draft.evidence || "not specified"}`,
+    "Manual gate: execute, skip, or block the planned action before recording the outcome.",
+  ].join("\n");
+  return draft;
+}
+
 function focusAgentActionPlan() {
   const target = state.agentActionPlanFocusTarget;
   if (!target) {
@@ -2081,6 +2110,7 @@ el("exportAgentActionPlanBtn").addEventListener("click", async () => {
 function renderAgentActionPlan(body) {
   renderEvidence(body.evidence);
   renderAgentActionPlanFocus(body.agent_action_plan || {});
+  prefillAgentActionOutcomeDraft(body.agent_action_plan || {});
   el("agentActionPlanPreview").textContent = body.agent_action_plan_markdown || "No agent action plan exported.";
 }
 
