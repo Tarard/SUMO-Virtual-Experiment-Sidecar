@@ -317,6 +317,8 @@ def test_homepage_exposes_source_evidence_guide(tmp_path: Path) -> None:
     assert "renderSourceEvidenceGuide" in script_response.text
     assert "ui_action" in script_response.text
     assert "required_inputs" in script_response.text
+    assert "suggested_inputs" in script_response.text
+    assert "candidate source" in script_response.text
 
 
 def test_homepage_exposes_next_action_review_action(tmp_path: Path) -> None:
@@ -3014,6 +3016,60 @@ def test_source_evidence_guide_turns_missing_sources_into_manual_ui_steps(tmp_pa
     assert ready["steps"][0]["id"] == "run_evidence_loop"
     assert ready["steps"][0]["ui_action"] == "Run Evidence Loop"
     assert ready["steps"][0]["endpoint"] == "web-ui"
+
+
+def test_source_evidence_guide_suggests_declared_sumocfg_output_paths(tmp_path: Path) -> None:
+    baseline = tmp_path / "configs" / "baseline.sumocfg"
+    variant = tmp_path / "configs" / "variant.sumocfg"
+    baseline.parent.mkdir()
+    baseline.write_text(
+        """<configuration>
+  <output>
+    <summary-output value="../outputs/baseline/summary.xml"/>
+    <tripinfo-output value="../outputs/baseline/tripinfo.xml"/>
+  </output>
+</configuration>""",
+        encoding="utf-8",
+    )
+    variant.write_text(
+        """<configuration>
+  <output>
+    <summary-output value="../outputs/variant/summary.xml"/>
+    <tripinfo-output value="../outputs/variant/tripinfo.xml"/>
+  </output>
+</configuration>""",
+        encoding="utf-8",
+    )
+
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+
+    create_response = client.post(
+        "/api/session/create",
+        json={
+            "name": "source-guide-suggestions",
+            "baseline_config": str(baseline),
+            "variant_config": str(variant),
+        },
+    )
+    session_id = create_response.json()["id"]
+
+    response = client.get(f"/api/session/{session_id}/source-evidence/guide")
+
+    assert response.status_code == 200
+    steps = {step["id"]: step for step in response.json()["steps"]}
+    suggested = steps["inspect_outputs"]["suggested_inputs"]
+
+    def assert_suggestion(key: str, source: str, tail: tuple[str, str, str]) -> None:
+        assert suggested[key]["source"] == source
+        assert Path(suggested[key]["path"]).parts[-3:] == tail
+
+    assert suggested["baseline_summary"]["exists"] is False
+    assert_suggestion("baseline_summary", "baseline .sumocfg summary-output", ("outputs", "baseline", "summary.xml"))
+    assert_suggestion("baseline_tripinfo", "baseline .sumocfg tripinfo-output", ("outputs", "baseline", "tripinfo.xml"))
+    assert_suggestion("variant_summary", "variant .sumocfg summary-output", ("outputs", "variant", "summary.xml"))
+    assert_suggestion("variant_tripinfo", "variant .sumocfg tripinfo-output", ("outputs", "variant", "tripinfo.xml"))
+    assert "does not verify that suggested paths are the right run outputs" in steps["inspect_outputs"]["manual_gate"]
 
 
 def test_config_preflight_api_reports_pair_risks(tmp_path: Path) -> None:

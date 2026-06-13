@@ -1019,6 +1019,8 @@ function renderSourceEvidenceGuide(body) {
       `  endpoint: ${step.endpoint}`,
       `  required_inputs: ${(step.required_inputs || []).join(", ") || "none"}`,
       `  optional_inputs: ${(step.optional_inputs || []).join(", ") || "none"}`,
+      "  suggested_inputs:",
+      formatSuggestedInputs(step.suggested_inputs),
       `  manual_gate: ${step.manual_gate}`,
       "  guidance:",
       ...((step.guidance || []).map((item) => `    - ${item}`)),
@@ -1035,6 +1037,22 @@ function renderSourceEvidenceGuide(body) {
     "",
     `claim_boundary: ${body.claim_boundary}`,
   ].join("\n");
+}
+
+function formatSuggestedInputs(suggestedInputs) {
+  const entries = Object.entries(suggestedInputs || {});
+  if (!entries.length) {
+    return "    - none";
+  }
+  return entries
+    .map(([name, item]) => [
+      `    - ${name}: ${item.path}`,
+      `      candidate source: ${item.source}`,
+      `      exists: ${item.exists}`,
+      `      parent_exists: ${item.parent_exists}`,
+      `      boundary: ${item.claim_boundary}`,
+    ].join("\n"))
+    .join("\n");
 }
 
 function renderScenarioStatus(body) {

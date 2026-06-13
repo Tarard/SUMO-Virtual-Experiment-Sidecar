@@ -12,6 +12,7 @@ from typing import Any, Callable, Protocol
 
 from PIL import Image
 
+from .config_preflight import preflight_config
 from .models import (
     AgentActionOutcomeRequest,
     AgentFeedbackRequest,
@@ -1140,6 +1141,7 @@ class SessionManager:
         steps: list[dict[str, Any]] = []
 
         if source_by_id["output_inspection"]["status"] == "missing":
+            suggested_inputs = self._source_evidence_output_suggestions(session)
             steps.append(
                 {
                     "id": "inspect_outputs",
@@ -1150,12 +1152,14 @@ class SessionManager:
                     "endpoint": f"POST /api/session/{session.id}/outputs/inspect",
                     "required_inputs": ["baseline_summary", "variant_summary"],
                     "optional_inputs": ["baseline_tripinfo", "variant_tripinfo"],
+                    "suggested_inputs": suggested_inputs,
                     "guidance": [
                         "Use baseline and variant output files from the same demand, seed, horizon, and completion rule.",
                         "Prefer summary.xml plus tripinfo.xml when available, because completion must be checked before trip-level averages.",
+                        "Use suggested paths only as candidates from the current session configs; confirm they belong to the intended completed runs before inspection.",
                         "If outputs are missing, run SUMO outside this guide and return with the generated file paths.",
                     ],
-                    "manual_gate": "Manual gate: the user chooses the output files; this guide does not run SUMO, search arbitrary folders, or create output evidence.",
+                    "manual_gate": "Manual gate: the user chooses the output files; this guide does not run SUMO, search arbitrary folders, create output evidence, and does not verify that suggested paths are the right run outputs.",
                 }
             )
 
@@ -1236,6 +1240,31 @@ class SessionManager:
             "steps": steps,
             "claim_boundary": "Source evidence guide is a manual workflow aid. It does not launch SUMO GUI, mutate configs, execute arbitrary SUMO commands, prove causality, certify controller performance, or replace paired output evidence.",
         }
+
+    def _source_evidence_output_suggestions(self, session: PairedSession) -> dict[str, dict[str, Any]]:
+        suggestions: dict[str, dict[str, Any]] = {}
+        targets = {
+            ("baseline", "summary-output"): "baseline_summary",
+            ("baseline", "tripinfo-output"): "baseline_tripinfo",
+            ("variant", "summary-output"): "variant_summary",
+            ("variant", "tripinfo-output"): "variant_tripinfo",
+        }
+        for role in ("baseline", "variant"):
+            config_path = Path(session.manifest[f"{role}_config"])
+            report = preflight_config(config_path, role=role)
+            for reference in report.references:
+                key = targets.get((role, reference.option))
+                if key is None or key in suggestions:
+                    continue
+                suggestions[key] = {
+                    "source": f"{role} .sumocfg {reference.option}",
+                    "option": reference.option,
+                    "path": str(reference.resolved_path),
+                    "exists": reference.exists,
+                    "parent_exists": reference.parent_exists,
+                    "claim_boundary": "Candidate path only. Confirm the file belongs to the intended completed paired run before using it as output evidence.",
+                }
+        return suggestions
 
     def export_visual_diff(self, session_id: str) -> dict[str, Any]:
         session = self.get(session_id)

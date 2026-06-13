@@ -443,7 +443,7 @@ If `evidence-loop/status` reports `needs-source-evidence`, ask for manual source
 Invoke-RestMethod http://127.0.0.1:8765/api/session/<session_id>/source-evidence/guide
 ```
 
-The guide returns `steps` with `ui_action`, `endpoint`, `required_inputs`, `optional_inputs`, and `manual_gate`. Use it to tell the user exactly which Sidecar panel to use next. The guide is read-only; it does not run SUMO, launch GUI, capture screenshots, mutate configs, or certify validity.
+The guide returns `steps` with `ui_action`, `endpoint`, `required_inputs`, `optional_inputs`, `suggested_inputs`, and `manual_gate`. For output evidence, `suggested_inputs` may include candidate `baseline_summary`, `baseline_tripinfo`, `variant_summary`, and `variant_tripinfo` paths parsed from the active session `.sumocfg` files. Use these as copyable candidates for the Output Evidence panel, not as proof that the files exist or belong to the intended completed run. The guide is read-only; it does not run SUMO, search arbitrary folders, launch GUI, capture screenshots, mutate configs, or certify validity.
 
 In the web UI, `Run Evidence Loop` is the fastest non-GUI review path after a session has source evidence. It attempts workflow status, metric comparison, metric chart, visual diff, the `review` timeline preset, review summary, agent review prompt, and live state board in order. Failed steps are logged and the loop continues. It does not launch SUMO GUI, mutate configs, capture screenshots, or certify experiment validity.
 
