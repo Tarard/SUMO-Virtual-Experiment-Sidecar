@@ -14,6 +14,7 @@ MVP focus:
 - capture paired screenshots from the SUMO GUI view;
 - capture a fixed first visual checkpoint into the evidence bundle;
 - capture named `before-change`, `after-change`, `queue-build-up`, and `final-state` checkpoints with notes;
+- load reusable scenario templates for common SUMO/TraCI before/after checks;
 - guide before/after parameter-change scenarios with `scenario-plan.md` and next-step status;
 - record user-authored timeline notes without taking screenshots;
 - record structured parameter/controller changes with before value, after value, and rationale;
@@ -102,6 +103,8 @@ Use `Launch Guided GUI` to run the guided demo first, then open a paired GUI ses
 
 Use `Launch Full Workflow` to run the guided demo, open the paired GUI session, start a demo scenario plan, capture first and before/after checkpoints, add a timeline note, export visual diff, export metric comparison, export a metric chart, export full and review timelines, export a review summary, export a Codex packet, and return a review-ready workflow status. This is the shortest public demonstration of the full evidence loop.
 
+Use `Load Template` in the Scenario Guide to prefill a common scenario such as signal timing, detector mapping, demand stress, controller weight, or output alignment. Templates only fill the scenario form. They do not edit SUMO files, launch runs, or prove that the planned change was applied.
+
 Use `Start Scenario` before a manual before/after comparison. It writes `scenario-plan.json` and `scenario-plan.md`, records the planned parameter, before value, after value, hypothesis, expected metrics, and then tells you the next evidence step.
 
 Use `Refresh Scenario` during the run to see the current guided step. The scenario guide advances as first checkpoint, before-change checkpoint, change record, after-change checkpoint, output inspection, metric comparison, metric chart, visual diff, timeline, review summary, and Codex packet become available.
@@ -145,7 +148,7 @@ Typical workflow:
 1. Start this sidecar locally.
 2. Run environment preflight and config-pair preflight.
 3. Create a paired baseline/variant session in the web page.
-4. Start a scenario plan before the manual before/after comparison.
+4. Optionally load a scenario template, then start a scenario plan before the manual before/after comparison.
 5. Capture the first paired checkpoint, then capture named before/after checkpoints while watching the SUMO GUI windows.
 6. Add timeline notes when you change parameters, observe a behavior, or record an assumption.
 7. Record structured changes so Codex can connect what changed to visual checkpoints and output metrics.
@@ -166,6 +169,7 @@ Useful endpoints:
 
 ```text
 GET  /api/preflight
+GET  /api/scenario/templates
 GET  /api/examples/minimal-paired
 POST /api/examples/minimal-paired/run-headless
 POST /api/examples/minimal-paired/run-guided
@@ -236,6 +240,8 @@ The web page renders PNG artifacts as screenshot previews through a session-scop
 `codex-packet.md` is a single Markdown entrypoint for agent review. It lists the session, artifacts, comparison notes, output inspection when available, and the claim boundary. It is an index over evidence, not an automatic scientific conclusion.
 
 `scenario-plan.md` records the intended before/after comparison before the evidence is interpreted. It lists the planned parameter change, hypothesis, expected metrics, required evidence sequence, and claim boundary. It is a plan, not proof that the change was applied.
+
+Scenario templates prefill `scenario-plan.md` inputs for common workflows. They are reusable prompts for planning, not executable SUMO patches and not evidence.
 
 `change-records.md` records structured edits such as controller parameters, detector mappings, route settings, or experiment assumptions with before value, after value, and rationale. It is the link between "what changed" and the visual/output evidence.
 
@@ -312,4 +318,4 @@ The tests use fake SUMO adapters so they can run without launching a GUI.
 
 The MVP is a local visual sidecar. The next targets are:
 
-- add richer user-driven before/after scenario controls beyond the bundled demo.
+- add controlled parameter-application helpers that can turn a saved scenario plan into an explicit file/code change while preserving before/after evidence boundaries.

@@ -130,6 +130,89 @@ def test_homepage_exposes_scenario_guide_controls(tmp_path: Path) -> None:
     assert "/scenario/status" in script_response.text
 
 
+def test_scenario_templates_api_returns_safe_prefill_records(tmp_path: Path) -> None:
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+
+    response = client.get("/api/scenario/templates")
+
+    assert response.status_code == 200
+    body = response.json()
+    templates = body["templates"]
+    template_ids = {template["id"] for template in templates}
+
+    assert {"signal-timing", "detector-mapping", "demand-stress"}.issubset(template_ids)
+    for template in templates:
+        assert template["label"]
+        assert template["parameter"]
+        assert template["before_value"]
+        assert template["after_value"]
+        assert template["hypothesis"]
+        assert template["expected_metrics"]
+        assert template["note"]
+
+    public_text = "\n".join(str(template) for template in templates).lower()
+    assert "track b" not in public_text
+    assert "heart" not in public_text
+    assert "agimo" not in public_text
+
+
+def test_homepage_exposes_scenario_template_controls(tmp_path: Path) -> None:
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+
+    index_response = client.get("/")
+    script_response = client.get("/static/app.js")
+
+    assert index_response.status_code == 200
+    assert script_response.status_code == 200
+    assert "scenarioTemplate" in index_response.text
+    assert "loadScenarioTemplateBtn" in index_response.text
+    assert "Load Template" in index_response.text
+    assert "/api/scenario/templates" in script_response.text
+    assert "applyScenarioTemplate" in script_response.text
+
+
+def test_scenario_template_payload_can_start_scenario_plan(tmp_path: Path) -> None:
+    baseline = tmp_path / "baseline.sumocfg"
+    variant = tmp_path / "variant.sumocfg"
+    baseline.write_text("<configuration/>", encoding="utf-8")
+    variant.write_text("<configuration/>", encoding="utf-8")
+
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+
+    create_response = client.post(
+        "/api/session/create",
+        json={
+            "name": "template-prefill-demo",
+            "baseline_config": str(baseline),
+            "variant_config": str(variant),
+        },
+    )
+    session_id = create_response.json()["id"]
+    template = client.get("/api/scenario/templates").json()["templates"][0]
+
+    response = client.post(
+        f"/api/session/{session_id}/scenario/plan",
+        json={
+            "label": template["label"],
+            "parameter": template["parameter"],
+            "before_value": template["before_value"],
+            "after_value": template["after_value"],
+            "hypothesis": template["hypothesis"],
+            "expected_metrics": template["expected_metrics"],
+            "note": template["note"],
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["scenario_plan"]["label"] == template["label"]
+    assert body["scenario_plan"]["parameter"] == template["parameter"]
+    assert "Scenario Plan" in body["scenario_plan_markdown"]
+
+
 def test_minimal_demo_metadata_api_returns_usable_paths(tmp_path: Path) -> None:
     app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
     client = TestClient(app)

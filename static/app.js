@@ -2,6 +2,8 @@ const state = {
   sessionId: null,
 };
 
+const scenarioTemplates = new Map();
+
 const el = (id) => document.getElementById(id);
 
 function log(message, payload = null) {
@@ -132,6 +134,50 @@ function applyMinimalDemo(body) {
     "3. Inspect Outputs after summary/tripinfo files exist.",
     "",
     ...(body.headless_commands || []),
+  ].join("\n");
+}
+
+function renderScenarioTemplates(body) {
+  scenarioTemplates.clear();
+  const select = el("scenarioTemplate");
+  select.replaceChildren();
+
+  const customOption = document.createElement("option");
+  customOption.value = "";
+  customOption.textContent = "custom";
+  select.append(customOption);
+
+  for (const template of body.templates || []) {
+    scenarioTemplates.set(template.id, template);
+    const option = document.createElement("option");
+    option.value = template.id;
+    option.textContent = template.label;
+    select.append(option);
+  }
+}
+
+async function loadScenarioTemplates() {
+  const body = await api("/api/scenario/templates");
+  renderScenarioTemplates(body);
+  log("Loaded scenario templates", { count: (body.templates || []).length });
+}
+
+function applyScenarioTemplate(template) {
+  el("scenarioLabel").value = template.label;
+  el("scenarioParameter").value = template.parameter;
+  el("scenarioBefore").value = template.before_value;
+  el("scenarioAfter").value = template.after_value;
+  el("scenarioHypothesis").value = template.hypothesis;
+  el("scenarioMetrics").value = (template.expected_metrics || []).join(", ");
+  el("scenarioNote").value = template.note || "";
+  syncChangeFieldsFromScenario();
+  el("scenarioOutput").textContent = [
+    `template: ${template.label}`,
+    "",
+    "This template only pre-fills a scenario plan.",
+    "It does not edit SUMO files, run simulations, or prove that a change was applied.",
+    "",
+    "Next: create a paired session, start the scenario, capture before/after evidence, and inspect outputs.",
   ].join("\n");
 }
 
@@ -356,6 +402,21 @@ el("loadDemoBtn").addEventListener("click", async () => {
   } catch (error) {
     log(`Load demo failed: ${error.message}`);
   }
+});
+
+el("loadScenarioTemplateBtn").addEventListener("click", () => {
+  const templateId = el("scenarioTemplate").value;
+  if (!templateId) {
+    log("No scenario template selected");
+    return;
+  }
+  const template = scenarioTemplates.get(templateId);
+  if (!template) {
+    log("Selected scenario template is not loaded", { templateId });
+    return;
+  }
+  applyScenarioTemplate(template);
+  log("Applied scenario template", { templateId });
 });
 
 el("runDemoBtn").addEventListener("click", async () => {
@@ -868,3 +929,6 @@ el("closeBtn").addEventListener("click", async () => {
 });
 
 setControls(false);
+loadScenarioTemplates().catch((error) => {
+  log(`Scenario template load failed: ${error.message}`);
+});

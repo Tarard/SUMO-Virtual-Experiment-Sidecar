@@ -23,6 +23,7 @@ from .models import (
     TimelineNoteRequest,
 )
 from .output_inspection import inspect_output_pair
+from .scenario_templates import list_scenario_templates
 from .session_manager import AdapterFactory, SessionManager
 from .sumo_adapter import preflight
 
@@ -39,6 +40,10 @@ def create_app(
     @app.get("/api/preflight")
     def api_preflight() -> dict[str, Any]:
         return preflight()
+
+    @app.get("/api/scenario/templates")
+    def api_scenario_templates() -> dict[str, Any]:
+        return {"templates": list_scenario_templates()}
 
     @app.get("/api/examples/minimal-paired")
     def api_minimal_paired_example() -> dict[str, Any]:

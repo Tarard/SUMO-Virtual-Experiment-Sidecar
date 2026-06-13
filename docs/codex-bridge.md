@@ -25,7 +25,7 @@ It does not embed Codex inside SUMO, and it does not require VS Code. The user k
    variant:  controller-change.sumocfg
    ```
 
-4. Use the web page to start a scenario plan, step both sessions, run both sessions, capture paired screenshots, add timeline notes, and export visual evidence.
+4. Use the web page to load a scenario template if useful, start a scenario plan, step both sessions, run both sessions, capture paired screenshots, add timeline notes, and export visual evidence.
 
 5. Refresh the workflow control screen:
 
@@ -121,6 +121,12 @@ Invoke-RestMethod `
 ```
 
 Start a guided before/after scenario before interpreting a parameter change:
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:8765/api/scenario/templates
+```
+
+This returns reusable template records for common scenario-plan forms. Templates are prefill helpers only: they do not edit SUMO files, run simulations, or prove that a change was applied.
 
 ```powershell
 Invoke-RestMethod `
@@ -283,6 +289,8 @@ Pixel-level visual diff artifacts are also diagnostic. They can show that pixels
 Structured change records close part of that gap by recording what was intentionally changed, but they still do not prove causality. They should be read together with paired outputs, completion status, and reproduced runs.
 
 Scenario plans make the before/after workflow explicit before evidence is interpreted. They are planning artifacts only; still verify that the planned change was actually applied and recorded.
+
+Scenario templates are even lighter than scenario plans. They only provide reusable starting values for a plan. Keep the claim boundary at `diagnostic-demo` until the scenario is started, the intended change is recorded, paired visual checkpoints are captured, outputs are inspected, and completion-first metrics are reviewed.
 
 Metric comparison makes output deltas easier to review, but it is still an evidence view. If completion, route demand, seed, horizon, or controller identity is unpaired, metric deltas should remain diagnostic rather than formal claims.
 
