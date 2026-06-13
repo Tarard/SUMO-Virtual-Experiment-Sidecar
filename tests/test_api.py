@@ -352,6 +352,40 @@ def test_homepage_exposes_source_evidence_focus_helper(tmp_path: Path) -> None:
     assert "/screenshot" not in focus_function
 
 
+def test_homepage_exposes_visual_comparison_focus_helper(tmp_path: Path) -> None:
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+
+    index_response = client.get("/")
+    script_response = client.get("/static/app.js")
+
+    assert index_response.status_code == 200
+    assert script_response.status_code == 200
+    html = index_response.text
+    script = script_response.text
+    assert 'id="visualFocusCue"' in html
+    assert "Visual Comparison Focus" in html
+    assert 'id="visualFocusStatus"' in html
+    assert 'id="visualFocusDetail"' in html
+    assert 'id="focusVisualComparisonBtn"' in html
+    assert '"focusVisualComparisonBtn"' in script
+    assert "function renderVisualComparisonFocus(body)" in script
+    assert "function visualComparisonFocusFromReadiness(body)" in script
+    assert "function focusVisualComparison()" in script
+    assert "renderVisualComparisonFocus(body)" in script
+    assert 'openSidebarDrawer("runControlsDrawer")' in script
+    assert 'openSidebarDrawer("advancedReviewActions")' in script
+    assert 'openSidebarDrawer("visualReviewDrawer")' in script
+    assert 'focusElement("checkpointTemplate")' in script
+    assert 'focusElement("exportVisualDiffBtn")' in script
+    assert 'focusElement("visualDiffPreview")' in script
+    focus_function = script.split("function focusVisualComparison", 1)[1].split("function ", 1)[0]
+    assert "/visual-diff/export" not in focus_function
+    assert "/screenshot" not in focus_function
+    assert "/run" not in focus_function
+    assert "/step" not in focus_function
+
+
 def test_homepage_exposes_manual_copy_for_suggested_output_paths(tmp_path: Path) -> None:
     app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
     client = TestClient(app)

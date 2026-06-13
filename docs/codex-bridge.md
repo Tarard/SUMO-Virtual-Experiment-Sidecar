@@ -449,6 +449,8 @@ In the web UI, `Use Suggested Output Paths` copies available guide suggestions i
 
 `Focus Source Evidence` is the navigation-oriented companion to the guide. It refreshes `source-evidence/guide`, opens the relevant sidebar drawer, moves focus to the required field or checkpoint template, and may copy candidate output paths into empty fields through the same guarded helper. It does not call run, step, screenshot, output inspection, config mutation, or certification endpoints.
 
+`Focus Visual Comparison` is the navigation-oriented companion to `comparison/readiness`. It reads the current front-end readiness cue, then opens the run/capture controls for missing before/after checkpoints, the advanced export action for missing visual diff, or the Visual Review drawer when the matrix is ready. It does not call visual-diff export, run, step, screenshot, output inspection, config mutation, or certification endpoints.
+
 The Output Evidence panel also has a front-end-only readiness hint. `ready-to-inspect` means the required baseline and variant summary text fields are non-empty; it does not mean the files exist, are valid XML, or belong to the intended completed paired run.
 
 After a session-scoped `Inspect Outputs` succeeds in the web UI, the page refreshes `evidence-loop/status` so the source-evidence gate can move from `needs-source-evidence` to `ready-to-run-loop` without a separate manual status check. The rendered status includes `refresh_trigger`, which may identify `manual-check`, `output-inspection`, `guided-evidence-loop-start`, or `guided-evidence-loop-finished`. This refresh only updates the workflow screen; it does not create extra evidence or certify validity.

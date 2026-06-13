@@ -37,6 +37,7 @@ function setControls(enabled) {
     "checkEvidenceLoopBtn",
     "guideSourceEvidenceBtn",
     "focusSourceEvidenceBtn",
+    "focusVisualComparisonBtn",
     "applySuggestedOutputPathsBtn",
     "runEvidenceLoopBtn",
     "evidenceBtn",
@@ -1131,6 +1132,32 @@ function focusSourceEvidenceStep(step) {
   return { target: "sourceGuideNextStep", action: step.ui_action || "unknown" };
 }
 
+function focusVisualComparison() {
+  const cue = el("visualFocusCue");
+  const target = cue.dataset.target || "visualReviewDrawer";
+  const focus = cue.dataset.focus || "visualDiffPreview";
+  if (target === "runControlsDrawer") {
+    openSidebarDrawer("runControlsDrawer");
+    const template = cue.dataset.template || "before-change";
+    el("checkpointTemplate").value = template;
+    focusElement("checkpointTemplate");
+    return { target, focus: "checkpointTemplate", action: "checkpoint-template", template };
+  }
+  if (target === "advancedReviewActions") {
+    openSidebarDrawer("advancedReviewActions");
+    openSidebarDrawer("visualReviewDrawer");
+    focusElement("exportVisualDiffBtn");
+    return { target, focus: "exportVisualDiffBtn", action: "export-visual-diff-button" };
+  }
+  openSidebarDrawer("visualReviewDrawer");
+  if (focus === "visualDiffPreview") {
+    focusElement("visualDiffPreview");
+  } else {
+    focusElement(focus);
+  }
+  return { target: "visualReviewDrawer", focus, action: "inspect-visual-review" };
+}
+
 function refreshOutputInspectionReadiness() {
   const required = {
     baseline_summary: Boolean(el("baselineSummary").value.trim()),
@@ -1283,6 +1310,7 @@ function renderComparisonReadiness(body) {
   const actions = (body.next_actions || []).map((item) => `- ${item}`).join("\n");
   updateWorkflowCue("workflowCueCompare", "Compare", body.status, (body.next_actions || [])[0] || body.claim_status);
   updateActiveSessionChecklist("compare", "Compare", body.status, (body.next_actions || [])[0] || body.claim_status);
+  renderVisualComparisonFocus(body);
   el("compareReadinessOutput").textContent = [
     `status: ${body.status}`,
     `claim_status: ${body.claim_status}`,
@@ -1295,6 +1323,54 @@ function renderComparisonReadiness(body) {
     "",
     `claim_boundary: ${body.claim_boundary}`,
   ].join("\n");
+}
+
+function visualComparisonFocusFromReadiness(body) {
+  const checks = Object.fromEntries((body.checklist || []).map((item) => [item.id, item]));
+  const beforeAfter = checks.before_after_checkpoints;
+  const visualDiff = checks.visual_diff;
+  if (!body.checklist || !body.checklist.length) {
+    return {
+      status: "not checked",
+      detail: "Check comparison readiness to see whether checkpoints or visual diff are missing.",
+      target: "visualReviewDrawer",
+      focus: "visualDiffPreview",
+    };
+  }
+  if (!beforeAfter || beforeAfter.status !== "pass") {
+    return {
+      status: "needs-checkpoints",
+      detail: "Capture before-change and after-change checkpoints before exporting visual diff.",
+      target: "runControlsDrawer",
+      focus: "checkpointTemplate",
+      template: "before-change",
+    };
+  }
+  if (!visualDiff || visualDiff.status !== "pass") {
+    return {
+      status: "needs-visual-diff",
+      detail: "Before/after checkpoints exist. Export Visual Diff to build the comparison matrix.",
+      target: "advancedReviewActions",
+      focus: "exportVisualDiffBtn",
+    };
+  }
+  return {
+    status: body.status || "ready",
+    detail: "Visual diff is available. Open Visual Review to inspect the before/after matrix.",
+    target: "visualReviewDrawer",
+    focus: "visualDiffPreview",
+  };
+}
+
+function renderVisualComparisonFocus(body) {
+  const cue = visualComparisonFocusFromReadiness(body);
+  const container = el("visualFocusCue");
+  container.className = `visual-focus-cue ${workflowCueStatusClass(cue.status)}`;
+  container.dataset.target = cue.target;
+  container.dataset.focus = cue.focus;
+  container.dataset.template = cue.template || "";
+  el("visualFocusStatus").textContent = cue.status;
+  el("visualFocusDetail").textContent = cue.detail;
 }
 
 function renderEvidenceLoopStatus(body, refreshTrigger = "manual-check") {
@@ -1523,6 +1599,15 @@ el("focusSourceEvidenceBtn").addEventListener("click", async () => {
     await focusSourceEvidence();
   } catch (error) {
     log(`Source evidence focus failed: ${error.message}`);
+  }
+});
+
+el("focusVisualComparisonBtn").addEventListener("click", () => {
+  try {
+    const result = focusVisualComparison();
+    log("Focused visual comparison", result);
+  } catch (error) {
+    log(`Visual comparison focus failed: ${error.message}`);
   }
 });
 

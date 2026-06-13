@@ -184,6 +184,8 @@ The Active Session Checklist summarizes the current operator gate for Session, W
 
 Use `Focus Source Evidence` when the Source Guide reports a missing evidence step and you want the UI to move to the right place. It opens the relevant sidebar drawer, fills candidate output paths only into empty fields when the guide provides them, or selects the missing checkpoint template. It does not run SUMO, step the simulation, capture screenshots, inspect outputs, or certify evidence.
 
+Use `Focus Visual Comparison` after checking comparison readiness when you want the UI to move to the visual before/after work. If before/after checkpoints are missing, it opens the run/capture controls and selects the checkpoint template. If the checkpoints exist but visual diff is missing, it opens the export action and Visual Review drawer. If visual diff is ready, it opens the Visual Review drawer and focuses the matrix preview. It does not export visual diff, capture screenshots, run SUMO, step the simulation, or certify visual evidence.
+
 The Codex Evidence panel is grouped into collapsible drawers for evidence artifacts, the agent bridge, metrics/review outputs, and visual review. The session folder and artifact list stay visible as the compact evidence index; deeper Markdown, charts, screenshots, prompts, and observation forms open only when needed.
 
 Each Evidence Loop refresh also syncs the Source Evidence Guide panel. If source evidence is missing, the guide steps appear without a second click; if the session is ready, the guide points toward the next review-loop action. This is still only UI guidance and does not run SUMO, create screenshots, parse output files, or certify the experiment.
