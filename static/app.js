@@ -1079,6 +1079,7 @@ function renderComparisonReadiness(body) {
 }
 
 function renderEvidenceLoopStatus(body, refreshTrigger = "manual-check") {
+  renderEvidenceLoopNextAction(body, refreshTrigger);
   const sourceEvidence = (body.source_evidence || [])
     .map((item) => `${item.status.toUpperCase()} ${item.label}\n  evidence: ${item.evidence}`)
     .join("\n");
@@ -1102,6 +1103,16 @@ function renderEvidenceLoopStatus(body, refreshTrigger = "manual-check") {
     actions || "- none",
     "",
     `claim_boundary: ${body.claim_boundary}`,
+  ].join("\n");
+}
+
+function renderEvidenceLoopNextAction(body, refreshTrigger) {
+  const firstNextAction = (body.next_actions || [])[0] || "No next action reported.";
+  el("evidenceLoopNextAction").textContent = [
+    `status: ${body.status}`,
+    `refresh_trigger: ${refreshTrigger}`,
+    `next_action: ${firstNextAction}`,
+    "manual_gate: workflow cue only; inspect the detailed status before making claims.",
   ].join("\n");
 }
 

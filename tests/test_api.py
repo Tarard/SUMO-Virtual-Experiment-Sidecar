@@ -408,6 +408,25 @@ def test_evidence_loop_status_shows_refresh_trigger(tmp_path: Path) -> None:
     assert 'refreshEvidenceLoopStatus("guided-evidence-loop-finished")' in script
 
 
+def test_evidence_loop_status_renders_next_action_banner(tmp_path: Path) -> None:
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+
+    index_response = client.get("/")
+    script_response = client.get("/static/app.js")
+
+    assert index_response.status_code == 200
+    assert script_response.status_code == 200
+    assert "evidenceLoopNextAction" in index_response.text
+    assert "Evidence loop next action will appear here." in index_response.text
+    script = script_response.text
+    assert "function renderEvidenceLoopNextAction(body, refreshTrigger)" in script
+    assert "renderEvidenceLoopNextAction(body, refreshTrigger)" in script
+    assert "next_action:" in script
+    assert "firstNextAction" in script
+    assert "manual_gate: workflow cue only; inspect the detailed status before making claims." in script
+
+
 def test_homepage_exposes_next_action_review_action(tmp_path: Path) -> None:
     app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
     client = TestClient(app)

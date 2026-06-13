@@ -172,6 +172,8 @@ The Output Evidence panel also shows a lightweight `ready-to-inspect` hint when 
 
 After a session-scoped `Inspect Outputs` succeeds, the web UI refreshes the Evidence Loop status automatically. This makes the source-evidence gate reflect the new output inspection evidence immediately, but it is still a workflow readiness update, not a validity certificate. The Evidence Loop panel includes a `refresh_trigger` line so users can tell whether the status came from a manual check, output inspection, or the guided evidence loop.
 
+The Workflow Control Screen also surfaces the first Evidence Loop `next_action` in a short banner above the detailed status. Use it as the immediate UI cue; inspect the full Evidence Loop status before making claims or deciding that evidence is complete.
+
 Use `Run Evidence Loop` when a session already has enough source evidence and you want the Sidecar to attempt the non-GUI review exports in order: workflow status, metric comparison, metric chart, visual diff, review timeline, review summary, agent prompt, and live state board. Failed steps are logged and later steps still run. This does not launch SUMO GUI, mutate configs, capture screenshots, or certify the experiment.
 
 Use the `Timeline preset` selector before `Export Timeline` when a session is long. Presets include `full`, `review`, `visual`, `outputs`, and `notes`.

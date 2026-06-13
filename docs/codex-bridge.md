@@ -451,6 +451,8 @@ The Output Evidence panel also has a front-end-only readiness hint. `ready-to-in
 
 After a session-scoped `Inspect Outputs` succeeds in the web UI, the page refreshes `evidence-loop/status` so the source-evidence gate can move from `needs-source-evidence` to `ready-to-run-loop` without a separate manual status check. The rendered status includes `refresh_trigger`, which may identify `manual-check`, `output-inspection`, `guided-evidence-loop-start`, or `guided-evidence-loop-finished`. This refresh only updates the workflow screen; it does not create extra evidence or certify validity.
 
+The web UI also mirrors the first `next_actions` item into `evidenceLoopNextAction`. Treat that banner as the next UI move to consider, not as a replacement for the detailed status or a claim boundary decision.
+
 In the web UI, `Run Evidence Loop` is the fastest non-GUI review path after a session has source evidence. It attempts workflow status, metric comparison, metric chart, visual diff, the `review` timeline preset, review summary, agent review prompt, and live state board in order. Failed steps are logged and the loop continues. It does not launch SUMO GUI, mutate configs, capture screenshots, or certify experiment validity.
 
 Check workflow status before asking Codex for review:
