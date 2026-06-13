@@ -449,6 +449,29 @@ def test_evidence_loop_status_syncs_source_evidence_guide(tmp_path: Path) -> Non
     assert "refresh_trigger: ${refreshTrigger}" in guide_renderer
 
 
+def test_source_evidence_guide_renders_next_step_summary(tmp_path: Path) -> None:
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+
+    index_response = client.get("/")
+    script_response = client.get("/static/app.js")
+
+    assert index_response.status_code == 200
+    assert script_response.status_code == 200
+    assert "sourceGuideNextStep" in index_response.text
+    assert "Source evidence guide next step will appear here." in index_response.text
+    script = script_response.text
+    assert "function renderSourceGuideNextStep(body, refreshTrigger)" in script
+    assert "renderSourceGuideNextStep(body, refreshTrigger)" in script
+    summary_renderer = script.split("function renderSourceGuideNextStep", 1)[1].split("function renderSourceEvidenceGuide", 1)[0]
+    assert "firstGuideStep" in summary_renderer
+    assert "guide_step:" in summary_renderer
+    assert "ui_action:" in summary_renderer
+    assert "required_inputs:" in summary_renderer
+    assert "manual_gate:" in summary_renderer
+    assert "workflow cue only; execute the guide step manually." in summary_renderer
+
+
 def test_homepage_exposes_next_action_review_action(tmp_path: Path) -> None:
     app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
     client = TestClient(app)

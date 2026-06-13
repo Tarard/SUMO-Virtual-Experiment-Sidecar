@@ -455,6 +455,8 @@ The web UI also mirrors the first `next_actions` item into `evidenceLoopNextActi
 
 When the web UI refreshes Evidence Loop status, it also refreshes `source-evidence/guide` into the Source Evidence Guide panel. The guide includes its own `refresh_trigger`, such as `manual-guide` or `evidence-loop-output-inspection`, so Codex can tell whether it was manually requested or synchronized from workflow status. This is guidance only; it does not execute the guide step or certify validity.
 
+The web UI mirrors the first guide step into `sourceGuideNextStep`, including `ui_action`, `required_inputs`, and `manual_gate`. Use this as a compact operator cue and still inspect `sourceEvidenceGuideOutput` before treating the evidence workflow as ready.
+
 In the web UI, `Run Evidence Loop` is the fastest non-GUI review path after a session has source evidence. It attempts workflow status, metric comparison, metric chart, visual diff, the `review` timeline preset, review summary, agent review prompt, and live state board in order. Failed steps are logged and the loop continues. It does not launch SUMO GUI, mutate configs, capture screenshots, or certify experiment validity.
 
 Check workflow status before asking Codex for review:

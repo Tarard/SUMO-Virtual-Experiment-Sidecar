@@ -1126,7 +1126,30 @@ function renderEvidenceLoopNextAction(body, refreshTrigger) {
   ].join("\n");
 }
 
+function renderSourceGuideNextStep(body, refreshTrigger) {
+  const firstGuideStep = (body.steps || [])[0];
+  if (!firstGuideStep) {
+    el("sourceGuideNextStep").textContent = [
+      `status: ${body.status}`,
+      `refresh_trigger: ${refreshTrigger}`,
+      "guide_step: none",
+      "manual_gate: workflow cue only; execute the guide step manually.",
+    ].join("\n");
+    return;
+  }
+  el("sourceGuideNextStep").textContent = [
+    `status: ${body.status}`,
+    `refresh_trigger: ${refreshTrigger}`,
+    `guide_step: ${firstGuideStep.title}`,
+    `ui_action: ${firstGuideStep.ui_action}`,
+    `required_inputs: ${(firstGuideStep.required_inputs || []).join(", ") || "none"}`,
+    `manual_gate: ${firstGuideStep.manual_gate}`,
+    "boundary: workflow cue only; execute the guide step manually.",
+  ].join("\n");
+}
+
 function renderSourceEvidenceGuide(body, refreshTrigger = "manual-guide") {
+  renderSourceGuideNextStep(body, refreshTrigger);
   const steps = (body.steps || [])
     .map((step) => [
       `${step.status.toUpperCase()} ${step.title}`,
