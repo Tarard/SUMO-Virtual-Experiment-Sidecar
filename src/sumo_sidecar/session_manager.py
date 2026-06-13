@@ -334,6 +334,88 @@ class SessionManager:
         self._write_manifest(session)
         return entry
 
+    def workflow_status(self, session_id: str) -> dict[str, Any]:
+        session = self.get(session_id)
+        relative_paths = {item.relative_path for item in self._list_artifacts(session)}
+        templates = {item.template for item in session.evidence if item.template}
+        has_first_checkpoint = any(item.label == "first-checkpoint" for item in session.evidence)
+        has_before_after = {"before-change", "after-change"}.issubset(templates)
+        has_timeline_note = bool(session.manifest.get("timeline_notes"))
+        output_inspection = session.manifest.get("output_inspection")
+        visual_diff = session.manifest.get("visual_diff")
+        has_timeline = "timeline" in session.manifest and "timeline.md" in relative_paths
+        has_packet = "codex_packet" in session.manifest and "codex-packet.md" in relative_paths
+
+        checklist = [
+            self._workflow_item(
+                "first_checkpoint",
+                "Capture the first paired visual checkpoint",
+                has_first_checkpoint,
+                "first-checkpoint screenshot evidence",
+            ),
+            self._workflow_item(
+                "template_pair",
+                "Capture before-change and after-change checkpoints",
+                has_before_after,
+                ", ".join(sorted(template for template in templates if template)) or "no template checkpoints",
+            ),
+            self._workflow_item(
+                "timeline_note",
+                "Record at least one timeline note",
+                has_timeline_note,
+                f"{len(session.manifest.get('timeline_notes', []))} timeline note(s)",
+                missing_status="warn",
+            ),
+            self._workflow_item(
+                "output_inspection",
+                "Persist completion-first SUMO output inspection",
+                bool(output_inspection),
+                output_inspection.get("status", "missing") if output_inspection else "missing",
+            ),
+            self._workflow_item(
+                "visual_diff",
+                "Export before/after visual diff",
+                bool(visual_diff),
+                visual_diff.get("status", "missing") if visual_diff else "missing",
+                missing_status="warn",
+            ),
+            self._workflow_item(
+                "timeline",
+                "Export run timeline",
+                has_timeline,
+                "timeline.md" if has_timeline else "missing",
+            ),
+            self._workflow_item(
+                "codex_packet",
+                "Export Codex evidence packet",
+                has_packet,
+                "codex-packet.md" if has_packet else "missing",
+            ),
+        ]
+        missing_required = [
+            item for item in checklist
+            if item["status"] == "missing" and item["id"] in {"first_checkpoint", "template_pair", "output_inspection", "timeline", "codex_packet"}
+        ]
+        warnings = [item for item in checklist if item["status"] == "warn"]
+        if missing_required:
+            status = "needs-evidence"
+            claim_status = "diagnostic-incomplete"
+        elif warnings:
+            status = "review-ready-with-warnings"
+            claim_status = "evidence-index-ready"
+        else:
+            status = "review-ready"
+            claim_status = "evidence-index-ready"
+        return {
+            "session_id": session.id,
+            "session_name": session.name,
+            "session_dir": str(session.session_dir),
+            "status": status,
+            "claim_status": claim_status,
+            "checklist": checklist,
+            "next_actions": self._workflow_next_actions(checklist),
+        }
+
     def export_visual_diff(self, session_id: str) -> dict[str, Any]:
         session = self.get(session_id)
         visual_diff = self._build_visual_diff(session)
@@ -398,6 +480,42 @@ class SessionManager:
                 if item.note:
                     lines.extend([f"- Note: {item.note}", ""])
         path.write_text("\n".join(lines), encoding="utf-8")
+
+    def _workflow_item(
+        self,
+        item_id: str,
+        label: str,
+        passed: bool,
+        evidence: str,
+        missing_status: str = "missing",
+    ) -> dict[str, str]:
+        return {
+            "id": item_id,
+            "label": label,
+            "status": "pass" if passed else missing_status,
+            "evidence": evidence,
+        }
+
+    def _workflow_next_actions(self, checklist: list[dict[str, str]]) -> list[str]:
+        status_by_id = {item["id"]: item["status"] for item in checklist}
+        actions: list[str] = []
+        if status_by_id["first_checkpoint"] == "missing":
+            actions.append("Capture First Checkpoint.")
+        if status_by_id["template_pair"] == "missing":
+            actions.append("Capture Template Checkpoint for before-change and after-change.")
+        if status_by_id["timeline_note"] == "warn":
+            actions.append("Add Timeline Note for the parameter change or observation.")
+        if status_by_id["output_inspection"] == "missing":
+            actions.append("Inspect Outputs with summary.xml and tripinfo.xml.")
+        if status_by_id["visual_diff"] == "warn":
+            actions.append("Export Visual Diff after before/after checkpoints exist.")
+        if status_by_id["timeline"] == "missing":
+            actions.append("Export Timeline.")
+        if status_by_id["codex_packet"] == "missing":
+            actions.append("Export Codex Packet.")
+        if not actions:
+            actions.append("Ask Codex to inspect codex-packet.md, timeline.md, visual-diff.md, and output-inspection.md.")
+        return actions
 
     def _build_timeline(self, session: PairedSession) -> dict[str, Any]:
         events: list[dict[str, Any]] = [

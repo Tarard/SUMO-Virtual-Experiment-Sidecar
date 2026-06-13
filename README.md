@@ -17,6 +17,7 @@ MVP focus:
 - record user-authored timeline notes without taking screenshots;
 - export a before/after visual-diff index for paired template checkpoints;
 - generate pixel-level visual-diff PNGs when before/after screenshots are valid raster images;
+- report workflow status and next actions for the active evidence bundle;
 - write `manifest.json` and `comparison.md` for Codex to inspect.
 
 Not in this release:
@@ -100,6 +101,8 @@ Use `Add Timeline Note` to record parameter changes, observations, or assumption
 
 Use `Export Visual Diff` after capturing at least one `before-change` and one `after-change` checkpoint. It builds a four-view baseline/variant before/after index for visual inspection. When screenshots are valid raster images with matching dimensions, it also writes pixel-level diff PNGs.
 
+Use `Refresh Workflow` to see which evidence steps are complete, which are missing, and what should happen next before asking Codex to review the session.
+
 ## Codex Bridge
 
 Codex can interact with the sidecar in two ways:
@@ -124,8 +127,9 @@ Typical workflow:
 7. Export the visual diff index for the paired before/after checkpoints.
 8. Export a run timeline to align checkpoints, notes, output inspection, and packet evidence.
 9. Export a Codex packet when the session has enough screenshots and output evidence.
-10. Ask Codex to inspect the evidence folder, visual diff, packet, timeline, or local API.
-11. Use the generated `comparison.md`, `visual-diff.md`, `timeline.md`, and `codex-packet.md` as diagnostic evidence indexes, then pair them with SUMO output files before making formal claims.
+10. Refresh workflow status and follow remaining next actions.
+11. Ask Codex to inspect the evidence folder, visual diff, packet, timeline, workflow status, or local API.
+12. Use the generated `comparison.md`, `visual-diff.md`, `timeline.md`, and `codex-packet.md` as diagnostic evidence indexes, then pair them with SUMO output files before making formal claims.
 
 See [docs/codex-bridge.md](docs/codex-bridge.md) for exact prompts and API examples.
 
@@ -148,6 +152,7 @@ POST /api/session/{id}/screenshot
 POST /api/session/{id}/checkpoint/first
 POST /api/session/{id}/checkpoint/template
 GET  /api/session/{id}/state
+GET  /api/session/{id}/workflow/status
 GET  /api/session/{id}/evidence
 GET  /api/session/{id}/artifact/{path}
 POST /api/session/{id}/packet/export

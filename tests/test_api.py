@@ -470,6 +470,106 @@ def test_timeline_note_api_records_user_event_without_screenshot(tmp_path: Path)
     assert "Changed max green from 30 to 45 seconds." in timeline_body["timeline_markdown"]
 
 
+def test_workflow_status_guides_incomplete_session_next_actions(tmp_path: Path) -> None:
+    baseline = tmp_path / "baseline.sumocfg"
+    variant = tmp_path / "variant.sumocfg"
+    baseline.write_text("<configuration/>", encoding="utf-8")
+    variant.write_text("<configuration/>", encoding="utf-8")
+
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+
+    create_response = client.post(
+        "/api/session/create",
+        json={
+            "name": "workflow-demo",
+            "baseline_config": str(baseline),
+            "variant_config": str(variant),
+        },
+    )
+    session_id = create_response.json()["id"]
+
+    response = client.get(f"/api/session/{session_id}/workflow/status")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "needs-evidence"
+    assert body["claim_status"] == "diagnostic-incomplete"
+    checklist = {item["id"]: item for item in body["checklist"]}
+    assert checklist["first_checkpoint"]["status"] == "missing"
+    assert checklist["output_inspection"]["status"] == "missing"
+    assert any("Capture First Checkpoint" in action for action in body["next_actions"])
+
+
+def test_workflow_status_reports_review_ready_session(tmp_path: Path) -> None:
+    baseline = tmp_path / "baseline.sumocfg"
+    variant = tmp_path / "variant.sumocfg"
+    baseline.write_text("<configuration/>", encoding="utf-8")
+    variant.write_text("<configuration/>", encoding="utf-8")
+
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+
+    create_response = client.post(
+        "/api/session/create",
+        json={
+            "name": "workflow-ready-demo",
+            "baseline_config": str(baseline),
+            "variant_config": str(variant),
+        },
+    )
+    session_id = create_response.json()["id"]
+    client.post(f"/api/session/{session_id}/checkpoint/first")
+    client.post(
+        f"/api/session/{session_id}/checkpoint/template",
+        json={"template": "before-change", "note": "Before tuning."},
+    )
+    client.post(f"/api/session/{session_id}/step", json={"count": 2})
+    client.post(
+        f"/api/session/{session_id}/checkpoint/template",
+        json={"template": "after-change", "note": "After tuning."},
+    )
+    client.post(
+        f"/api/session/{session_id}/timeline/note",
+        json={"label": "parameter-change", "note": "Changed max green."},
+    )
+    baseline_summary = tmp_path / "baseline-summary.xml"
+    variant_summary = tmp_path / "variant-summary.xml"
+    baseline_summary.write_text(
+        '<summary><step time="10" loaded="2" inserted="2" running="0" waiting="0" arrived="2" teleports="0"/></summary>',
+        encoding="utf-8",
+    )
+    variant_summary.write_text(
+        '<summary><step time="10" loaded="2" inserted="2" running="0" waiting="0" arrived="2" teleports="0"/></summary>',
+        encoding="utf-8",
+    )
+    client.post(
+        f"/api/session/{session_id}/outputs/inspect",
+        json={
+            "baseline_summary": str(baseline_summary),
+            "variant_summary": str(variant_summary),
+        },
+    )
+    client.post(f"/api/session/{session_id}/visual-diff/export")
+    client.post(f"/api/session/{session_id}/timeline/export")
+    client.post(f"/api/session/{session_id}/packet/export")
+
+    response = client.get(f"/api/session/{session_id}/workflow/status")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "review-ready"
+    assert body["claim_status"] == "evidence-index-ready"
+    checklist = {item["id"]: item for item in body["checklist"]}
+    assert checklist["first_checkpoint"]["status"] == "pass"
+    assert checklist["template_pair"]["status"] == "pass"
+    assert checklist["output_inspection"]["status"] == "pass"
+    assert checklist["visual_diff"]["status"] in {"pass", "warn"}
+    assert checklist["timeline"]["status"] == "pass"
+    assert checklist["codex_packet"]["status"] == "pass"
+    assert body["next_actions"] == ["Ask Codex to inspect codex-packet.md, timeline.md, visual-diff.md, and output-inspection.md."]
+
+
 def test_config_preflight_api_reports_pair_risks(tmp_path: Path) -> None:
     baseline = tmp_path / "baseline.sumocfg"
     variant = tmp_path / "variant.sumocfg"

@@ -19,6 +19,7 @@ function setControls(enabled) {
     "addTimelineNoteBtn",
     "firstCheckpointBtn",
     "stateBtn",
+    "workflowBtn",
     "evidenceBtn",
     "exportPacketBtn",
     "exportTimelineBtn",
@@ -168,12 +169,13 @@ function renderGuidedDemo(body) {
   ].join("\n");
 }
 
-function renderGuidedGuiLaunch(body) {
+async function renderGuidedGuiLaunch(body) {
   applyMinimalDemo(body.guided_demo);
   renderGuidedDemo(body.guided_demo);
   renderState(body.session);
   renderOutputInspection(body.output_inspection);
   renderEvidence(body.evidence);
+  await refreshWorkflow();
   el("configPreflightOutput").textContent += [
     "",
     "paired_gui_session:",
@@ -335,7 +337,7 @@ el("launchDemoGuiBtn").addEventListener("click", async () => {
 el("launchGuidedGuiBtn").addEventListener("click", async () => {
   try {
     const body = await api("/api/examples/minimal-paired/launch-guided-gui", { method: "POST" });
-    renderGuidedGuiLaunch(body);
+    await renderGuidedGuiLaunch(body);
     log("Launched guided demo GUI session", body);
   } catch (error) {
     log(`Launch guided GUI failed: ${error.message}`);
@@ -365,6 +367,7 @@ el("inspectOutputsBtn").addEventListener("click", async () => {
     renderOutputInspection(body);
     if (state.sessionId) {
       await loadEvidence();
+      await refreshWorkflow();
     }
     log("Output inspection", body);
   } catch (error) {
@@ -379,6 +382,7 @@ el("createBtn").addEventListener("click", async () => {
       body: JSON.stringify(sessionPayload()),
     });
     renderState(body);
+    await refreshWorkflow();
     log("Created paired session", body);
   } catch (error) {
     log(`Create failed: ${error.message}`);
@@ -428,6 +432,7 @@ el("firstCheckpointBtn").addEventListener("click", async () => {
   try {
     const body = await api(`/api/session/${state.sessionId}/checkpoint/first`, { method: "POST" });
     renderEvidence(body.evidence);
+    await refreshWorkflow();
     log("Captured first checkpoint", body.screenshot);
   } catch (error) {
     log(`First checkpoint failed: ${error.message}`);
@@ -445,6 +450,7 @@ el("templateCheckpointBtn").addEventListener("click", async () => {
       }),
     });
     renderEvidence(body.evidence);
+    await refreshWorkflow();
     log("Captured template checkpoint", body.screenshot);
   } catch (error) {
     log(`Template checkpoint failed: ${error.message}`);
@@ -464,6 +470,7 @@ el("addTimelineNoteBtn").addEventListener("click", async () => {
     const timeline = await api(`/api/session/${state.sessionId}/timeline/export`, { method: "POST" });
     renderEvidence(timeline.evidence);
     el("timelinePreview").textContent = timeline.timeline_markdown;
+    await refreshWorkflow();
     log("Added timeline note", body.note);
   } catch (error) {
     log(`Timeline note failed: ${error.message}`);
@@ -476,10 +483,33 @@ async function refreshState() {
   log("Refreshed state", body);
 }
 
+async function refreshWorkflow() {
+  const body = await api(`/api/session/${state.sessionId}/workflow/status`);
+  renderWorkflow(body);
+  log("Refreshed workflow", { status: body.status, claim_status: body.claim_status });
+}
+
 async function loadEvidence() {
   const body = await api(`/api/session/${state.sessionId}/evidence`);
   renderEvidence(body);
   log("Loaded evidence", { session_dir: body.session_dir });
+}
+
+function renderWorkflow(body) {
+  const checklist = (body.checklist || [])
+    .map((item) => `${item.status.toUpperCase()} ${item.label}\n  evidence: ${item.evidence}`)
+    .join("\n");
+  const actions = (body.next_actions || []).map((item) => `- ${item}`).join("\n");
+  el("workflowOutput").textContent = [
+    `status: ${body.status}`,
+    `claim_status: ${body.claim_status}`,
+    "",
+    "checklist:",
+    checklist || "- none",
+    "",
+    "next_actions:",
+    actions || "- none",
+  ].join("\n");
 }
 
 function renderEvidence(body) {
@@ -532,6 +562,14 @@ el("stateBtn").addEventListener("click", async () => {
   }
 });
 
+el("workflowBtn").addEventListener("click", async () => {
+  try {
+    await refreshWorkflow();
+  } catch (error) {
+    log(`Workflow refresh failed: ${error.message}`);
+  }
+});
+
 el("evidenceBtn").addEventListener("click", async () => {
   try {
     await loadEvidence();
@@ -545,6 +583,7 @@ el("exportPacketBtn").addEventListener("click", async () => {
     const body = await api(`/api/session/${state.sessionId}/packet/export`, { method: "POST" });
     renderEvidence(body.evidence);
     el("packetPreview").textContent = body.packet_markdown;
+    await refreshWorkflow();
     log("Exported Codex packet", { packet_path: body.packet_path });
   } catch (error) {
     log(`Packet export failed: ${error.message}`);
@@ -556,6 +595,7 @@ el("exportTimelineBtn").addEventListener("click", async () => {
     const body = await api(`/api/session/${state.sessionId}/timeline/export`, { method: "POST" });
     renderEvidence(body.evidence);
     el("timelinePreview").textContent = body.timeline_markdown;
+    await refreshWorkflow();
     log("Exported run timeline", { timeline_markdown_path: body.timeline_markdown_path });
   } catch (error) {
     log(`Timeline export failed: ${error.message}`);
@@ -568,6 +608,7 @@ el("exportVisualDiffBtn").addEventListener("click", async () => {
     renderEvidence(body.evidence);
     renderVisualDiff(body.visual_diff);
     el("visualDiffMarkdown").textContent = body.visual_diff_markdown;
+    await refreshWorkflow();
     log("Exported visual diff", { visual_diff_markdown_path: body.visual_diff_markdown_path });
   } catch (error) {
     log(`Visual diff export failed: ${error.message}`);

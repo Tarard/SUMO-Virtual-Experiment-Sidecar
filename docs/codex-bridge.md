@@ -25,13 +25,19 @@ It does not embed Codex inside SUMO, and it does not require VS Code. The user k
    variant:  controller-change.sumocfg
    ```
 
-4. Use the web page to step both sessions, run both sessions, and capture paired screenshots.
+4. Use the web page to step both sessions, run both sessions, capture paired screenshots, add timeline notes, and export visual evidence.
 
-5. Ask Codex to inspect the session folder:
+5. Refresh the workflow control screen:
+
+   ```powershell
+   Invoke-RestMethod http://127.0.0.1:8765/api/session/<session_id>/workflow/status
+   ```
+
+6. Ask Codex to inspect the session folder:
 
    ```text
-   Read runs/<session_id>/manifest.json and comparison.md.
-   Tell me what visual differences are supported by the evidence, and what still needs SUMO output metrics.
+   Read runs/<session_id>/manifest.json, comparison.md, timeline.md, visual-diff.md, output-inspection.md, and codex-packet.md if present.
+   Tell me what visual differences are supported by the evidence, what output evidence exists, and what claims remain unsupported.
    ```
 
 Before creating a session, Codex can also inspect the paired `.sumocfg` files:
@@ -116,6 +122,32 @@ Invoke-RestMethod `
   -Body '{"label": "before-after-queue"}'
 ```
 
+Capture a named before/after checkpoint:
+
+```powershell
+Invoke-RestMethod `
+  -Uri http://127.0.0.1:8765/api/session/<session_id>/checkpoint/template `
+  -Method Post `
+  -ContentType "application/json" `
+  -Body '{
+    "template": "before-change",
+    "note": "Before changing max green from 30 to 45 seconds."
+  }'
+```
+
+Record a timeline note without taking a screenshot:
+
+```powershell
+Invoke-RestMethod `
+  -Uri http://127.0.0.1:8765/api/session/<session_id>/timeline/note `
+  -Method Post `
+  -ContentType "application/json" `
+  -Body '{
+    "label": "parameter-change",
+    "note": "Changed max green from 30 to 45 seconds."
+  }'
+```
+
 Load the evidence:
 
 ```powershell
@@ -133,6 +165,22 @@ artifacts
 
 `artifacts` lists all files currently stored in the session folder, including screenshot files and any SUMO outputs later copied or generated there.
 
+Export visual and agent-readable evidence:
+
+```powershell
+Invoke-RestMethod -Uri http://127.0.0.1:8765/api/session/<session_id>/visual-diff/export -Method Post
+Invoke-RestMethod -Uri http://127.0.0.1:8765/api/session/<session_id>/timeline/export -Method Post
+Invoke-RestMethod -Uri http://127.0.0.1:8765/api/session/<session_id>/packet/export -Method Post
+```
+
+Check workflow status before asking Codex for review:
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:8765/api/session/<session_id>/workflow/status
+```
+
+The status response contains a checklist and next actions. Treat `review-ready` as "ready for agent review", not as proof that the experiment is scientifically valid.
+
 ## Evidence Boundary
 
 GUI screenshots are useful for noticing obvious changes, such as queue spillback, phase mismatch, deadlock, unexpected teleport patterns, or controller timing behavior.
@@ -140,3 +188,5 @@ GUI screenshots are useful for noticing obvious changes, such as queue spillback
 They are not sufficient for performance claims. Travel time, delay, waiting time, throughput, emissions, completion rate, and controller comparisons still need paired SUMO output files, matching seeds, matching demand, and explicit metric definitions.
 
 Use screenshot evidence as a diagnostic signal first. Promote it into a report only after it is paired with reproducible output data.
+
+Pixel-level visual diff artifacts are also diagnostic. They can show that pixels changed between before/after screenshots, but they do not explain why the change happened and do not replace SUMO output metrics.

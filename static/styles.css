@@ -82,6 +82,7 @@ p {
 
 .config-preflight,
 .output-evidence,
+.workflow,
 .state,
 .evidence,
 .log {
@@ -274,6 +275,7 @@ code {
 
   .config-preflight,
   .output-evidence,
+  .workflow,
   .state,
   .evidence,
   .log {

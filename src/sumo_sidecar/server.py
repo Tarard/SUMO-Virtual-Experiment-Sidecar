@@ -203,6 +203,13 @@ def create_app(
         except KeyError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
 
+    @app.get("/api/session/{session_id}/workflow/status")
+    def get_workflow_status(session_id: str) -> dict[str, Any]:
+        try:
+            return manager.workflow_status(session_id)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+
     @app.get("/api/session/{session_id}/evidence")
     def get_evidence(session_id: str) -> dict[str, Any]:
         try:
