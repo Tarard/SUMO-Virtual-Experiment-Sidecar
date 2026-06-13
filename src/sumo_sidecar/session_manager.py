@@ -548,6 +548,12 @@ class SessionManager:
         note = request.note.strip()
         confidence = request.confidence.strip() if request.confidence.strip() else "diagnostic"
         evidence_artifact = request.evidence_artifact.strip() if request.evidence_artifact and request.evidence_artifact.strip() else None
+        comparison_role = request.comparison_role.strip() if request.comparison_role and request.comparison_role.strip() else None
+        visual_view = request.visual_view.strip() if request.visual_view and request.visual_view.strip() else None
+        location = request.location.strip() if request.location and request.location.strip() else None
+        movement = request.movement.strip() if request.movement and request.movement.strip() else None
+        link_or_lane = request.link_or_lane.strip() if request.link_or_lane and request.link_or_lane.strip() else None
+        visual_anchor = request.visual_anchor.strip() if request.visual_anchor and request.visual_anchor.strip() else None
         if not observation_type:
             raise ValueError("visual observation type cannot be empty")
         if not note:
@@ -563,6 +569,15 @@ class SessionManager:
             "simulation_time": float(state.baseline.get("time", 0.0)),
             "created_at": _utc_now(),
         }
+        anchor_fields = {
+            "comparison_role": comparison_role,
+            "visual_view": visual_view,
+            "location": location,
+            "movement": movement,
+            "link_or_lane": link_or_lane,
+            "visual_anchor": visual_anchor,
+        }
+        entry.update({key: value for key, value in anchor_fields.items() if value})
         if taxonomy:
             entry["taxonomy"] = {
                 "label": taxonomy["label"],
@@ -1992,6 +2007,12 @@ class SessionManager:
                     "observation_type": observation.get("observation_type", "unknown"),
                     "taxonomy_label": taxonomy.get("label", observation.get("observation_type", "unknown")),
                     "evidence_artifact": observation.get("evidence_artifact"),
+                    "comparison_role": observation.get("comparison_role"),
+                    "visual_view": observation.get("visual_view"),
+                    "location": observation.get("location"),
+                    "movement": observation.get("movement"),
+                    "link_or_lane": observation.get("link_or_lane"),
+                    "visual_anchor": observation.get("visual_anchor"),
                     "evidence_targets": evidence_targets,
                     "missing_evidence_targets": [target for target in evidence_targets if target not in relative_paths],
                     "evidence_checks": taxonomy.get("evidence_checks", []),
@@ -2090,7 +2111,9 @@ class SessionManager:
             for action in review["recommended_actions"]
         ]
         observation_lines = [
-            f"- `{item.get('label', 'visual-observation')}` / `{item.get('observation_type', 'unknown')}` / `{item.get('confidence', 'diagnostic')}`: {item.get('note', '')} (artifact: `{item.get('evidence_artifact') or 'not specified'}`)"
+            f"- `{item.get('label', 'visual-observation')}` / `{item.get('observation_type', 'unknown')}` / `{item.get('confidence', 'diagnostic')}`"
+            f" / `{item.get('comparison_role') or 'role not specified'} / {item.get('visual_view') or 'view not specified'}`"
+            f": {item.get('note', '')} (artifact: `{item.get('evidence_artifact') or 'not specified'}`; location: {item.get('location') or 'not specified'}; movement: {item.get('movement') or 'not specified'}; link/lane: {item.get('link_or_lane') or 'not specified'}; anchor: {item.get('visual_anchor') or 'not specified'})"
             for item in review["visual_observations"]
         ] or ["- none"]
         guidance_lines: list[str] = []
@@ -2104,6 +2127,7 @@ class SessionManager:
                     "",
                     f"- Observation type: `{item['observation_type']}`",
                     f"- Evidence artifact: `{item.get('evidence_artifact') or 'not specified'}`",
+                    f"- Visual anchor: `{item.get('comparison_role') or 'role not specified'} / {item.get('visual_view') or 'view not specified'}`; location: {item.get('location') or 'not specified'}; movement: {item.get('movement') or 'not specified'}; link/lane: {item.get('link_or_lane') or 'not specified'}; anchor note: {item.get('visual_anchor') or 'not specified'}",
                     f"- Missing evidence targets: {missing}",
                     f"- Evidence checks: {checks}",
                     f"- Suggested next actions: {actions}",
@@ -2420,6 +2444,12 @@ class SessionManager:
                     f"- Confidence: `{observation['confidence']}`",
                     f"- SUMO time: `{observation['simulation_time']}`",
                     f"- Evidence artifact: `{observation.get('evidence_artifact') or 'not specified'}`",
+                    f"- Comparison role: `{observation.get('comparison_role') or 'not specified'}`",
+                    f"- Visual view: `{observation.get('visual_view') or 'not specified'}`",
+                    f"- Location: {observation.get('location') or 'not specified'}",
+                    f"- Movement: {observation.get('movement') or 'not specified'}",
+                    f"- Link or lane: {observation.get('link_or_lane') or 'not specified'}",
+                    f"- Visual anchor: {observation.get('visual_anchor') or 'not specified'}",
                     f"- Note: {observation['note']}",
                     f"- Recorded at: `{observation['created_at']}`",
                 ]

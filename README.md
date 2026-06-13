@@ -130,7 +130,7 @@ Use `Add Timeline Note` to record parameter changes, observations, or assumption
 
 Use `Record Change` when you want Codex to know exactly what changed between two checkpoints. Record the parameter or controller element, before value, after value, and rationale before interpreting visual or metric differences.
 
-Use `Record Visual Observation` after looking at the SUMO GUI or the visual-diff matrix. Record what you saw, which artifact supports it, and how confident you are. This helps Codex connect human visual inspection to the evidence bundle without treating the observation as proof.
+Use `Record Visual Observation` after looking at the SUMO GUI or the visual-diff matrix. Record what you saw, which artifact supports it, how confident you are, and optional anchors such as baseline/variant, before/after/diff, movement, link/lane, location, or screenshot region. This helps Codex inspect the right part of the evidence bundle without treating the observation as proof.
 
 Use `Load Observation Types` before recording a visual observation when you want guided labels and evidence checks. The taxonomy helps classify observations such as queue growth, spillback, phase mismatch, insertion/teleport symptoms, density change, deadlock/gridlock, or route/demand mismatch suspicion. It is not automatic image understanding.
 
@@ -284,7 +284,7 @@ Scenario templates prefill `scenario-plan.md` inputs for common workflows. They 
 
 `change-records.md` records structured edits such as controller parameters, detector mappings, route settings, or experiment assumptions with before value, after value, and rationale. It is the link between "what changed" and the visual/output evidence.
 
-`visual-observations.md` records what the user noticed in the SUMO GUI or visual-diff matrix, such as queue growth, spillback, phase mismatch, deadlock, or density changes. When a known observation type is used, it also stores taxonomy guidance with evidence targets, suggested checks, next actions, and a claim boundary. It is a diagnostic annotation that should be checked against paired outputs before being used in a claim.
+`visual-observations.md` records what the user noticed in the SUMO GUI or visual-diff matrix, such as queue growth, spillback, phase mismatch, deadlock, or density changes. It can also store human-authored visual anchors: role, view, movement, link/lane, location, and where to look in the screenshot or matrix. When a known observation type is used, it also stores taxonomy guidance with evidence targets, suggested checks, next actions, and a claim boundary. It is a diagnostic annotation that should be checked against paired outputs before being used in a claim.
 
 `next-action-review.md` turns the current evidence state into a concrete next Sidecar operation. It also uses visual-observation taxonomy guidance when available, so a `spillback` or `phase-mismatch` note can point to the missing output, timeline, change-record, or controller evidence that should be checked next. It is a diagnostic control screen, not a claim generator.
 

@@ -70,6 +70,12 @@ class VisualObservationRequest(BaseModel):
     observation_type: str
     evidence_artifact: str | None = None
     confidence: str = "diagnostic"
+    comparison_role: str | None = None
+    visual_view: str | None = None
+    location: str | None = None
+    movement: str | None = None
+    link_or_lane: str | None = None
+    visual_anchor: str | None = None
     note: str
 
 

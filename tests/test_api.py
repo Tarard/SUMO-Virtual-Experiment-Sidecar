@@ -213,6 +213,24 @@ def test_homepage_exposes_visual_observation_taxonomy_controls(tmp_path: Path) -
     assert "applyVisualObservationTaxonomy" in script_response.text
 
 
+def test_homepage_exposes_visual_observation_anchor_controls(tmp_path: Path) -> None:
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+
+    index_response = client.get("/")
+    script_response = client.get("/static/app.js")
+
+    assert index_response.status_code == 200
+    assert script_response.status_code == 200
+    assert "visualObservationRole" in index_response.text
+    assert "visualObservationView" in index_response.text
+    assert "visualObservationLocation" in index_response.text
+    assert "visualObservationMovement" in index_response.text
+    assert "visualObservationAnchor" in index_response.text
+    assert "comparison_role" in script_response.text
+    assert "visual_anchor" in script_response.text
+
+
 def test_homepage_exposes_visual_diff_matrix_renderer(tmp_path: Path) -> None:
     app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
     client = TestClient(app)
@@ -1083,6 +1101,70 @@ def test_visual_observation_record_includes_taxonomy_guidance(tmp_path: Path) ->
     assert "Evidence to check" in markdown
     assert "output-inspection.md" in markdown
     assert "does not prove causality" in markdown
+
+
+def test_visual_observation_record_preserves_anchor_metadata(tmp_path: Path) -> None:
+    baseline = tmp_path / "baseline.sumocfg"
+    variant = tmp_path / "variant.sumocfg"
+    baseline.write_text("<configuration/>", encoding="utf-8")
+    variant.write_text("<configuration/>", encoding="utf-8")
+
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+    create_response = client.post(
+        "/api/session/create",
+        json={
+            "name": "anchor-observation-demo",
+            "baseline_config": str(baseline),
+            "variant_config": str(variant),
+        },
+    )
+    session_id = create_response.json()["id"]
+    client.post(f"/api/session/{session_id}/checkpoint/template", json={"template": "before-change"})
+    client.post(f"/api/session/{session_id}/step", json={"count": 2})
+    client.post(f"/api/session/{session_id}/checkpoint/template", json={"template": "after-change"})
+    client.post(f"/api/session/{session_id}/visual-diff/export")
+
+    response = client.post(
+        f"/api/session/{session_id}/visual-observation/record",
+        json={
+            "label": "variant-after-northbound-spillback",
+            "observation_type": "spillback",
+            "evidence_artifact": "visual-diff.md",
+            "confidence": "diagnostic",
+            "comparison_role": "variant",
+            "visual_view": "after",
+            "location": "north approach near stop line",
+            "movement": "northbound through",
+            "link_or_lane": "edge_N_in lane 0",
+            "visual_anchor": "right column, after-change screenshot, upper-left queue",
+            "note": "The downstream queue appears to block the upstream approach.",
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    observation = body["observation"]
+    assert observation["comparison_role"] == "variant"
+    assert observation["visual_view"] == "after"
+    assert observation["location"] == "north approach near stop line"
+    assert observation["movement"] == "northbound through"
+    assert observation["link_or_lane"] == "edge_N_in lane 0"
+    assert "upper-left queue" in observation["visual_anchor"]
+
+    markdown = (tmp_path / "runs" / session_id / "visual-observations.md").read_text(encoding="utf-8")
+    assert "Comparison role: `variant`" in markdown
+    assert "Visual view: `after`" in markdown
+    assert "northbound through" in markdown
+    assert "edge_N_in lane 0" in markdown
+    assert "upper-left queue" in markdown
+
+    review_response = client.post(f"/api/session/{session_id}/next-action-review/export")
+    assert review_response.status_code == 200
+    review_markdown = review_response.json()["next_action_review_markdown"]
+    assert "variant / after" in review_markdown
+    assert "north approach near stop line" in review_markdown
+    assert "edge_N_in lane 0" in review_markdown
 
 
 def test_next_action_review_turns_visual_observations_into_next_actions(tmp_path: Path) -> None:

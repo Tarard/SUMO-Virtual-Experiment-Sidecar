@@ -91,11 +91,17 @@ Invoke-RestMethod `
     "observation_type": "queue-growth",
     "evidence_artifact": "visual-diff.md",
     "confidence": "diagnostic",
+    "comparison_role": "variant",
+    "visual_view": "after",
+    "location": "eastbound approach near the stop line",
+    "movement": "eastbound through",
+    "link_or_lane": "edge or lane id if known",
+    "visual_anchor": "visual-diff matrix, variant after cell, queue near the stop line",
     "note": "Variant appears to keep a longer eastbound queue after the change."
   }'
 ```
 
-This writes `visual-observations.json` and `visual-observations.md`. Treat these observations as human annotations over visual evidence, not as formal output evidence.
+This writes `visual-observations.json` and `visual-observations.md`. Optional anchor fields tell Codex where to look in the paired evidence. Treat these observations as human annotations over visual evidence, not as formal output evidence.
 
 After evidence has accumulated, export the next-action review:
 

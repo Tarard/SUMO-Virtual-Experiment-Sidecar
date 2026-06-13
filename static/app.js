@@ -103,6 +103,12 @@ function visualObservationPayload() {
     observation_type: el("visualObservationType").value,
     evidence_artifact: el("visualObservationArtifact").value,
     confidence: el("visualObservationConfidence").value,
+    comparison_role: el("visualObservationRole").value,
+    visual_view: el("visualObservationView").value,
+    location: el("visualObservationLocation").value,
+    movement: el("visualObservationMovement").value,
+    link_or_lane: el("visualObservationLinkLane").value,
+    visual_anchor: el("visualObservationAnchor").value,
     note: el("visualObservationNote").value,
   };
 }
@@ -1171,6 +1177,12 @@ function renderVisualObservation(body) {
     `confidence: ${observation.confidence}`,
     `simulation_time: ${observation.simulation_time}`,
     `evidence_artifact: ${observation.evidence_artifact || "not specified"}`,
+    `role: ${observation.comparison_role || "not specified"}`,
+    `view: ${observation.visual_view || "not specified"}`,
+    `location: ${observation.location || "not specified"}`,
+    `movement: ${observation.movement || "not specified"}`,
+    `link_or_lane: ${observation.link_or_lane || "not specified"}`,
+    `visual_anchor: ${observation.visual_anchor || "not specified"}`,
     "",
     observation.note,
   ].join("\n");

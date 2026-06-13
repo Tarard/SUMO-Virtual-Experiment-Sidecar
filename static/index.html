@@ -339,6 +339,41 @@
             Label
             <input id="visualObservationLabel" value="visual-observation">
           </label>
+          <label>
+            Role
+            <select id="visualObservationRole">
+              <option value="">not specified</option>
+              <option value="baseline">baseline</option>
+              <option value="variant">variant</option>
+              <option value="both">both</option>
+            </select>
+          </label>
+          <label>
+            View
+            <select id="visualObservationView">
+              <option value="">not specified</option>
+              <option value="before">before</option>
+              <option value="after">after</option>
+              <option value="diff">diff</option>
+              <option value="first-checkpoint">first-checkpoint</option>
+            </select>
+          </label>
+          <label>
+            Location
+            <input id="visualObservationLocation" placeholder="north approach, stop line, merge area">
+          </label>
+          <label>
+            Movement
+            <input id="visualObservationMovement" placeholder="northbound through, left turn, bus lane">
+          </label>
+          <label>
+            Link or lane
+            <input id="visualObservationLinkLane" placeholder="edge or lane id if known">
+          </label>
+          <label>
+            Visual anchor
+            <input id="visualObservationAnchor" placeholder="matrix cell, screenshot region, or where Codex should look">
+          </label>
         </div>
         <label>
           Observation note
