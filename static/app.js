@@ -2413,7 +2413,12 @@ function renderVisualDiffSpotlight(visualDiff) {
   const ratio = formatPixelRatio(row) || "pixel ratio unavailable";
   const pixelStatus = pair.pixel_diff ? pair.pixel_diff.status || "unknown" : "index-only";
   meta.textContent = `Pair ${pair.index}; ${row.label || row.role || "unknown"}; ${ratio}; pixel_diff_status: ${pixelStatus}`;
-  header.append(title, meta);
+  const action = document.createElement("button");
+  action.type = "button";
+  action.className = "visual-diff-spotlight-action";
+  action.textContent = "Use as observation anchor";
+  action.addEventListener("click", () => applyVisualDiffSpotlightObservation(pair, row));
+  header.append(title, meta, action);
 
   const gallery = document.createElement("div");
   gallery.className = "visual-diff-spotlight-gallery";
@@ -2429,6 +2434,49 @@ function renderVisualDiffSpotlight(visualDiff) {
 
   section.append(header, gallery, boundary);
   return section;
+}
+
+function applyVisualDiffSpotlightObservation(pair, row) {
+  const payload = visualDiffSpotlightObservationPayload(pair, row);
+  el("visualObservationType").value = payload.observation_type;
+  el("visualObservationArtifact").value = payload.evidence_artifact;
+  el("visualObservationConfidence").value = payload.confidence;
+  el("visualObservationLabel").value = payload.label;
+  el("visualObservationRole").value = payload.comparison_role;
+  el("visualObservationView").value = payload.visual_view;
+  el("visualObservationAnchor").value = payload.visual_anchor;
+  el("visualObservationNote").value = payload.note;
+  if (el("visualObservationTaxonomy").querySelector(`option[value="${payload.observation_type}"]`)) {
+    el("visualObservationTaxonomy").value = payload.observation_type;
+  }
+  openSidebarDrawer("visualReviewDrawer");
+  focusElement("visualObservationNote");
+  log("Prepared visual observation from spotlight", payload);
+  return payload;
+}
+
+function visualDiffSpotlightObservationPayload(pair, row) {
+  const rowRole = row.role === "baseline" || row.role === "variant" ? row.role : "both";
+  const rowLabel = row.label || row.role || "unknown row";
+  const ratio = formatPixelRatio(row) || "pixel ratio unavailable";
+  const anchorParts = [
+    "visual-diff spotlight",
+    `pair ${pair.index}`,
+    rowLabel,
+    `before=${row.before || "not available"}`,
+    `after=${row.after || "not available"}`,
+    `diff=${row.pixel_diff || "not available"}`,
+  ];
+  return {
+    label: "spotlight-visual-observation",
+    observation_type: "density-change",
+    evidence_artifact: "visual-diff.md",
+    confidence: "diagnostic",
+    comparison_role: rowRole,
+    visual_view: "diff",
+    visual_anchor: anchorParts.join("; "),
+    note: `Highest-change visual-diff row: pair ${pair.index}, ${rowLabel}, ${ratio}. Inspect the before/after/diff artifacts and verify against SUMO completion and output evidence before making a claim.`,
+  };
 }
 
 function dominantVisualDiffPair(visualDiff) {

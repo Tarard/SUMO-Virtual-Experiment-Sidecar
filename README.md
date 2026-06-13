@@ -403,6 +403,8 @@ The web Visual Review drawer renders a compact visual-diff summary strip before 
 
 When pixel-level diff data is available, the drawer also renders a `Highest-change visual row` spotlight before the full matrix. This pulls the dominant before/after/diff row into a three-image preview so the operator can inspect the most likely visual change before reading every matrix cell.
 
+Use `Use as observation anchor` in the spotlight to prefill the Visual Observation form with the dominant row, artifact, view, anchor, and diagnostic note. This does not record the observation automatically; review or edit the fields, then use `Record Visual Observation` or `Record Guided Observation`.
+
 When possible, the sidecar also writes pixel-level diff artifacts under `visual-diff/`. White pixels indicate changed pixels and black pixels indicate unchanged pixels. The matrix reports changed-pixel counts and ratios for quick screening. If screenshots are not valid raster images, or if image dimensions differ, the export remains available as an index and records the pixel-diff warning instead of failing.
 
 ## Config Pair Preflight

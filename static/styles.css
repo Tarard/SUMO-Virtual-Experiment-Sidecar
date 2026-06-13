@@ -986,6 +986,13 @@ button:disabled {
   overflow-wrap: anywhere;
 }
 
+.visual-diff-spotlight-action {
+  width: fit-content;
+  margin-top: 10px;
+  background: #ffffff;
+  color: var(--accent-2);
+}
+
 .visual-diff-spotlight-gallery {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

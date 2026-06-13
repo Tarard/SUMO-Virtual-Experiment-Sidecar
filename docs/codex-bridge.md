@@ -471,6 +471,8 @@ Inside `visualReviewDrawer`, the web UI renders `visual-diff-summary` before the
 
 When pixel-diff data is available, the UI also renders `visual-diff-spotlight` before the full matrix. It selects the row with the largest changed-pixel ratio across the available pairs and shows its Before, After, and Diff artifacts together. Use this as the first visual inspection target, then verify with completion/output evidence before making claims.
 
+The spotlight action `Use as observation anchor` only pre-fills the Visual Observation form from the dominant row. It sets a diagnostic observation type, `visual-diff.md`, role, diff view, visual anchor, and note, then focuses the note field. It does not call the record or guided-record endpoints; the operator must review the fields and explicitly record the observation.
+
 When the web UI refreshes Evidence Loop status, it also refreshes `source-evidence/guide` into the Source Evidence Guide panel. The guide includes its own `refresh_trigger`, such as `manual-guide` or `evidence-loop-output-inspection`, so Codex can tell whether it was manually requested or synchronized from workflow status. This is guidance only; it does not execute the guide step or certify validity.
 
 The web UI mirrors the first guide step into `sourceGuideNextStep`, including `ui_action`, `required_inputs`, and `manual_gate`. Use this as a compact operator cue and still inspect `sourceEvidenceGuideOutput` before treating the evidence workflow as ready.
