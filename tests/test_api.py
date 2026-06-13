@@ -164,6 +164,22 @@ def test_homepage_exposes_agent_feedback_record_action(tmp_path: Path) -> None:
     assert "renderAgentFeedback" in script_response.text
 
 
+def test_homepage_exposes_agent_action_plan_export(tmp_path: Path) -> None:
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+
+    index_response = client.get("/")
+    script_response = client.get("/static/app.js")
+
+    assert index_response.status_code == 200
+    assert script_response.status_code == 200
+    assert "exportAgentActionPlanBtn" in index_response.text
+    assert "Export Agent Action Plan" in index_response.text
+    assert "agentActionPlanPreview" in index_response.text
+    assert "/agent-action-plan/export" in script_response.text
+    assert "renderAgentActionPlan" in script_response.text
+
+
 def test_homepage_exposes_next_action_review_action(tmp_path: Path) -> None:
     app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
     client = TestClient(app)
@@ -2168,6 +2184,72 @@ def test_agent_feedback_record_returns_codex_response_to_sidecar_evidence(tmp_pa
     card_ids = {card["id"] for card in summary["review_summary"]["cards"]}
     assert "agent_feedback" in card_ids
     assert "agent-feedback.md" in summary["review_summary_markdown"]
+
+
+def test_agent_action_plan_exports_manual_next_step_from_agent_feedback(tmp_path: Path) -> None:
+    baseline = tmp_path / "baseline.sumocfg"
+    variant = tmp_path / "variant.sumocfg"
+    baseline.write_text("<configuration/>", encoding="utf-8")
+    variant.write_text("<configuration/>", encoding="utf-8")
+
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+
+    create_response = client.post(
+        "/api/session/create",
+        json={
+            "name": "agent-action-plan-demo",
+            "baseline_config": str(baseline),
+            "variant_config": str(variant),
+        },
+    )
+    session_id = create_response.json()["id"]
+    client.post(f"/api/session/{session_id}/agent-review-prompt/export")
+    client.post(
+        f"/api/session/{session_id}/agent-feedback/record",
+        json={
+            "label": "codex-output-check",
+            "source_agent": "Codex",
+            "prompt_artifact": "agent-review-prompt.md",
+            "response_text": "Inspect output-inspection.md before making any performance claim.",
+            "recommended_action": "Inspect Outputs",
+            "claim_boundary": "Treat the current review as diagnostic only.",
+        },
+    )
+
+    response = client.post(f"/api/session/{session_id}/agent-action-plan/export")
+
+    assert response.status_code == 200
+    body = response.json()
+    plan = body["agent_action_plan"]
+    assert plan["status"] == "manual-action-needed"
+    assert plan["manual_execution_required"] is True
+    assert plan["latest_feedback"]["label"] == "codex-output-check"
+    assert plan["latest_feedback"]["source_agent"] == "Codex"
+    assert plan["recommended_action"]["action"] == "Inspect Outputs"
+    assert plan["recommended_action"]["evidence_target"] == "output-inspection.md"
+    assert "agent-feedback.md" in plan["artifacts_to_open"]
+    assert "diagnostic only" in plan["claim_boundary"]
+    assert Path(body["agent_action_plan_json_path"]).name == "agent-action-plan.json"
+    assert Path(body["agent_action_plan_markdown_path"]).name == "agent-action-plan.md"
+    assert "Manual execution gate" in body["agent_action_plan_markdown"]
+    assert "Inspect Outputs" in body["agent_action_plan_markdown"]
+    artifact_paths = {item["relative_path"] for item in body["evidence"]["artifacts"]}
+    assert "agent-action-plan.json" in artifact_paths
+    assert "agent-action-plan.md" in artifact_paths
+
+    timeline_response = client.post(f"/api/session/{session_id}/timeline/export?preset=review")
+    assert timeline_response.status_code == 200
+    timeline = timeline_response.json()
+    assert "agent-action-plan" in {event["kind"] for event in timeline["timeline"]["events"]}
+    assert "agent-action-plan.md" in timeline["timeline_markdown"]
+
+    summary_response = client.post(f"/api/session/{session_id}/review/summary")
+    assert summary_response.status_code == 200
+    summary = summary_response.json()
+    card_ids = {card["id"] for card in summary["review_summary"]["cards"]}
+    assert "agent_action_plan" in card_ids
+    assert "agent-action-plan.md" in summary["review_summary_markdown"]
 
 
 def test_workflow_status_guides_incomplete_session_next_actions(tmp_path: Path) -> None:

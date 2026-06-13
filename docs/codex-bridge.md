@@ -384,6 +384,14 @@ Invoke-RestMethod `
 
 This writes `agent-feedback.json` and `agent-feedback.md`, adds the feedback to review timelines, and surfaces it in `review-summary.md`. It preserves the review loop; it does not make the agent response a validation result.
 
+Turn the latest recorded feedback into a manual-only action plan:
+
+```powershell
+Invoke-RestMethod -Uri http://127.0.0.1:8765/api/session/<session_id>/agent-action-plan/export -Method Post
+```
+
+This writes `agent-action-plan.json` and `agent-action-plan.md`. The plan maps the latest `recommended_action` to a likely Sidecar evidence target and repeats the manual execution boundary. It does not execute the action or validate the agent recommendation.
+
 Check workflow status before asking Codex for review:
 
 ```powershell

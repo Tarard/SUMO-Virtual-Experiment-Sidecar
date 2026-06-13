@@ -31,6 +31,7 @@ function setControls(enabled) {
     "evidenceBtn",
     "exportPacketBtn",
     "exportAgentPromptBtn",
+    "exportAgentActionPlanBtn",
     "recordAgentFeedbackBtn",
     "exportNextActionReviewBtn",
     "exportTimelineBtn",
@@ -1080,6 +1081,22 @@ el("recordAgentFeedbackBtn").addEventListener("click", async () => {
 function renderAgentFeedback(body) {
   renderEvidence(body.evidence);
   el("agentFeedbackPreview").textContent = body.agent_feedback_markdown || "No agent feedback recorded.";
+}
+
+el("exportAgentActionPlanBtn").addEventListener("click", async () => {
+  try {
+    const body = await api(`/api/session/${state.sessionId}/agent-action-plan/export`, { method: "POST" });
+    renderAgentActionPlan(body);
+    await refreshWorkflow();
+    log("Exported agent action plan", { agent_action_plan_markdown_path: body.agent_action_plan_markdown_path });
+  } catch (error) {
+    log(`Agent action plan export failed: ${error.message}`);
+  }
+});
+
+function renderAgentActionPlan(body) {
+  renderEvidence(body.evidence);
+  el("agentActionPlanPreview").textContent = body.agent_action_plan_markdown || "No agent action plan exported.";
 }
 
 el("exportNextActionReviewBtn").addEventListener("click", async () => {

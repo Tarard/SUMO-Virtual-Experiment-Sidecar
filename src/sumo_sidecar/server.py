@@ -471,6 +471,20 @@ def create_app(
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
+    @app.post("/api/session/{session_id}/agent-action-plan/export")
+    def export_agent_action_plan(session_id: str) -> dict[str, Any]:
+        try:
+            plan = manager.export_agent_action_plan(session_id)
+            return {
+                "agent_action_plan": plan["agent_action_plan"],
+                "agent_action_plan_json_path": str(plan["agent_action_plan_json_path"]),
+                "agent_action_plan_markdown_path": str(plan["agent_action_plan_markdown_path"]),
+                "agent_action_plan_markdown": plan["agent_action_plan_markdown"],
+                "evidence": plan["evidence"].model_dump(mode="json"),
+            }
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+
     @app.post("/api/session/{session_id}/next-action-review/export")
     def export_next_action_review(session_id: str) -> dict[str, Any]:
         try:

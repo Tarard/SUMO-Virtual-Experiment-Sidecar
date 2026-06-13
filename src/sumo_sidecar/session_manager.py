@@ -74,7 +74,7 @@ CHECKPOINT_TEMPLATES = {
 
 TIMELINE_PRESETS = {
     "full": None,
-    "review": {"session-created", "scenario-plan", "user-note", "change-record", "visual-observation", "screenshot-checkpoint", "output-inspection", "metric-comparison", "metric-chart", "visual-diff", "codex-packet", "review-summary", "next-action-review", "agent-feedback"},
+    "review": {"session-created", "scenario-plan", "user-note", "change-record", "visual-observation", "screenshot-checkpoint", "output-inspection", "metric-comparison", "metric-chart", "visual-diff", "codex-packet", "review-summary", "next-action-review", "agent-feedback", "agent-action-plan"},
     "visual": {"session-created", "screenshot-checkpoint", "visual-observation", "visual-diff"},
     "outputs": {"session-created", "output-inspection", "metric-comparison", "metric-chart"},
     "notes": {"session-created", "scenario-plan", "user-note", "change-record"},
@@ -387,6 +387,31 @@ class SessionManager:
             "agent_feedback_json_path": session.session_dir / "agent-feedback.json",
             "agent_feedback_markdown_path": session.session_dir / "agent-feedback.md",
             "agent_feedback_markdown": (session.session_dir / "agent-feedback.md").read_text(encoding="utf-8"),
+            "evidence": self.evidence(session_id),
+        }
+
+    def export_agent_action_plan(self, session_id: str) -> dict[str, Any]:
+        session = self.get(session_id)
+        readiness = self.comparison_readiness(session_id)
+        workflow = self.workflow_status(session_id)
+        plan = self._build_agent_action_plan(session, readiness, workflow)
+        plan_markdown = self._render_agent_action_plan_markdown(plan)
+        json_path = session.session_dir / "agent-action-plan.json"
+        markdown_path = session.session_dir / "agent-action-plan.md"
+        json_path.write_text(json.dumps(plan, indent=2), encoding="utf-8")
+        markdown_path.write_text(plan_markdown, encoding="utf-8")
+        session.manifest["agent_action_plan"] = {
+            "status": plan["status"],
+            "json": str(json_path),
+            "markdown": str(markdown_path),
+            "updated_at": _utc_now(),
+        }
+        self._write_manifest(session)
+        return {
+            "agent_action_plan": plan,
+            "agent_action_plan_json_path": json_path,
+            "agent_action_plan_markdown_path": markdown_path,
+            "agent_action_plan_markdown": plan_markdown,
             "evidence": self.evidence(session_id),
         }
 
@@ -1317,6 +1342,24 @@ class SessionManager:
                     "artifacts": ["agent-feedback.json", "agent-feedback.md"],
                 }
             )
+        if "agent_action_plan" in session.manifest:
+            plan = session.manifest["agent_action_plan"]
+            events.append(
+                {
+                    "sequence": len(events) + 1,
+                    "kind": "agent-action-plan",
+                    "label": "Agent action plan",
+                    "simulation_time": None,
+                    "wall_time": plan.get("updated_at"),
+                    "status": plan.get("status", "unknown"),
+                    "template": None,
+                    "note": "manual-only plan derived from recorded agent feedback",
+                    "artifacts": [
+                        self._relative_artifact(session, plan.get("json", "")),
+                        self._relative_artifact(session, plan.get("markdown", "")),
+                    ],
+                }
+            )
         return {
             "session_id": session.id,
             "session_name": session.name,
@@ -1742,6 +1785,12 @@ class SessionManager:
                 f"{len(session.manifest.get('agent_feedback', []))} feedback record(s)",
                 ["agent-feedback.md", "agent-feedback.json"] if session.manifest.get("agent_feedback_artifact") else [],
             ),
+            self._review_manifest_card(
+                session,
+                "agent_action_plan",
+                "Agent action plan",
+                session.manifest.get("agent_action_plan"),
+            ),
             self._review_card(
                 "workflow",
                 "Workflow control screen",
@@ -1823,6 +1872,7 @@ class SessionManager:
 
     def _review_artifacts_to_review(self, session: PairedSession) -> list[str]:
         candidates = [
+            "agent-action-plan.md",
             "next-action-review.md",
             "agent-feedback.md",
             "agent-review-prompt.md",
@@ -1880,6 +1930,7 @@ class SessionManager:
 
     def _agent_prompt_artifacts_to_open(self, session: PairedSession) -> list[str]:
         candidates = [
+            "agent-action-plan.md",
             "next-action-review.md",
             "agent-feedback.md",
             "review-summary.md",
@@ -1898,6 +1949,81 @@ class SessionManager:
             "manifest.json",
         ]
         return [path for path in candidates if (session.session_dir / path).exists()]
+
+    def _build_agent_action_plan(
+        self,
+        session: PairedSession,
+        readiness: dict[str, Any],
+        workflow: dict[str, Any],
+    ) -> dict[str, Any]:
+        feedback_items = session.manifest.get("agent_feedback", [])
+        latest_feedback = feedback_items[-1] if feedback_items else None
+        action = latest_feedback.get("recommended_action") if latest_feedback else None
+        recommended_action = {
+            "action": action or "Record Agent Feedback",
+            "evidence_target": self._agent_action_evidence_target(action),
+            "reason": (
+                "Latest agent feedback recommended this Sidecar action."
+                if action
+                else "No agent feedback recommendation has been recorded yet."
+            ),
+        }
+        relative_paths = {item.relative_path for item in self._list_artifacts(session)}
+        artifacts_to_open = [
+            path
+            for path in [
+                "agent-feedback.md",
+                "agent-review-prompt.md",
+                "next-action-review.md",
+                "review-summary.md",
+                recommended_action["evidence_target"],
+                "manifest.json",
+            ]
+            if path == "manifest.json" or path in relative_paths
+        ]
+        claim_boundary = (
+            latest_feedback.get("claim_boundary")
+            if latest_feedback and latest_feedback.get("claim_boundary")
+            else "Agent action plan is a manual control artifact. It does not execute actions, validate an experiment, or prove a claim."
+        )
+        return {
+            "session_id": session.id,
+            "session_name": session.name,
+            "session_dir": str(session.session_dir),
+            "status": "manual-action-needed" if action else "needs-agent-feedback",
+            "manual_execution_required": True,
+            "latest_feedback": latest_feedback,
+            "feedback_count": len(feedback_items),
+            "recommended_action": recommended_action,
+            "readiness_status": readiness["status"],
+            "workflow_status": workflow["status"],
+            "sidecar_next_actions": workflow.get("next_actions", []),
+            "artifacts_to_open": artifacts_to_open,
+            "claim_boundary": claim_boundary,
+        }
+
+    def _agent_action_evidence_target(self, action: str | None) -> str:
+        if not action:
+            return "agent-feedback.md"
+        normalized = action.strip().lower()
+        mapping = [
+            ("inspect outputs", "output-inspection.md"),
+            ("compare metrics", "metric-comparison.md"),
+            ("metric chart", "metric-delta-chart.md"),
+            ("visual diff", "visual-diff.md"),
+            ("record visual observation", "visual-observations.md"),
+            ("review summary", "review-summary.md"),
+            ("codex packet", "codex-packet.md"),
+            ("agent prompt", "agent-review-prompt.md"),
+            ("next action review", "next-action-review.md"),
+            ("timeline", "timeline.md"),
+            ("record change", "change-records.md"),
+            ("checkpoint", "comparison.md"),
+        ]
+        for needle, target in mapping:
+            if needle in normalized:
+                return target
+        return "manual-review"
 
     def _build_next_action_review(
         self,
@@ -2190,6 +2316,54 @@ class SessionManager:
                 "## Claim boundary",
                 "",
                 prompt["claim_boundary"],
+            ]
+        )
+
+    def _render_agent_action_plan_markdown(self, plan: dict[str, Any]) -> str:
+        latest_feedback = plan.get("latest_feedback") or {}
+        artifact_lines = [f"- `{artifact}`" for artifact in plan["artifacts_to_open"]] or ["- none"]
+        sidecar_action_lines = [f"- {action}" for action in plan["sidecar_next_actions"]] or ["- none"]
+        return "\n".join(
+            [
+                f"# Agent Action Plan: {plan['session_name']}",
+                "",
+                "A manual-only bridge from recorded Codex/Claude feedback back into Sidecar operations.",
+                "",
+                "## Status",
+                "",
+                f"- Status: `{plan['status']}`",
+                f"- Manual execution required: `{plan['manual_execution_required']}`",
+                f"- Readiness status: `{plan['readiness_status']}`",
+                f"- Workflow status: `{plan['workflow_status']}`",
+                f"- Feedback records: `{plan['feedback_count']}`",
+                "",
+                "## Latest feedback",
+                "",
+                f"- Label: `{latest_feedback.get('label', 'not recorded')}`",
+                f"- Source agent: `{latest_feedback.get('source_agent', 'not recorded')}`",
+                f"- Prompt artifact: `{latest_feedback.get('prompt_artifact') or 'not specified'}`",
+                "",
+                "## Recommended action",
+                "",
+                f"- Action: `{plan['recommended_action']['action']}`",
+                f"- Evidence target: `{plan['recommended_action']['evidence_target']}`",
+                f"- Reason: {plan['recommended_action']['reason']}",
+                "",
+                "## Sidecar next actions",
+                "",
+                *sidecar_action_lines,
+                "",
+                "## Artifacts to open",
+                "",
+                *artifact_lines,
+                "",
+                "## Manual execution gate",
+                "",
+                "This plan does not run SUMO, edit files, execute a controller action, or validate the agent recommendation. The user must choose and run the next Sidecar operation manually.",
+                "",
+                "## Claim boundary",
+                "",
+                plan["claim_boundary"],
             ]
         )
 
