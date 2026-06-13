@@ -145,6 +145,26 @@ def test_homepage_exposes_agent_review_prompt_action(tmp_path: Path) -> None:
     assert "renderAgentReviewPrompt" in script_response.text
 
 
+def test_homepage_exposes_visual_observation_controls(tmp_path: Path) -> None:
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+
+    index_response = client.get("/")
+    script_response = client.get("/static/app.js")
+
+    assert index_response.status_code == 200
+    assert script_response.status_code == 200
+    assert "visualObservationType" in index_response.text
+    assert "visualObservationArtifact" in index_response.text
+    assert "visualObservationNote" in index_response.text
+    assert "recordVisualObservationBtn" in index_response.text
+    assert "Record Visual Observation" in index_response.text
+    assert "visualObservationPreview" in index_response.text
+    assert "/visual-observation/record" in script_response.text
+    assert "visualObservationPayload" in script_response.text
+    assert "renderVisualObservation" in script_response.text
+
+
 def test_homepage_exposes_visual_diff_matrix_renderer(tmp_path: Path) -> None:
     app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
     client = TestClient(app)
@@ -900,6 +920,73 @@ def test_visual_diff_export_creates_pixel_diff_artifacts_for_valid_pngs(tmp_path
     assert "Visual comparison matrix" in body["visual_diff_markdown"]
     assert "baseline_pixel_diff" in body["visual_diff_markdown"]
     assert "variant_pixel_diff" in body["visual_diff_markdown"]
+
+
+def test_visual_observation_record_enters_evidence_review_and_prompt(tmp_path: Path) -> None:
+    baseline = tmp_path / "baseline.sumocfg"
+    variant = tmp_path / "variant.sumocfg"
+    baseline.write_text("<configuration/>", encoding="utf-8")
+    variant.write_text("<configuration/>", encoding="utf-8")
+
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+    create_response = client.post(
+        "/api/session/create",
+        json={
+            "name": "visual-observation-demo",
+            "baseline_config": str(baseline),
+            "variant_config": str(variant),
+        },
+    )
+    session_id = create_response.json()["id"]
+    client.post(f"/api/session/{session_id}/checkpoint/template", json={"template": "before-change"})
+    client.post(f"/api/session/{session_id}/step", json={"count": 4})
+    client.post(f"/api/session/{session_id}/checkpoint/template", json={"template": "after-change"})
+    client.post(f"/api/session/{session_id}/visual-diff/export")
+
+    response = client.post(
+        f"/api/session/{session_id}/visual-observation/record",
+        json={
+            "label": "queue-growth-eastbound",
+            "observation_type": "queue-growth",
+            "evidence_artifact": "visual-diff.md",
+            "confidence": "diagnostic",
+            "note": "Variant appears to keep a longer eastbound queue after the change.",
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    observation = body["observation"]
+    assert observation["label"] == "queue-growth-eastbound"
+    assert observation["observation_type"] == "queue-growth"
+    assert observation["evidence_artifact"] == "visual-diff.md"
+    assert observation["confidence"] == "diagnostic"
+    assert observation["simulation_time"] == 4
+    assert "longer eastbound queue" in observation["note"]
+    artifact_paths = {item["relative_path"] for item in body["evidence"]["artifacts"]}
+    assert "visual-observations.json" in artifact_paths
+    assert "visual-observations.md" in artifact_paths
+    assert body["evidence"]["manifest"]["visual_observations"][0]["observation_type"] == "queue-growth"
+
+    timeline_response = client.post(f"/api/session/{session_id}/timeline/export")
+    assert timeline_response.status_code == 200
+    timeline = timeline_response.json()
+    assert "visual-observation" in {event["kind"] for event in timeline["timeline"]["events"]}
+    assert "visual-observations.md" in timeline["timeline_markdown"]
+
+    summary_response = client.post(f"/api/session/{session_id}/review/summary")
+    assert summary_response.status_code == 200
+    summary = summary_response.json()
+    card_ids = {card["id"] for card in summary["review_summary"]["cards"]}
+    assert "visual_observations" in card_ids
+    assert "queue-growth" in summary["review_summary_markdown"]
+
+    prompt_response = client.post(f"/api/session/{session_id}/agent-review-prompt/export")
+    assert prompt_response.status_code == 200
+    prompt = prompt_response.json()
+    assert "visual-observations.md" in prompt["agent_prompt"]["artifacts_to_open"]
+    assert "visual-observations.md" in prompt["agent_prompt_markdown"]
 
 
 def test_timeline_note_api_records_user_event_without_screenshot(tmp_path: Path) -> None:

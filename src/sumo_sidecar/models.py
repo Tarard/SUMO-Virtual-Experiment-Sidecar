@@ -65,6 +65,14 @@ class ChangeRecordRequest(BaseModel):
     note: str | None = None
 
 
+class VisualObservationRequest(BaseModel):
+    label: str = "visual-observation"
+    observation_type: str
+    evidence_artifact: str | None = None
+    confidence: str = "diagnostic"
+    note: str
+
+
 class ScenarioPlanRequest(BaseModel):
     label: str = "parameter-change-scenario"
     parameter: str

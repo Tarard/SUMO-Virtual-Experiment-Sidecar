@@ -35,6 +35,7 @@ function setControls(enabled) {
     "exportMetricChartBtn",
     "exportReviewSummaryBtn",
     "exportVisualDiffBtn",
+    "recordVisualObservationBtn",
     "closeBtn",
   ]) {
     el(id).disabled = !enabled;
@@ -92,6 +93,16 @@ function configPatchPayload() {
     payload.output_config = el("patchedConfigPath").value.trim();
   }
   return payload;
+}
+
+function visualObservationPayload() {
+  return {
+    label: el("visualObservationLabel").value,
+    observation_type: el("visualObservationType").value,
+    evidence_artifact: el("visualObservationArtifact").value,
+    confidence: el("visualObservationConfidence").value,
+    note: el("visualObservationNote").value,
+  };
 }
 
 function syncConfigPatchFieldsFromScenario() {
@@ -1060,6 +1071,37 @@ el("exportVisualDiffBtn").addEventListener("click", async () => {
     log(`Visual diff export failed: ${error.message}`);
   }
 });
+
+el("recordVisualObservationBtn").addEventListener("click", async () => {
+  try {
+    const body = await api(`/api/session/${state.sessionId}/visual-observation/record`, {
+      method: "POST",
+      body: JSON.stringify(visualObservationPayload()),
+    });
+    renderVisualObservation(body);
+    const timeline = await exportTimelineWithPreset();
+    renderEvidence(timeline.evidence);
+    el("timelinePreview").textContent = timeline.timeline_markdown;
+    await refreshWorkflow();
+    log("Recorded visual observation", body.observation);
+  } catch (error) {
+    log(`Visual observation failed: ${error.message}`);
+  }
+});
+
+function renderVisualObservation(body) {
+  renderEvidence(body.evidence);
+  const observation = body.observation;
+  el("visualObservationPreview").textContent = [
+    `label: ${observation.label}`,
+    `type: ${observation.observation_type}`,
+    `confidence: ${observation.confidence}`,
+    `simulation_time: ${observation.simulation_time}`,
+    `evidence_artifact: ${observation.evidence_artifact || "not specified"}`,
+    "",
+    observation.note,
+  ].join("\n");
+}
 
 function renderVisualDiff(visualDiff) {
   const container = el("visualDiffPreview");

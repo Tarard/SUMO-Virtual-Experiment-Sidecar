@@ -23,6 +23,7 @@ from .models import (
     StepRequest,
     TemplateCheckpointRequest,
     TimelineNoteRequest,
+    VisualObservationRequest,
 )
 from .output_inspection import inspect_output_pair
 from .scenario_templates import list_scenario_templates
@@ -498,6 +499,19 @@ def create_app(
             change = manager.record_change(session_id, request)
             return {
                 "change": change,
+                "evidence": manager.evidence(session_id).model_dump(mode="json"),
+            }
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @app.post("/api/session/{session_id}/visual-observation/record")
+    def record_visual_observation(session_id: str, request: VisualObservationRequest) -> dict[str, Any]:
+        try:
+            observation = manager.record_visual_observation(session_id, request)
+            return {
+                "observation": observation,
                 "evidence": manager.evidence(session_id).model_dump(mode="json"),
             }
         except KeyError as exc:

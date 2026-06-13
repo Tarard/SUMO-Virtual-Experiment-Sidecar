@@ -22,6 +22,7 @@ from .models import (
     ScreenshotEvidence,
     ScenarioPlanRequest,
     SessionState,
+    VisualObservationRequest,
 )
 from .output_inspection import inspect_output_pair, render_output_inspection_markdown
 from .sumo_adapter import TraCISumoRun
@@ -71,8 +72,8 @@ CHECKPOINT_TEMPLATES = {
 
 TIMELINE_PRESETS = {
     "full": None,
-    "review": {"session-created", "scenario-plan", "user-note", "change-record", "screenshot-checkpoint", "output-inspection", "metric-comparison", "metric-chart", "visual-diff", "codex-packet", "review-summary"},
-    "visual": {"session-created", "screenshot-checkpoint", "visual-diff"},
+    "review": {"session-created", "scenario-plan", "user-note", "change-record", "visual-observation", "screenshot-checkpoint", "output-inspection", "metric-comparison", "metric-chart", "visual-diff", "codex-packet", "review-summary"},
+    "visual": {"session-created", "screenshot-checkpoint", "visual-observation", "visual-diff"},
     "outputs": {"session-created", "output-inspection", "metric-comparison", "metric-chart"},
     "notes": {"session-created", "scenario-plan", "user-note", "change-record"},
 }
@@ -123,6 +124,7 @@ class SessionManager:
             "evidence": [],
             "timeline_notes": [],
             "change_records": [],
+            "visual_observations": [],
         }
 
         baseline: SumoRun | None = None
@@ -511,6 +513,31 @@ class SessionManager:
         }
         session.manifest.setdefault("change_records", []).append(entry)
         self._write_change_records(session)
+        self._write_manifest(session)
+        return entry
+
+    def record_visual_observation(self, session_id: str, request: VisualObservationRequest) -> dict[str, Any]:
+        session = self.get(session_id)
+        observation_type = request.observation_type.strip()
+        note = request.note.strip()
+        confidence = request.confidence.strip() if request.confidence.strip() else "diagnostic"
+        evidence_artifact = request.evidence_artifact.strip() if request.evidence_artifact and request.evidence_artifact.strip() else None
+        if not observation_type:
+            raise ValueError("visual observation type cannot be empty")
+        if not note:
+            raise ValueError("visual observation note cannot be empty")
+        state = self.state(session_id)
+        entry = {
+            "label": _safe_label(request.label),
+            "observation_type": observation_type,
+            "evidence_artifact": evidence_artifact,
+            "confidence": confidence,
+            "note": note,
+            "simulation_time": float(state.baseline.get("time", 0.0)),
+            "created_at": _utc_now(),
+        }
+        session.manifest.setdefault("visual_observations", []).append(entry)
+        self._write_visual_observations(session)
         self._write_manifest(session)
         return entry
 
@@ -1055,6 +1082,20 @@ class SessionManager:
                     "artifacts": ["change-records.json", "change-records.md"],
                 }
             )
+        for observation in session.manifest.get("visual_observations", []):
+            events.append(
+                {
+                    "sequence": len(events) + 1,
+                    "kind": "visual-observation",
+                    "label": observation.get("label", "visual-observation"),
+                    "simulation_time": observation.get("simulation_time"),
+                    "wall_time": observation.get("created_at"),
+                    "status": observation.get("confidence", "diagnostic"),
+                    "template": None,
+                    "note": f"{observation.get('observation_type')}: {observation.get('note')}",
+                    "artifacts": ["visual-observations.json", "visual-observations.md"],
+                }
+            )
         if "output_inspection" in session.manifest:
             inspection = session.manifest["output_inspection"]
             events.append(
@@ -1535,6 +1576,13 @@ class SessionManager:
                 f"{len(session.manifest.get('change_records', []))} change record(s)",
                 ["change-records.md", "change-records.json"] if session.manifest.get("change_records_artifact") else [],
             ),
+            self._review_card(
+                "visual_observations",
+                "Visual observations",
+                "pass" if session.manifest.get("visual_observations") else "warn",
+                f"{len(session.manifest.get('visual_observations', []))} observation(s)",
+                ["visual-observations.md", "visual-observations.json"] if session.manifest.get("visual_observations_artifact") else [],
+            ),
             self._review_manifest_card(
                 session,
                 "output_inspection",
@@ -1588,6 +1636,7 @@ class SessionManager:
             "cards": cards,
             "metric_highlights": self._metric_highlights(session),
             "change_records": session.manifest.get("change_records", []),
+            "visual_observations": session.manifest.get("visual_observations", []),
             "artifacts_to_review": self._review_artifacts_to_review(session),
             "next_actions": workflow["next_actions"],
             "claim_boundary": "This summary is a review dashboard for existing Sidecar evidence. It does not re-run SUMO, prove causality, or certify controller performance.",
@@ -1659,6 +1708,7 @@ class SessionManager:
             "metric-delta-chart.md",
             "metric-delta-chart.svg",
             "metric-comparison.md",
+            "visual-observations.md",
             "visual-diff.md",
             "output-inspection.md",
             "change-records.md",
@@ -1699,6 +1749,7 @@ class SessionManager:
             "codex-packet.md",
             "scenario-plan.md",
             "change-records.md",
+            "visual-observations.md",
             "visual-diff.md",
             "metric-comparison.md",
             "metric-delta-chart.md",
@@ -1824,6 +1875,14 @@ class SessionManager:
             )
         else:
             lines.append("- none")
+        lines.extend(["", "## Visual observations", ""])
+        if summary["visual_observations"]:
+            lines.extend(
+                f"- `{observation['observation_type']}` ({observation['confidence']}): {observation['note']}"
+                for observation in summary["visual_observations"]
+            )
+        else:
+            lines.append("- none")
         lines.extend(["", "## Artifacts to review", ""])
         if summary["artifacts_to_review"]:
             lines.extend(f"- `{artifact}`" for artifact in summary["artifacts_to_review"])
@@ -1940,6 +1999,28 @@ class SessionManager:
             "updated_at": _utc_now(),
         }
 
+    def _write_visual_observations(self, session: PairedSession) -> None:
+        observations = session.manifest.get("visual_observations", [])
+        json_path = session.session_dir / "visual-observations.json"
+        markdown_path = session.session_dir / "visual-observations.md"
+        json_path.write_text(
+            json.dumps(
+                {
+                    "session_id": session.id,
+                    "session_name": session.name,
+                    "observations": observations,
+                },
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+        markdown_path.write_text(self._render_visual_observations_markdown(session, observations), encoding="utf-8")
+        session.manifest["visual_observations_artifact"] = {
+            "json": str(json_path),
+            "markdown": str(markdown_path),
+            "updated_at": _utc_now(),
+        }
+
     def _render_scenario_plan_markdown(self, session: PairedSession, plan: dict[str, Any]) -> str:
         metrics = ", ".join(f"`{metric}`" for metric in plan["expected_metrics"]) or "`not specified`"
         return "\n".join(
@@ -1990,6 +2071,32 @@ class SessionManager:
                     f"- Rationale: {record['rationale']}",
                     f"- Note: {record.get('note') or 'none'}",
                     f"- Recorded at: `{record['created_at']}`",
+                    "",
+                ]
+            )
+        return "\n".join(lines)
+
+    def _render_visual_observations_markdown(self, session: PairedSession, observations: list[dict[str, Any]]) -> str:
+        lines = [
+            f"# SUMO Visual Observations: {session.name}",
+            "",
+            "Visual observations record what a human noticed in the SUMO GUI or visual-diff matrix. They are diagnostic annotations, not proof of causality or performance.",
+            "",
+        ]
+        if not observations:
+            lines.append("No visual observations have been recorded yet.")
+            return "\n".join(lines)
+        for index, observation in enumerate(observations, start=1):
+            lines.extend(
+                [
+                    f"## {index}. {observation['label']}",
+                    "",
+                    f"- Type: `{observation['observation_type']}`",
+                    f"- Confidence: `{observation['confidence']}`",
+                    f"- SUMO time: `{observation['simulation_time']}`",
+                    f"- Evidence artifact: `{observation.get('evidence_artifact') or 'not specified'}`",
+                    f"- Note: {observation['note']}",
+                    f"- Recorded at: `{observation['created_at']}`",
                     "",
                 ]
             )

@@ -20,6 +20,7 @@ MVP focus:
 - guide before/after parameter-change scenarios with `scenario-plan.md` and next-step status;
 - record user-authored timeline notes without taking screenshots;
 - record structured parameter/controller changes with before value, after value, and rationale;
+- record human visual observations from the SUMO GUI or visual-diff matrix;
 - export completion-first metric comparisons from persisted paired SUMO outputs;
 - export metric-delta SVG charts from completion-first comparisons;
 - export a before/after visual-diff matrix for paired template checkpoints;
@@ -127,6 +128,8 @@ Use `Add Timeline Note` to record parameter changes, observations, or assumption
 
 Use `Record Change` when you want Codex to know exactly what changed between two checkpoints. Record the parameter or controller element, before value, after value, and rationale before interpreting visual or metric differences.
 
+Use `Record Visual Observation` after looking at the SUMO GUI or the visual-diff matrix. Record what you saw, which artifact supports it, and how confident you are. This helps Codex connect human visual inspection to the evidence bundle without treating the observation as proof.
+
 Use `Compare Metrics` after output inspection. It exports a completion-first baseline/variant/delta table from `output-inspection.json`, with completion and unfinished-vehicle evidence placed before tripinfo means.
 
 Use `Export Metric Chart` after metric comparison. It writes `metric-delta-chart.svg` and `metric-delta-chart.md`, making signs and relative magnitudes easier to inspect while keeping the actual delta values visible.
@@ -168,17 +171,18 @@ Typical workflow:
 6. Capture the first paired checkpoint, then capture named before/after checkpoints while watching the SUMO GUI windows.
 7. Add timeline notes when you change parameters, observe a behavior, or record an assumption.
 8. Record structured changes, or use Record Scenario Change, so Codex can connect what changed to visual checkpoints and output metrics.
-9. Inspect `summary.xml` and `tripinfo.xml` output evidence before interpreting performance metrics.
-10. Export metric comparison so completion status and tripinfo deltas are visible together.
-11. Export a metric chart so the metric deltas are visible as an artifact.
-12. Export the visual diff index for the paired before/after checkpoints.
-13. Export a run timeline, optionally with a preset, to align scenario plan, checkpoints, change records, metric comparison, chart, notes, output inspection, and packet evidence.
-14. Export a review summary to create the compact review dashboard.
-15. Export a Codex packet when the session has enough screenshots and output evidence.
-16. Export an agent review prompt and paste it into Codex or Claude.
-17. Refresh scenario/workflow status, check comparison readiness, and follow remaining next actions.
-18. Ask Codex to inspect the evidence folder, scenario plan, review summary, metric chart, metric comparison, visual diff, packet, timeline, workflow status, agent prompt, or local API.
-19. Use the generated `scenario-plan.md`, `comparison.md`, `change-records.md`, `metric-comparison.md`, `metric-delta-chart.md`, `visual-diff.md`, `timeline.md`, `review-summary.md`, `codex-packet.md`, and `agent-review-prompt.md` as diagnostic evidence indexes, then pair them with SUMO output files before making formal claims.
+9. Record visual observations when you notice queue growth, spillback, phase mismatch, deadlock, or other GUI-visible behavior.
+10. Inspect `summary.xml` and `tripinfo.xml` output evidence before interpreting performance metrics.
+11. Export metric comparison so completion status and tripinfo deltas are visible together.
+12. Export a metric chart so the metric deltas are visible as an artifact.
+13. Export the visual diff index for the paired before/after checkpoints.
+14. Export a run timeline, optionally with a preset, to align scenario plan, checkpoints, change records, visual observations, metric comparison, chart, notes, output inspection, and packet evidence.
+15. Export a review summary to create the compact review dashboard.
+16. Export a Codex packet when the session has enough screenshots and output evidence.
+17. Export an agent review prompt and paste it into Codex or Claude.
+18. Refresh scenario/workflow status, check comparison readiness, and follow remaining next actions.
+19. Ask Codex to inspect the evidence folder, scenario plan, review summary, metric chart, metric comparison, visual observations, visual diff, packet, timeline, workflow status, agent prompt, or local API.
+20. Use the generated `scenario-plan.md`, `comparison.md`, `change-records.md`, `visual-observations.md`, `metric-comparison.md`, `metric-delta-chart.md`, `visual-diff.md`, `timeline.md`, `review-summary.md`, `codex-packet.md`, and `agent-review-prompt.md` as diagnostic evidence indexes, then pair them with SUMO output files before making formal claims.
 
 See [docs/codex-bridge.md](docs/codex-bridge.md) for exact prompts and API examples.
 
@@ -214,6 +218,7 @@ POST /api/session/{id}/timeline/note
 POST /api/session/{id}/scenario/plan
 GET  /api/session/{id}/scenario/status
 POST /api/session/{id}/change/record
+POST /api/session/{id}/visual-observation/record
 POST /api/session/{id}/metrics/compare
 POST /api/session/{id}/metrics/chart
 POST /api/session/{id}/review/summary
@@ -235,6 +240,8 @@ runs/<session_id>/
   scenario-plan.md
   change-records.json
   change-records.md
+  visual-observations.json
+  visual-observations.md
   metric-comparison.json
   metric-comparison.md
   metric-delta-chart.svg
@@ -266,6 +273,8 @@ The web page renders PNG artifacts as screenshot previews through a session-scop
 Scenario templates prefill `scenario-plan.md` inputs for common workflows. They are reusable prompts for planning, not executable SUMO patches and not evidence.
 
 `change-records.md` records structured edits such as controller parameters, detector mappings, route settings, or experiment assumptions with before value, after value, and rationale. It is the link between "what changed" and the visual/output evidence.
+
+`visual-observations.md` records what the user noticed in the SUMO GUI or visual-diff matrix, such as queue growth, spillback, phase mismatch, deadlock, or density changes. It is a diagnostic annotation that should be checked against paired outputs before being used in a claim.
 
 `metric-comparison.md` compares persisted baseline and variant output evidence using completion-first ordering. It reports loaded, inserted, arrived, running, waiting, teleports, and completion ratio before tripinfo means such as duration, waiting time, and time loss.
 

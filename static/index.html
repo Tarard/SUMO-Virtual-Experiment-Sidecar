@@ -154,6 +154,7 @@
           <button id="exportMetricChartBtn" type="button" disabled>Export Metric Chart</button>
           <button id="exportReviewSummaryBtn" type="button" disabled>Export Review Summary</button>
           <button id="exportVisualDiffBtn" type="button" disabled>Export Visual Diff</button>
+          <button id="recordVisualObservationBtn" type="button" disabled>Record Visual Observation</button>
           <button id="closeBtn" type="button" disabled>Close Session</button>
         </div>
       </section>
@@ -303,6 +304,34 @@
         <h3>Visual Diff</h3>
         <div id="visualDiffPreview" class="visual-diff-preview">No visual diff exported.</div>
         <pre id="visualDiffMarkdown">No visual diff exported.</pre>
+        <h3>Visual Observation</h3>
+        <div class="output-grid">
+          <label>
+            Observation type
+            <input id="visualObservationType" value="queue-growth">
+          </label>
+          <label>
+            Evidence artifact
+            <input id="visualObservationArtifact" value="visual-diff.md">
+          </label>
+          <label>
+            Confidence
+            <select id="visualObservationConfidence">
+              <option value="diagnostic">diagnostic</option>
+              <option value="tentative">tentative</option>
+              <option value="strong">strong</option>
+            </select>
+          </label>
+          <label>
+            Label
+            <input id="visualObservationLabel" value="visual-observation">
+          </label>
+        </div>
+        <label>
+          Observation note
+          <input id="visualObservationNote" placeholder="What did you see in the SUMO GUI or visual diff matrix?">
+        </label>
+        <pre id="visualObservationPreview">No visual observation recorded.</pre>
         <h3>Comparison Notes</h3>
         <pre id="evidencePreview">Evidence preview will appear here.</pre>
       </section>

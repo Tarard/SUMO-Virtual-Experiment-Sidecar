@@ -36,7 +36,7 @@ It does not embed Codex inside SUMO, and it does not require VS Code. The user k
 6. Ask Codex to inspect the session folder:
 
    ```text
-   Read runs/<session_id>/agent-review-prompt.md if present. If it is missing, read manifest.json, scenario-plan.md, comparison.md, change-records.md, metric-comparison.md, metric-delta-chart.md, review-summary.md, timeline.md, visual-diff.md, output-inspection.md, and codex-packet.md if present.
+   Read runs/<session_id>/agent-review-prompt.md if present. If it is missing, read manifest.json, scenario-plan.md, comparison.md, change-records.md, visual-observations.md, metric-comparison.md, metric-delta-chart.md, review-summary.md, timeline.md, visual-diff.md, output-inspection.md, and codex-packet.md if present.
    Tell me what visual differences are supported by the evidence, what output evidence exists, and what claims remain unsupported.
    ```
 
@@ -70,6 +70,24 @@ This writes a new `.sumocfg` copy and refuses to overwrite the source config or 
 The web UI also has `Patch Config From Scenario`. It uses the current Scenario Guide `parameter` and `after value` as the config-patch request, synchronizes the structured change fields, and immediately runs config-pair preflight on the baseline/generated-variant pair. This is a convenience bridge from plan to construction, not evidence that the experiment has been run.
 
 After a paired session exists, `Record Scenario Change` writes the Scenario Guide fields into `change-records.md` through the same `/change/record` endpoint used by the manual change form.
+
+After looking at the GUI or visual-diff matrix, record a human visual observation:
+
+```powershell
+Invoke-RestMethod `
+  -Uri http://127.0.0.1:8765/api/session/<session_id>/visual-observation/record `
+  -Method Post `
+  -ContentType "application/json" `
+  -Body '{
+    "label": "queue-growth-eastbound",
+    "observation_type": "queue-growth",
+    "evidence_artifact": "visual-diff.md",
+    "confidence": "diagnostic",
+    "note": "Variant appears to keep a longer eastbound queue after the change."
+  }'
+```
+
+This writes `visual-observations.json` and `visual-observations.md`. Treat these observations as human annotations over visual evidence, not as formal output evidence.
 
 ```powershell
 Invoke-RestMethod `
@@ -327,6 +345,8 @@ Use screenshot evidence as a diagnostic signal first. Promote it into a report o
 Pixel-level visual diff artifacts and visual comparison matrices are also diagnostic. They can show that pixels changed between before/after screenshots, but they do not explain why the change happened and do not replace SUMO output metrics.
 
 Structured change records close part of that gap by recording what was intentionally changed, but they still do not prove causality. They should be read together with paired outputs, completion status, and reproduced runs.
+
+Visual observations are also annotations. They help connect GUI inspection to evidence artifacts, but they do not prove why a pattern occurred.
 
 Scenario plans make the before/after workflow explicit before evidence is interpreted. They are planning artifacts only; still verify that the planned change was actually applied and recorded.
 
