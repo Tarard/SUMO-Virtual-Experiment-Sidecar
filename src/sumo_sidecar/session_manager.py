@@ -1793,6 +1793,7 @@ class SessionManager:
         workflow: dict[str, Any],
     ) -> dict[str, Any]:
         artifacts_to_open = self._agent_prompt_artifacts_to_open(session)
+        visual_observations = session.manifest.get("visual_observations", [])
         next_actions = []
         for action in readiness.get("next_actions", []) + workflow.get("next_actions", []):
             if action not in next_actions:
@@ -1808,9 +1809,17 @@ class SessionManager:
             "claim_status": readiness["claim_status"],
             "artifacts_to_open": artifacts_to_open,
             "next_actions": next_actions,
+            "visual_observations": visual_observations,
             "readiness_checklist": readiness["checklist"],
             "claim_boundary": readiness["claim_boundary"],
-            "copyable_prompt": self._copyable_agent_prompt(session, readiness, workflow, artifacts_to_open, next_actions),
+            "copyable_prompt": self._copyable_agent_prompt(
+                session,
+                readiness,
+                workflow,
+                artifacts_to_open,
+                next_actions,
+                visual_observations,
+            ),
         }
 
     def _agent_prompt_artifacts_to_open(self, session: PairedSession) -> list[str]:
@@ -2037,9 +2046,18 @@ class SessionManager:
         workflow: dict[str, Any],
         artifacts_to_open: list[str],
         next_actions: list[str],
+        visual_observations: list[dict[str, Any]],
     ) -> str:
         artifact_lines = "\n".join(f"- {artifact}" for artifact in artifacts_to_open) or "- No review artifacts exported yet."
         action_lines = "\n".join(f"- {action}" for action in next_actions) or "- Inspect the listed artifacts and propose the next evidence step."
+        observation_lines = (
+            "\n".join(
+                f"- {item.get('label', 'visual-observation')} / {item.get('observation_type', 'unknown')} / "
+                f"{item.get('comparison_role') or 'role not specified'} / {item.get('visual_view') or 'view not specified'}: {item.get('note', '')}"
+                for item in visual_observations
+            )
+            or "- No visual observations recorded yet."
+        )
         return "\n".join(
             [
                 "Use Simulation Helper Skill for Eclipse SUMO (`simulation-helper-skill-for-eclipse-sumo`) or an equivalent SUMO/TraCI audit workflow to review this Sidecar evidence bundle.",
@@ -2054,6 +2072,9 @@ class SessionManager:
                 "",
                 "Open these artifacts first:",
                 artifact_lines,
+                "",
+                "Visual observations recorded:",
+                observation_lines,
                 "",
                 "Task:",
                 "1. Report only supported visual and metric differences from the listed artifacts.",
@@ -2072,6 +2093,12 @@ class SessionManager:
     def _render_agent_review_prompt_markdown(self, prompt: dict[str, Any]) -> str:
         artifact_lines = [f"- `{artifact}`" for artifact in prompt["artifacts_to_open"]] or ["- none"]
         action_lines = [f"- {action}" for action in prompt["next_actions"]] or ["- none"]
+        observation_lines = [
+            f"- `{item.get('label', 'visual-observation')}` / `{item.get('observation_type', 'unknown')}`"
+            f" / `{item.get('comparison_role') or 'role not specified'} / {item.get('visual_view') or 'view not specified'}`"
+            f": {item.get('note', '')}"
+            for item in prompt.get("visual_observations", [])
+        ] or ["- none"]
         return "\n".join(
             [
                 f"# Agent Review Prompt: {prompt['session_name']}",
@@ -2092,6 +2119,10 @@ class SessionManager:
                 "## Current next actions",
                 "",
                 *action_lines,
+                "",
+                "## Visual observations",
+                "",
+                *observation_lines,
                 "",
                 "## Copyable prompt",
                 "",

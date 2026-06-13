@@ -194,6 +194,7 @@ def test_homepage_exposes_guided_visual_observation_action(tmp_path: Path) -> No
     assert "Record Guided Observation" in index_response.text
     assert "/visual-observation/guided-record" in script_response.text
     assert "renderGuidedVisualObservation" in script_response.text
+    assert "agentPromptPreview" in script_response.text
 
 
 def test_visual_observation_taxonomy_api_returns_claim_bounded_entries(tmp_path: Path) -> None:
@@ -1365,10 +1366,15 @@ def test_guided_visual_observation_records_and_exports_next_action_review(tmp_pa
     assert Path(body["timeline_markdown_path"]).name == "timeline-visual.md"
     assert Path(body["next_action_review_json_path"]).name == "next-action-review.json"
     assert Path(body["next_action_review_markdown_path"]).name == "next-action-review.md"
+    assert Path(body["agent_prompt_json_path"]).name == "agent-review-prompt.json"
+    assert Path(body["agent_prompt_markdown_path"]).name == "agent-review-prompt.md"
+    assert "guided-spillback" in body["agent_prompt_markdown"]
+    assert "next-action-review.md" in body["agent_prompt"]["artifacts_to_open"]
     artifact_paths = {item["relative_path"] for item in body["evidence"]["artifacts"]}
     assert "visual-observations.md" in artifact_paths
     assert "timeline-visual.md" in artifact_paths
     assert "next-action-review.md" in artifact_paths
+    assert "agent-review-prompt.md" in artifact_paths
 
 
 def test_timeline_note_api_records_user_event_without_screenshot(tmp_path: Path) -> None:

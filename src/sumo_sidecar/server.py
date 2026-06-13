@@ -553,6 +553,7 @@ def create_app(
             observation = manager.record_visual_observation(session_id, request)
             timeline = manager.export_timeline(session_id, preset="visual")
             review = manager.export_next_action_review(session_id)
+            prompt = manager.export_agent_review_prompt(session_id)
             return {
                 "observation": observation,
                 "timeline": timeline["timeline"],
@@ -563,7 +564,11 @@ def create_app(
                 "next_action_review_json_path": str(review["next_action_review_json_path"]),
                 "next_action_review_markdown_path": str(review["next_action_review_markdown_path"]),
                 "next_action_review_markdown": review["next_action_review_markdown"],
-                "evidence": review["evidence"].model_dump(mode="json"),
+                "agent_prompt": prompt["agent_prompt"],
+                "agent_prompt_json_path": str(prompt["agent_prompt_json_path"]),
+                "agent_prompt_markdown_path": str(prompt["agent_prompt_markdown_path"]),
+                "agent_prompt_markdown": prompt["agent_prompt_markdown"],
+                "evidence": prompt["evidence"].model_dump(mode="json"),
             }
         except KeyError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc

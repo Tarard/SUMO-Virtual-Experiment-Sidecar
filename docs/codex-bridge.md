@@ -122,7 +122,7 @@ Invoke-RestMethod `
   }'
 ```
 
-This records the observation, exports `timeline-visual.md`, and exports `next-action-review.md` in one call. Use it when the user has just noticed a visual difference and wants Codex to move directly to the next evidence check.
+This records the observation, exports `timeline-visual.md`, exports `next-action-review.md`, and refreshes `agent-review-prompt.md` in one call. Use it when the user has just noticed a visual difference and wants Codex to move directly to the next evidence check.
 
 After evidence has accumulated, export the next-action review:
 

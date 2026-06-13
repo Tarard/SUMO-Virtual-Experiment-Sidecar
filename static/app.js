@@ -1212,6 +1212,7 @@ function renderGuidedVisualObservation(body) {
   renderEvidence(body.evidence);
   el("timelinePreview").textContent = body.timeline_markdown || "No visual timeline exported.";
   el("nextActionReviewPreview").textContent = body.next_action_review_markdown || "No next action review exported.";
+  el("agentPromptPreview").textContent = body.agent_prompt_markdown || "No agent prompt exported.";
 }
 
 function renderVisualDiff(visualDiff) {
