@@ -69,6 +69,8 @@ function setControls(enabled) {
   } else {
     resetActiveSessionChecklist();
     state.agentActionPlanFocusTarget = null;
+    renderSessionId(null);
+    setSessionPageLink(null);
     renderAgentActionPlanFocus({});
   }
 }
@@ -115,16 +117,92 @@ async function api(path, options = {}) {
   return body;
 }
 
+function sessionPageUrl(sessionId) {
+  return `/s/${encodeURIComponent(sessionId)}`;
+}
+
+function initialSessionIdFromPath() {
+  const match = window.location.pathname.match(/^\/s\/([^/]+)\/?$/);
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+function setSessionPageLink(sessionId) {
+  const target = el("sessionUrl");
+  if (!target) {
+    return;
+  }
+  if (!sessionId) {
+    target.href = "/";
+    target.textContent = "not created";
+    target.removeAttribute("title");
+    return;
+  }
+  const url = sessionPageUrl(sessionId);
+  target.href = url;
+  target.textContent = url;
+  target.title = "Open this session page";
+}
+
+function syncBrowserSessionUrl(sessionId) {
+  if (!sessionId || !window.history || !window.history.replaceState) {
+    return;
+  }
+  const url = sessionPageUrl(sessionId);
+  if (window.location.pathname !== url) {
+    window.history.replaceState(null, "", url);
+  }
+}
+
+function clearBrowserSessionUrl() {
+  if (window.history && window.history.replaceState && window.location.pathname.startsWith("/s/")) {
+    window.history.replaceState(null, "", "/");
+  }
+}
+
 function renderState(body) {
   if (body.id !== state.sessionId) {
     state.hasExperimentStateBoard = false;
   }
   state.sessionId = body.id;
-  el("sessionId").textContent = body.id || "none";
+  renderSessionId(body.id);
+  setSessionPageLink(body.id);
+  syncBrowserSessionUrl(body.id);
   el("sessionDir").textContent = body.session_dir || "not created";
   el("baselineState").textContent = JSON.stringify(body.baseline || {}, null, 2);
   el("variantState").textContent = JSON.stringify(body.variant || {}, null, 2);
   setControls(Boolean(body.id));
+}
+
+async function restoreSessionFromShortUrl() {
+  const sessionId = initialSessionIdFromPath();
+  if (!sessionId) {
+    return;
+  }
+  try {
+    const body = await api(`/api/session/${encodeURIComponent(sessionId)}/state`);
+    renderState(body);
+    await loadEvidence();
+    await refreshWorkflow();
+    log("Loaded session from short URL", { session: sessionPageUrl(sessionId) });
+  } catch (error) {
+    state.sessionId = null;
+    setControls(false);
+    log(`Short session URL could not be loaded: ${error.message}`);
+  }
+}
+
+function renderSessionId(sessionId) {
+  const target = el("sessionId");
+  target.replaceChildren();
+  if (!sessionId) {
+    target.textContent = "none";
+    return;
+  }
+  const link = document.createElement("a");
+  link.href = sessionPageUrl(sessionId);
+  link.textContent = sessionId;
+  link.title = "Open this session page";
+  target.append(link);
 }
 
 function sessionPayload() {
@@ -1575,7 +1653,7 @@ function renderScenarioStatus(body) {
 function renderEvidence(body) {
   el("sessionDir").textContent = body.session_dir;
   const artifacts = (body.artifacts || [])
-    .map((item) => `${item.relative_path}  (${item.size_bytes} bytes)`)
+    .map((item) => `${friendlyArtifactLabel(item.relative_path)}  (${item.size_bytes} bytes)`)
     .join("\n");
   el("artifactList").textContent = artifacts || "No artifacts found.";
   renderScreenshotPreview(body.artifacts || []);
@@ -1583,7 +1661,22 @@ function renderEvidence(body) {
 }
 
 function artifactUrl(relativePath) {
-  return `/api/session/${state.sessionId}/artifact/${relativePath.split("/").map(encodeURIComponent).join("/")}`;
+  const encodedPath = relativePath.split("/").map(encodeURIComponent).join("/");
+  return `/s/${encodeURIComponent(state.sessionId)}/a/${encodedPath}`;
+}
+
+function friendlyArtifactLabel(relativePath) {
+  const parts = String(relativePath || "").split("/").filter(Boolean);
+  if (!parts.length) {
+    return "artifact";
+  }
+  if (parts.length >= 3 && parts[1] === "screenshots") {
+    return `${parts[0]}/${parts[parts.length - 1]}`;
+  }
+  if (parts.length >= 2 && parts[0] === "visual-diff") {
+    return `visual-diff/${parts[parts.length - 1]}`;
+  }
+  return parts[parts.length - 1];
 }
 
 function renderScreenshotPreview(artifacts) {
@@ -1607,7 +1700,8 @@ function renderScreenshotPreview(artifacts) {
     image.loading = "lazy";
 
     const label = document.createElement("span");
-    label.textContent = item.relative_path;
+    label.textContent = friendlyArtifactLabel(item.relative_path);
+    label.title = item.relative_path;
 
     link.append(image, label);
     container.append(link);
@@ -1960,7 +2054,8 @@ function renderStateBoardMetricChartPreview(chartArtifact) {
   image.loading = "lazy";
 
   const caption = document.createElement("span");
-  caption.textContent = chartArtifact;
+  caption.textContent = friendlyArtifactLabel(chartArtifact);
+  caption.title = chartArtifact;
 
   link.append(image, caption);
   return link;
@@ -2030,7 +2125,8 @@ function makeArtifactLink(relativePath) {
   link.href = artifactUrl(relativePath);
   link.target = "_blank";
   link.rel = "noopener noreferrer";
-  link.textContent = relativePath;
+  link.textContent = friendlyArtifactLabel(relativePath);
+  link.title = relativePath;
   return link;
 }
 
@@ -2683,7 +2779,8 @@ function makeDiffImage(labelText, relativePath) {
   image.loading = "lazy";
 
   const label = document.createElement("span");
-  label.textContent = `${labelText}: ${relativePath}`;
+  label.textContent = `${labelText}: ${friendlyArtifactLabel(relativePath)}`;
+  label.title = relativePath;
 
   link.append(image, label);
   return link;
@@ -2697,6 +2794,7 @@ el("closeBtn").addEventListener("click", async () => {
     state.hasExperimentStateBoard = false;
     el("sessionId").textContent = "none";
     el("sessionDir").textContent = "not created";
+    clearBrowserSessionUrl();
     setControls(false);
   } catch (error) {
     log(`Close failed: ${error.message}`);
@@ -2711,4 +2809,7 @@ setControls(false);
 refreshOutputInspectionReadiness();
 loadScenarioTemplates().catch((error) => {
   log(`Scenario template load failed: ${error.message}`);
+});
+restoreSessionFromShortUrl().catch((error) => {
+  log(`Short session restore failed: ${error.message}`);
 });

@@ -43,6 +43,18 @@ def create_app(
     repo_root = Path(__file__).resolve().parents[2]
     static_dir = repo_root / "static"
 
+    def serve_session_artifact(session_id: str, artifact_path: str) -> FileResponse:
+        try:
+            session = manager.get(session_id)
+            session_dir = session.session_dir.resolve()
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+        requested_path = (session_dir / artifact_path).resolve()
+        if not requested_path.is_file() or not requested_path.is_relative_to(session_dir):
+            raise HTTPException(status_code=404, detail="artifact not found")
+        return FileResponse(requested_path)
+
     @app.get("/api/preflight")
     def api_preflight() -> dict[str, Any]:
         return preflight()
@@ -433,16 +445,11 @@ def create_app(
 
     @app.get("/api/session/{session_id}/artifact/{artifact_path:path}")
     def get_artifact(session_id: str, artifact_path: str) -> FileResponse:
-        try:
-            session = manager.get(session_id)
-            session_dir = session.session_dir.resolve()
-        except KeyError as exc:
-            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        return serve_session_artifact(session_id, artifact_path)
 
-        requested_path = (session_dir / artifact_path).resolve()
-        if not requested_path.is_file() or not requested_path.is_relative_to(session_dir):
-            raise HTTPException(status_code=404, detail="artifact not found")
-        return FileResponse(requested_path)
+    @app.get("/s/{session_id}/a/{artifact_path:path}")
+    def get_short_artifact(session_id: str, artifact_path: str) -> FileResponse:
+        return serve_session_artifact(session_id, artifact_path)
 
     @app.post("/api/session/{session_id}/packet/export")
     def export_packet(session_id: str) -> dict[str, Any]:
@@ -739,6 +746,11 @@ def create_app(
 
         @app.get("/")
         def index() -> FileResponse:
+            return FileResponse(static_dir / "index.html")
+
+        @app.get("/s/{session_id}")
+        @app.get("/s/{session_id}/")
+        def session_index(session_id: str) -> FileResponse:
             return FileResponse(static_dir / "index.html")
 
     return app

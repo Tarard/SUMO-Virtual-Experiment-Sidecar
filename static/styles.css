@@ -387,6 +387,20 @@ button:disabled {
   font-weight: 700;
 }
 
+.session-id a,
+.session-url-link {
+  color: var(--accent-2);
+  font-weight: 800;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  text-decoration: none;
+}
+
+.session-id a:hover,
+.session-url-link:hover {
+  text-decoration: underline;
+}
+
 .evidence-overview {
   display: grid;
   gap: 12px;
