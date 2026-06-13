@@ -221,14 +221,21 @@ def test_homepage_exposes_experiment_state_board_export(tmp_path: Path) -> None:
 
     index_response = client.get("/")
     script_response = client.get("/static/app.js")
+    style_response = client.get("/static/styles.css")
 
     assert index_response.status_code == 200
     assert script_response.status_code == 200
+    assert style_response.status_code == 200
     assert "exportExperimentStateBoardBtn" in index_response.text
     assert "Export Experiment State Board" in index_response.text
+    assert "experimentStateBoardCards" in index_response.text
     assert "experimentStateBoardPreview" in index_response.text
     assert "/experiment-state-board/export" in script_response.text
     assert "renderExperimentStateBoard" in script_response.text
+    assert "renderExperimentStateBoardLane" in script_response.text
+    assert "makeArtifactLink" in script_response.text
+    assert ".state-board" in style_response.text
+    assert ".state-board-lane" in style_response.text
 
 
 def test_homepage_exposes_next_action_review_action(tmp_path: Path) -> None:

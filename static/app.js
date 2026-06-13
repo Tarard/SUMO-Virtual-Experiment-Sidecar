@@ -1054,8 +1054,99 @@ el("exportExperimentStateBoardBtn").addEventListener("click", async () => {
 
 function renderExperimentStateBoard(body) {
   renderEvidence(body.evidence);
+  renderExperimentStateBoardCards(body.experiment_state_board);
   el("experimentStateBoardPreview").textContent =
     body.experiment_state_board_markdown || "No experiment state board exported.";
+}
+
+function renderExperimentStateBoardCards(board) {
+  const container = el("experimentStateBoardCards");
+  container.replaceChildren();
+  if (!board) {
+    container.textContent = "No experiment state board exported.";
+    return;
+  }
+
+  const summary = document.createElement("section");
+  summary.className = `state-board-summary status-${statusClass(board.status)}`;
+
+  const heading = document.createElement("h4");
+  heading.textContent = board.status || "unknown";
+
+  const focus = document.createElement("p");
+  focus.textContent = board.primary_focus || "No primary focus recorded.";
+
+  const meta = document.createElement("div");
+  meta.className = "state-board-meta";
+  meta.append(
+    makeStateBoardTag("Readiness", board.readiness_status),
+    makeStateBoardTag("Workflow", board.workflow_status),
+    makeStateBoardTag("Claim", board.claim_status),
+  );
+
+  summary.append(heading, focus, meta);
+  container.append(summary);
+
+  const laneGrid = document.createElement("div");
+  laneGrid.className = "state-board-lanes";
+  for (const lane of board.lanes || []) {
+    laneGrid.append(renderExperimentStateBoardLane(lane));
+  }
+  container.append(laneGrid);
+}
+
+function renderExperimentStateBoardLane(lane) {
+  const card = document.createElement("article");
+  card.className = `state-board-lane status-${statusClass(lane.status)}`;
+
+  const titleRow = document.createElement("div");
+  titleRow.className = "state-board-lane-title";
+
+  const title = document.createElement("h4");
+  title.textContent = lane.label || lane.id || "Lane";
+
+  const status = document.createElement("span");
+  status.textContent = lane.status || "unknown";
+
+  titleRow.append(title, status);
+
+  const summary = document.createElement("p");
+  summary.textContent = lane.summary || "No summary recorded.";
+
+  const artifactList = document.createElement("div");
+  artifactList.className = "state-board-artifacts";
+  const artifacts = lane.artifacts || [];
+  if (!artifacts.length) {
+    const empty = document.createElement("span");
+    empty.textContent = "No artifacts yet";
+    artifactList.append(empty);
+  } else {
+    for (const artifact of artifacts) {
+      artifactList.append(makeArtifactLink(artifact));
+    }
+  }
+
+  card.append(titleRow, summary, artifactList);
+  return card;
+}
+
+function makeStateBoardTag(label, value) {
+  const tag = document.createElement("span");
+  tag.textContent = `${label}: ${value || "unknown"}`;
+  return tag;
+}
+
+function makeArtifactLink(relativePath) {
+  const link = document.createElement("a");
+  link.href = artifactUrl(relativePath);
+  link.target = "_blank";
+  link.rel = "noopener noreferrer";
+  link.textContent = relativePath;
+  return link;
+}
+
+function statusClass(value) {
+  return String(value || "unknown").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "unknown";
 }
 
 el("evidenceBtn").addEventListener("click", async () => {

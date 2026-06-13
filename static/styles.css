@@ -239,6 +239,121 @@ button:disabled {
   background: #fbfcfb;
 }
 
+.state-board {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 14px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.state-board-summary,
+.state-board-lane {
+  border: 1px solid var(--line);
+  border-left: 5px solid var(--muted);
+  border-radius: 6px;
+  background: #fbfcfb;
+  padding: 12px;
+}
+
+.state-board-summary {
+  display: grid;
+  gap: 8px;
+}
+
+.state-board-summary h4,
+.state-board-lane h4 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 14px;
+}
+
+.state-board-summary p,
+.state-board-lane p {
+  margin: 0;
+  line-height: 1.45;
+}
+
+.state-board-meta,
+.state-board-artifacts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.state-board-meta span,
+.state-board-artifacts a,
+.state-board-artifacts span {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
+  padding: 6px 9px;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+.state-board-artifacts a:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.state-board-lanes {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.state-board-lane {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.state-board-lane-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.state-board-lane-title span {
+  border-radius: 999px;
+  background: #eef4e7;
+  color: var(--ink);
+  font-size: 11px;
+  font-weight: 800;
+  padding: 5px 8px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.status-pass,
+.status-ready-to-compare,
+.status-ready-for-agent-review,
+.status-review-ready,
+.status-review-board-ready,
+.status-outcome-recorded {
+  border-left-color: var(--accent);
+}
+
+.status-warn,
+.status-needs-evidence,
+.status-needs-agent-feedback,
+.status-needs-agent-action-plan,
+.status-needs-agent-action-outcome {
+  border-left-color: #b36b00;
+}
+
+.status-missing,
+.status-blocked,
+.status-fail {
+  border-left-color: var(--danger);
+}
+
 .visual-diff-pair {
   display: grid;
   gap: 12px;
@@ -354,5 +469,9 @@ code {
 
   .visual-diff-matrix {
     grid-template-columns: minmax(92px, 120px) repeat(3, minmax(160px, 1fr));
+  }
+
+  .state-board-lanes {
+    grid-template-columns: 1fr;
   }
 }
