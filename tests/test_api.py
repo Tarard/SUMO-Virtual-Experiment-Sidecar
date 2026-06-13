@@ -258,6 +258,29 @@ def test_homepage_exposes_experiment_state_board_export(tmp_path: Path) -> None:
     assert ".state-board-chart" in style_response.text
 
 
+def test_homepage_exposes_guided_evidence_loop(tmp_path: Path) -> None:
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+
+    index_response = client.get("/")
+    script_response = client.get("/static/app.js")
+
+    assert index_response.status_code == 200
+    assert script_response.status_code == 200
+    assert "runEvidenceLoopBtn" in index_response.text
+    assert "Run Evidence Loop" in index_response.text
+    assert "runGuidedEvidenceLoop" in script_response.text
+    assert "runEvidenceLoopStep" in script_response.text
+    assert 'runEvidenceLoopStep("metric comparison"' in script_response.text
+    assert 'runEvidenceLoopStep("metric chart"' in script_response.text
+    assert 'runEvidenceLoopStep("visual diff"' in script_response.text
+    assert 'runEvidenceLoopStep("review timeline"' in script_response.text
+    assert 'runEvidenceLoopStep("review summary"' in script_response.text
+    assert 'runEvidenceLoopStep("agent prompt"' in script_response.text
+    assert 'runEvidenceLoopStep("live state board"' in script_response.text
+    assert "Guided evidence loop finished" in script_response.text
+
+
 def test_homepage_exposes_next_action_review_action(tmp_path: Path) -> None:
     app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
     client = TestClient(app)

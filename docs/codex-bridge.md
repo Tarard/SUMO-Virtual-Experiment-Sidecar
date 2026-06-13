@@ -429,6 +429,8 @@ This writes `experiment-state-board.json` and `experiment-state-board.md`. The b
 
 In the web UI, `Enable Live Board` exports the board and activates that guarded refresh behavior for the current session. It does not create new scientific evidence; it keeps the existing evidence index current.
 
+In the web UI, `Run Evidence Loop` is the fastest non-GUI review path after a session has source evidence. It attempts workflow status, metric comparison, metric chart, visual diff, the `review` timeline preset, review summary, agent review prompt, and live state board in order. Failed steps are logged and the loop continues. It does not launch SUMO GUI, mutate configs, capture screenshots, or certify experiment validity.
+
 Check workflow status before asking Codex for review:
 
 ```powershell

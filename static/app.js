@@ -31,6 +31,7 @@ function setControls(enabled) {
     "compareReadinessBtn",
     "exportExperimentStateBoardBtn",
     "enableLiveExperimentStateBoardBtn",
+    "runEvidenceLoopBtn",
     "evidenceBtn",
     "exportPacketBtn",
     "exportAgentPromptBtn",
@@ -1057,19 +1058,22 @@ el("exportExperimentStateBoardBtn").addEventListener("click", async () => {
   }
 });
 
-el("enableLiveExperimentStateBoardBtn").addEventListener("click", enableLiveExperimentStateBoard);
-
-async function enableLiveExperimentStateBoard() {
+el("enableLiveExperimentStateBoardBtn").addEventListener("click", async () => {
   try {
-    const body = await api(`/api/session/${state.sessionId}/experiment-state-board/export`, { method: "POST" });
-    renderExperimentStateBoard(body);
-    await refreshWorkflow();
-    log("Live experiment state board enabled", {
-      experiment_state_board_markdown_path: body.experiment_state_board_markdown_path,
-    });
+    await enableLiveExperimentStateBoard();
   } catch (error) {
     log(`Live experiment state board failed: ${error.message}`);
   }
+});
+
+async function enableLiveExperimentStateBoard() {
+  const body = await api(`/api/session/${state.sessionId}/experiment-state-board/export`, { method: "POST" });
+  renderExperimentStateBoard(body);
+  await refreshWorkflow();
+  log("Live experiment state board enabled", {
+    experiment_state_board_markdown_path: body.experiment_state_board_markdown_path,
+  });
+  return body;
 }
 
 async function refreshExperimentStateBoardIfAvailable(reason) {
@@ -1505,6 +1509,62 @@ function renderNextActionReview(body) {
   el("nextActionReviewPreview").textContent = body.next_action_review_markdown || "No next action review exported.";
 }
 
+el("runEvidenceLoopBtn").addEventListener("click", runGuidedEvidenceLoop);
+
+async function runGuidedEvidenceLoop() {
+  const results = [];
+  results.push(await runEvidenceLoopStep("workflow status", async () => refreshWorkflow()));
+  results.push(await runEvidenceLoopStep("metric comparison", async () => {
+    const body = await api(`/api/session/${state.sessionId}/metrics/compare`, { method: "POST" });
+    renderEvidence(body.evidence);
+    el("metricComparisonPreview").textContent = body.metric_comparison_markdown;
+    return { metric_comparison_markdown_path: body.metric_comparison_markdown_path };
+  }));
+  results.push(await runEvidenceLoopStep("metric chart", async () => {
+    const body = await api(`/api/session/${state.sessionId}/metrics/chart`, { method: "POST" });
+    renderEvidence(body.evidence);
+    renderMetricChart(body);
+    return { metric_chart_markdown_path: body.metric_chart_markdown_path };
+  }));
+  results.push(await runEvidenceLoopStep("visual diff", async () => {
+    const body = await api(`/api/session/${state.sessionId}/visual-diff/export`, { method: "POST" });
+    renderEvidence(body.evidence);
+    renderVisualDiff(body.visual_diff);
+    el("visualDiffMarkdown").textContent = body.visual_diff_markdown;
+    return { visual_diff_markdown_path: body.visual_diff_markdown_path };
+  }));
+  results.push(await runEvidenceLoopStep("review timeline", async () => {
+    const body = await exportTimelineWithPreset("review");
+    renderEvidence(body.evidence);
+    el("timelinePreview").textContent = body.timeline_markdown;
+    return { timeline_markdown_path: body.timeline_markdown_path };
+  }));
+  results.push(await runEvidenceLoopStep("review summary", async () => {
+    const body = await api(`/api/session/${state.sessionId}/review/summary`, { method: "POST" });
+    renderEvidence(body.evidence);
+    el("reviewSummaryPreview").textContent = body.review_summary_markdown;
+    return { review_summary_markdown_path: body.review_summary_markdown_path };
+  }));
+  results.push(await runEvidenceLoopStep("agent prompt", async () => {
+    const body = await api(`/api/session/${state.sessionId}/agent-review-prompt/export`, { method: "POST" });
+    renderAgentReviewPrompt(body);
+    return { agent_prompt_markdown_path: body.agent_prompt_markdown_path };
+  }));
+  results.push(await runEvidenceLoopStep("live state board", async () => enableLiveExperimentStateBoard()));
+  await refreshWorkflow();
+  log("Guided evidence loop finished", { results });
+}
+
+async function runEvidenceLoopStep(label, action) {
+  try {
+    const output = await action();
+    return { label, status: "pass", output: output || {} };
+  } catch (error) {
+    log(`Evidence loop step failed: ${label}`, { error: error.message });
+    return { label, status: "failed", error: error.message };
+  }
+}
+
 el("exportTimelineBtn").addEventListener("click", async () => {
   try {
     const body = await exportTimelineWithPreset();
@@ -1555,8 +1615,8 @@ el("exportReviewSummaryBtn").addEventListener("click", async () => {
   }
 });
 
-async function exportTimelineWithPreset() {
-  const preset = encodeURIComponent(el("timelinePreset").value || "full");
+async function exportTimelineWithPreset(forcedPreset = null) {
+  const preset = encodeURIComponent(forcedPreset || el("timelinePreset").value || "full");
   return api(`/api/session/${state.sessionId}/timeline/export?preset=${preset}`, { method: "POST" });
 }
 
