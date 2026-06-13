@@ -13,6 +13,7 @@ from typing import Any, Callable, Protocol
 from PIL import Image
 
 from .models import (
+    AgentFeedbackRequest,
     ChangeRecordRequest,
     CreateSessionRequest,
     EvidenceArtifact,
@@ -73,7 +74,7 @@ CHECKPOINT_TEMPLATES = {
 
 TIMELINE_PRESETS = {
     "full": None,
-    "review": {"session-created", "scenario-plan", "user-note", "change-record", "visual-observation", "screenshot-checkpoint", "output-inspection", "metric-comparison", "metric-chart", "visual-diff", "codex-packet", "review-summary", "next-action-review"},
+    "review": {"session-created", "scenario-plan", "user-note", "change-record", "visual-observation", "screenshot-checkpoint", "output-inspection", "metric-comparison", "metric-chart", "visual-diff", "codex-packet", "review-summary", "next-action-review", "agent-feedback"},
     "visual": {"session-created", "screenshot-checkpoint", "visual-observation", "visual-diff"},
     "outputs": {"session-created", "output-inspection", "metric-comparison", "metric-chart"},
     "notes": {"session-created", "scenario-plan", "user-note", "change-record"},
@@ -126,6 +127,7 @@ class SessionManager:
             "timeline_notes": [],
             "change_records": [],
             "visual_observations": [],
+            "agent_feedback": [],
         }
 
         baseline: SumoRun | None = None
@@ -354,6 +356,37 @@ class SessionManager:
             "agent_prompt_json_path": json_path,
             "agent_prompt_markdown_path": markdown_path,
             "agent_prompt_markdown": prompt_markdown,
+            "evidence": self.evidence(session_id),
+        }
+
+    def record_agent_feedback(self, session_id: str, request: AgentFeedbackRequest) -> dict[str, Any]:
+        session = self.get(session_id)
+        source_agent = request.source_agent.strip()
+        response_text = request.response_text.strip()
+        prompt_artifact = request.prompt_artifact.strip() if request.prompt_artifact and request.prompt_artifact.strip() else None
+        recommended_action = request.recommended_action.strip() if request.recommended_action and request.recommended_action.strip() else None
+        claim_boundary = request.claim_boundary.strip() if request.claim_boundary and request.claim_boundary.strip() else None
+        if not source_agent:
+            raise ValueError("agent feedback source_agent cannot be empty")
+        if not response_text:
+            raise ValueError("agent feedback response_text cannot be empty")
+        entry = {
+            "label": _safe_label(request.label),
+            "source_agent": source_agent,
+            "prompt_artifact": prompt_artifact,
+            "response_text": response_text,
+            "recommended_action": recommended_action,
+            "claim_boundary": claim_boundary,
+            "created_at": _utc_now(),
+        }
+        session.manifest.setdefault("agent_feedback", []).append(entry)
+        self._write_agent_feedback(session)
+        self._write_manifest(session)
+        return {
+            "agent_feedback": entry,
+            "agent_feedback_json_path": session.session_dir / "agent-feedback.json",
+            "agent_feedback_markdown_path": session.session_dir / "agent-feedback.md",
+            "agent_feedback_markdown": (session.session_dir / "agent-feedback.md").read_text(encoding="utf-8"),
             "evidence": self.evidence(session_id),
         }
 
@@ -1270,6 +1303,20 @@ class SessionManager:
                     ],
                 }
             )
+        for feedback in session.manifest.get("agent_feedback", []):
+            events.append(
+                {
+                    "sequence": len(events) + 1,
+                    "kind": "agent-feedback",
+                    "label": feedback.get("label", "agent-feedback"),
+                    "simulation_time": None,
+                    "wall_time": feedback.get("created_at"),
+                    "status": "recorded",
+                    "template": None,
+                    "note": f"{feedback.get('source_agent', 'agent')}: {feedback.get('recommended_action') or 'no recommended action recorded'}",
+                    "artifacts": ["agent-feedback.json", "agent-feedback.md"],
+                }
+            )
         return {
             "session_id": session.id,
             "session_name": session.name,
@@ -1689,6 +1736,13 @@ class SessionManager:
                 session.manifest.get("codex_packet"),
             ),
             self._review_card(
+                "agent_feedback",
+                "Agent feedback",
+                "pass" if session.manifest.get("agent_feedback") else "warn",
+                f"{len(session.manifest.get('agent_feedback', []))} feedback record(s)",
+                ["agent-feedback.md", "agent-feedback.json"] if session.manifest.get("agent_feedback_artifact") else [],
+            ),
+            self._review_card(
                 "workflow",
                 "Workflow control screen",
                 workflow["status"],
@@ -1706,6 +1760,7 @@ class SessionManager:
             "metric_highlights": self._metric_highlights(session),
             "change_records": session.manifest.get("change_records", []),
             "visual_observations": session.manifest.get("visual_observations", []),
+            "agent_feedback": session.manifest.get("agent_feedback", []),
             "artifacts_to_review": self._review_artifacts_to_review(session),
             "next_actions": workflow["next_actions"],
             "claim_boundary": "This summary is a review dashboard for existing Sidecar evidence. It does not re-run SUMO, prove causality, or certify controller performance.",
@@ -1769,6 +1824,7 @@ class SessionManager:
     def _review_artifacts_to_review(self, session: PairedSession) -> list[str]:
         candidates = [
             "next-action-review.md",
+            "agent-feedback.md",
             "agent-review-prompt.md",
             "codex-packet.md",
             "review-summary.md",
@@ -1825,6 +1881,7 @@ class SessionManager:
     def _agent_prompt_artifacts_to_open(self, session: PairedSession) -> list[str]:
         candidates = [
             "next-action-review.md",
+            "agent-feedback.md",
             "review-summary.md",
             "codex-packet.md",
             "scenario-plan.md",
@@ -2263,6 +2320,14 @@ class SessionManager:
             )
         else:
             lines.append("- none")
+        lines.extend(["", "## Agent feedback", ""])
+        if summary["agent_feedback"]:
+            lines.extend(
+                f"- `{item['source_agent']}` / `{item['label']}`: {item.get('recommended_action') or 'no recommended action recorded'}"
+                for item in summary["agent_feedback"]
+            )
+        else:
+            lines.append("- none")
         lines.extend(["", "## Artifacts to review", ""])
         if summary["artifacts_to_review"]:
             lines.extend(f"- `{artifact}`" for artifact in summary["artifacts_to_review"])
@@ -2401,6 +2466,28 @@ class SessionManager:
             "updated_at": _utc_now(),
         }
 
+    def _write_agent_feedback(self, session: PairedSession) -> None:
+        feedback_items = session.manifest.get("agent_feedback", [])
+        json_path = session.session_dir / "agent-feedback.json"
+        markdown_path = session.session_dir / "agent-feedback.md"
+        json_path.write_text(
+            json.dumps(
+                {
+                    "session_id": session.id,
+                    "session_name": session.name,
+                    "feedback": feedback_items,
+                },
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+        markdown_path.write_text(self._render_agent_feedback_markdown(session, feedback_items), encoding="utf-8")
+        session.manifest["agent_feedback_artifact"] = {
+            "json": str(json_path),
+            "markdown": str(markdown_path),
+            "updated_at": _utc_now(),
+        }
+
     def _render_scenario_plan_markdown(self, session: PairedSession, plan: dict[str, Any]) -> str:
         metrics = ", ".join(f"`{metric}`" for metric in plan["expected_metrics"]) or "`not specified`"
         return "\n".join(
@@ -2499,6 +2586,35 @@ class SessionManager:
                     ]
                 )
             lines.append("")
+        return "\n".join(lines)
+
+    def _render_agent_feedback_markdown(self, session: PairedSession, feedback_items: list[dict[str, Any]]) -> str:
+        lines = [
+            f"# Agent Feedback: {session.name}",
+            "",
+            "Agent feedback records what Codex or Claude returned after reviewing a Sidecar prompt. It is a trace of the review loop, not proof that the experiment is valid.",
+            "",
+        ]
+        if not feedback_items:
+            lines.append("No agent feedback has been recorded yet.")
+            return "\n".join(lines)
+        for index, item in enumerate(feedback_items, start=1):
+            lines.extend(
+                [
+                    f"## {index}. {item['label']}",
+                    "",
+                    f"- Source agent: `{item['source_agent']}`",
+                    f"- Prompt artifact: `{item.get('prompt_artifact') or 'not specified'}`",
+                    f"- Recommended action: {item.get('recommended_action') or 'not specified'}",
+                    f"- Claim boundary: {item.get('claim_boundary') or 'not specified'}",
+                    f"- Recorded at: `{item['created_at']}`",
+                    "",
+                    "### Agent response",
+                    "",
+                    item["response_text"],
+                    "",
+                ]
+            )
         return "\n".join(lines)
 
     def _render_timeline_markdown(self, timeline: dict[str, Any]) -> str:

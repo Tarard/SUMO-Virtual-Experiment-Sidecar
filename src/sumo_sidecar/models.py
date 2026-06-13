@@ -79,6 +79,15 @@ class VisualObservationRequest(BaseModel):
     note: str
 
 
+class AgentFeedbackRequest(BaseModel):
+    label: str = "agent-feedback"
+    source_agent: str = "Codex"
+    prompt_artifact: str | None = "agent-review-prompt.md"
+    response_text: str
+    recommended_action: str | None = None
+    claim_boundary: str | None = None
+
+
 class ScenarioPlanRequest(BaseModel):
     label: str = "parameter-change-scenario"
     parameter: str

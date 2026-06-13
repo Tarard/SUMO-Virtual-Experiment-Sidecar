@@ -12,6 +12,7 @@ from .config_preflight import preflight_pair
 from .config_patch import patch_sumo_config_option
 from .demo_runner import minimal_paired_metadata, run_minimal_paired_guided, run_minimal_paired_headless
 from .models import (
+    AgentFeedbackRequest,
     ChangeRecordRequest,
     ConfigPatchRequest,
     ConfigPreflightRequest,
@@ -453,6 +454,22 @@ def create_app(
             }
         except KeyError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    @app.post("/api/session/{session_id}/agent-feedback/record")
+    def record_agent_feedback(session_id: str, request: AgentFeedbackRequest) -> dict[str, Any]:
+        try:
+            feedback = manager.record_agent_feedback(session_id, request)
+            return {
+                "agent_feedback": feedback["agent_feedback"],
+                "agent_feedback_json_path": str(feedback["agent_feedback_json_path"]),
+                "agent_feedback_markdown_path": str(feedback["agent_feedback_markdown_path"]),
+                "agent_feedback_markdown": feedback["agent_feedback_markdown"],
+                "evidence": feedback["evidence"].model_dump(mode="json"),
+            }
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     @app.post("/api/session/{session_id}/next-action-review/export")
     def export_next_action_review(session_id: str) -> dict[str, Any]:

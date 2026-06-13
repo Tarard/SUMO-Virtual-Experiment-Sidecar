@@ -145,6 +145,25 @@ def test_homepage_exposes_agent_review_prompt_action(tmp_path: Path) -> None:
     assert "renderAgentReviewPrompt" in script_response.text
 
 
+def test_homepage_exposes_agent_feedback_record_action(tmp_path: Path) -> None:
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+
+    index_response = client.get("/")
+    script_response = client.get("/static/app.js")
+
+    assert index_response.status_code == 200
+    assert script_response.status_code == 200
+    assert "agentFeedbackSource" in index_response.text
+    assert "agentFeedbackText" in index_response.text
+    assert "recordAgentFeedbackBtn" in index_response.text
+    assert "Record Agent Feedback" in index_response.text
+    assert "agentFeedbackPreview" in index_response.text
+    assert "/agent-feedback/record" in script_response.text
+    assert "agentFeedbackPayload" in script_response.text
+    assert "renderAgentFeedback" in script_response.text
+
+
 def test_homepage_exposes_next_action_review_action(tmp_path: Path) -> None:
     app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
     client = TestClient(app)
@@ -2085,6 +2104,70 @@ def test_agent_review_prompt_export_writes_copyable_codex_prompt(tmp_path: Path)
     artifact_paths = {item["relative_path"] for item in body["evidence"]["artifacts"]}
     assert "agent-review-prompt.json" in artifact_paths
     assert "agent-review-prompt.md" in artifact_paths
+
+
+def test_agent_feedback_record_returns_codex_response_to_sidecar_evidence(tmp_path: Path) -> None:
+    baseline = tmp_path / "baseline.sumocfg"
+    variant = tmp_path / "variant.sumocfg"
+    baseline.write_text("<configuration/>", encoding="utf-8")
+    variant.write_text("<configuration/>", encoding="utf-8")
+
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+
+    create_response = client.post(
+        "/api/session/create",
+        json={
+            "name": "agent-feedback-demo",
+            "baseline_config": str(baseline),
+            "variant_config": str(variant),
+        },
+    )
+    session_id = create_response.json()["id"]
+    client.post(f"/api/session/{session_id}/agent-review-prompt/export")
+
+    response = client.post(
+        f"/api/session/{session_id}/agent-feedback/record",
+        json={
+            "label": "codex-output-check",
+            "source_agent": "Codex",
+            "prompt_artifact": "agent-review-prompt.md",
+            "response_text": "Inspect output-inspection.md before making any performance claim.",
+            "recommended_action": "Inspect Outputs",
+            "claim_boundary": "Treat the current review as diagnostic only.",
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    feedback = body["agent_feedback"]
+    assert feedback["label"] == "codex-output-check"
+    assert feedback["source_agent"] == "Codex"
+    assert feedback["prompt_artifact"] == "agent-review-prompt.md"
+    assert feedback["recommended_action"] == "Inspect Outputs"
+    assert "diagnostic only" in feedback["claim_boundary"]
+    assert "output-inspection.md" in feedback["response_text"]
+    assert Path(body["agent_feedback_json_path"]).name == "agent-feedback.json"
+    assert Path(body["agent_feedback_markdown_path"]).name == "agent-feedback.md"
+    assert "codex-output-check" in body["agent_feedback_markdown"]
+    assert "Inspect Outputs" in body["agent_feedback_markdown"]
+    artifact_paths = {item["relative_path"] for item in body["evidence"]["artifacts"]}
+    assert "agent-feedback.json" in artifact_paths
+    assert "agent-feedback.md" in artifact_paths
+    assert body["evidence"]["manifest"]["agent_feedback"][0]["label"] == "codex-output-check"
+
+    timeline_response = client.post(f"/api/session/{session_id}/timeline/export?preset=review")
+    assert timeline_response.status_code == 200
+    timeline = timeline_response.json()
+    assert "agent-feedback" in {event["kind"] for event in timeline["timeline"]["events"]}
+    assert "agent-feedback.md" in timeline["timeline_markdown"]
+
+    summary_response = client.post(f"/api/session/{session_id}/review/summary")
+    assert summary_response.status_code == 200
+    summary = summary_response.json()
+    card_ids = {card["id"] for card in summary["review_summary"]["cards"]}
+    assert "agent_feedback" in card_ids
+    assert "agent-feedback.md" in summary["review_summary_markdown"]
 
 
 def test_workflow_status_guides_incomplete_session_next_actions(tmp_path: Path) -> None:

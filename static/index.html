@@ -294,6 +294,35 @@
         <pre id="packetPreview">No packet exported.</pre>
         <h3>Agent Review Prompt</h3>
         <pre id="agentPromptPreview">No agent prompt exported.</pre>
+        <h3>Agent Feedback</h3>
+        <div class="output-grid">
+          <label>
+            Source agent
+            <input id="agentFeedbackSource" value="Codex">
+          </label>
+          <label>
+            Feedback label
+            <input id="agentFeedbackLabel" value="agent-feedback">
+          </label>
+          <label>
+            Prompt artifact
+            <input id="agentFeedbackPromptArtifact" value="agent-review-prompt.md">
+          </label>
+          <label>
+            Recommended action
+            <input id="agentFeedbackAction" placeholder="Inspect Outputs, Compare Metrics, Export Timeline">
+          </label>
+          <label>
+            Claim boundary
+            <input id="agentFeedbackBoundary" placeholder="What did the agent say cannot be claimed yet?">
+          </label>
+        </div>
+        <label>
+          Agent response
+          <textarea id="agentFeedbackText" rows="6" placeholder="Paste the Codex or Claude response you want to preserve in this Sidecar session."></textarea>
+        </label>
+        <button id="recordAgentFeedbackBtn" type="button" disabled>Record Agent Feedback</button>
+        <pre id="agentFeedbackPreview">No agent feedback recorded.</pre>
         <h3>Next Action Review</h3>
         <pre id="nextActionReviewPreview">No next action review exported.</pre>
         <h3>Run Timeline</h3>

@@ -365,6 +365,25 @@ Invoke-RestMethod -Uri http://127.0.0.1:8765/api/session/<session_id>/agent-revi
 
 This writes `agent-review-prompt.json` and `agent-review-prompt.md`. Paste the Markdown prompt into Codex or Claude when you want the agent to inspect the current Sidecar evidence folder. The prompt includes the session folder, artifacts to open, readiness status, next actions, and the claim boundary.
 
+After Codex or Claude replies, paste the response back into the Sidecar:
+
+```powershell
+Invoke-RestMethod `
+  -Uri http://127.0.0.1:8765/api/session/<session_id>/agent-feedback/record `
+  -Method Post `
+  -ContentType "application/json" `
+  -Body '{
+    "label": "codex-output-check",
+    "source_agent": "Codex",
+    "prompt_artifact": "agent-review-prompt.md",
+    "response_text": "Inspect output-inspection.md before making any performance claim.",
+    "recommended_action": "Inspect Outputs",
+    "claim_boundary": "Treat the current review as diagnostic only."
+  }'
+```
+
+This writes `agent-feedback.json` and `agent-feedback.md`, adds the feedback to review timelines, and surfaces it in `review-summary.md`. It preserves the review loop; it does not make the agent response a validation result.
+
 Check workflow status before asking Codex for review:
 
 ```powershell

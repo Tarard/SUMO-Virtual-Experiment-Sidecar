@@ -31,6 +31,7 @@ function setControls(enabled) {
     "evidenceBtn",
     "exportPacketBtn",
     "exportAgentPromptBtn",
+    "recordAgentFeedbackBtn",
     "exportNextActionReviewBtn",
     "exportTimelineBtn",
     "compareMetricsBtn",
@@ -111,6 +112,17 @@ function visualObservationPayload() {
     link_or_lane: el("visualObservationLinkLane").value,
     visual_anchor: el("visualObservationAnchor").value,
     note: el("visualObservationNote").value,
+  };
+}
+
+function agentFeedbackPayload() {
+  return {
+    label: el("agentFeedbackLabel").value,
+    source_agent: el("agentFeedbackSource").value,
+    prompt_artifact: el("agentFeedbackPromptArtifact").value,
+    response_text: el("agentFeedbackText").value,
+    recommended_action: el("agentFeedbackAction").value,
+    claim_boundary: el("agentFeedbackBoundary").value,
   };
 }
 
@@ -1046,6 +1058,28 @@ el("exportAgentPromptBtn").addEventListener("click", async () => {
 function renderAgentReviewPrompt(body) {
   renderEvidence(body.evidence);
   el("agentPromptPreview").textContent = body.agent_prompt_markdown || "No agent prompt exported.";
+}
+
+el("recordAgentFeedbackBtn").addEventListener("click", async () => {
+  try {
+    const body = await api(`/api/session/${state.sessionId}/agent-feedback/record`, {
+      method: "POST",
+      body: JSON.stringify(agentFeedbackPayload()),
+    });
+    renderAgentFeedback(body);
+    await refreshWorkflow();
+    log("Recorded agent feedback", {
+      label: body.agent_feedback.label,
+      agent_feedback_markdown_path: body.agent_feedback_markdown_path,
+    });
+  } catch (error) {
+    log(`Agent feedback record failed: ${error.message}`);
+  }
+});
+
+function renderAgentFeedback(body) {
+  renderEvidence(body.evidence);
+  el("agentFeedbackPreview").textContent = body.agent_feedback_markdown || "No agent feedback recorded.";
 }
 
 el("exportNextActionReviewBtn").addEventListener("click", async () => {
