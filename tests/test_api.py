@@ -231,6 +231,14 @@ def test_homepage_exposes_experiment_state_board_export(tmp_path: Path) -> None:
     assert "experimentStateBoardCards" in index_response.text
     assert "experimentStateBoardPreview" in index_response.text
     assert "/experiment-state-board/export" in script_response.text
+    assert "hasExperimentStateBoard: false" in script_response.text
+    assert "refreshExperimentStateBoardIfAvailable" in script_response.text
+    assert "state.hasExperimentStateBoard = true" in script_response.text
+    assert 'await refreshExperimentStateBoardIfAvailable("metric comparison")' in script_response.text
+    assert 'await refreshExperimentStateBoardIfAvailable("metric chart")' in script_response.text
+    assert 'await refreshExperimentStateBoardIfAvailable("visual diff")' in script_response.text
+    assert 'await refreshExperimentStateBoardIfAvailable("guided visual observation")' in script_response.text
+    assert 'await refreshExperimentStateBoardIfAvailable("agent action outcome")' in script_response.text
     assert "renderExperimentStateBoard" in script_response.text
     assert "renderExperimentStateBoardLane" in script_response.text
     assert "renderExperimentStateBoardLanePreview" in script_response.text

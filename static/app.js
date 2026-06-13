@@ -1,5 +1,6 @@
 const state = {
   sessionId: null,
+  hasExperimentStateBoard: false,
 };
 
 const scenarioTemplates = new Map();
@@ -63,6 +64,9 @@ async function api(path, options = {}) {
 }
 
 function renderState(body) {
+  if (body.id !== state.sessionId) {
+    state.hasExperimentStateBoard = false;
+  }
   state.sessionId = body.id;
   el("sessionId").textContent = body.id || "none";
   el("sessionDir").textContent = body.session_dir || "not created";
@@ -1052,7 +1056,26 @@ el("exportExperimentStateBoardBtn").addEventListener("click", async () => {
   }
 });
 
+async function refreshExperimentStateBoardIfAvailable(reason) {
+  if (!state.sessionId || !state.hasExperimentStateBoard) {
+    return null;
+  }
+  try {
+    const body = await api(`/api/session/${state.sessionId}/experiment-state-board/export`, { method: "POST" });
+    renderExperimentStateBoard(body);
+    log("Refreshed experiment state board", {
+      reason,
+      experiment_state_board_markdown_path: body.experiment_state_board_markdown_path,
+    });
+    return body;
+  } catch (error) {
+    log(`Experiment state board refresh skipped: ${error.message}`);
+    return null;
+  }
+}
+
 function renderExperimentStateBoard(body) {
+  state.hasExperimentStateBoard = true;
   renderEvidence(body.evidence);
   renderExperimentStateBoardCards(body.experiment_state_board);
   el("experimentStateBoardPreview").textContent =
@@ -1416,6 +1439,7 @@ el("recordAgentActionOutcomeBtn").addEventListener("click", async () => {
     });
     renderAgentActionOutcome(body);
     await refreshWorkflow();
+    await refreshExperimentStateBoardIfAvailable("agent action outcome");
     log("Recorded agent action outcome", {
       label: body.agent_action_outcome.label,
       agent_action_outcome_markdown_path: body.agent_action_outcome_markdown_path,
@@ -1436,6 +1460,7 @@ el("exportAgentLoopReviewBtn").addEventListener("click", async () => {
     const body = await api(`/api/session/${state.sessionId}/agent-loop-review/export`, { method: "POST" });
     renderAgentLoopReview(body);
     await refreshWorkflow();
+    await refreshExperimentStateBoardIfAvailable("agent loop review");
     log("Exported agent loop review", { agent_loop_review_markdown_path: body.agent_loop_review_markdown_path });
   } catch (error) {
     log(`Agent loop review export failed: ${error.message}`);
@@ -1482,6 +1507,7 @@ el("compareMetricsBtn").addEventListener("click", async () => {
     renderEvidence(body.evidence);
     el("metricComparisonPreview").textContent = body.metric_comparison_markdown;
     await refreshWorkflow();
+    await refreshExperimentStateBoardIfAvailable("metric comparison");
     log("Exported metric comparison", { metric_comparison_markdown_path: body.metric_comparison_markdown_path });
   } catch (error) {
     log(`Metric comparison failed: ${error.message}`);
@@ -1494,6 +1520,7 @@ el("exportMetricChartBtn").addEventListener("click", async () => {
     renderEvidence(body.evidence);
     renderMetricChart(body);
     await refreshWorkflow();
+    await refreshExperimentStateBoardIfAvailable("metric chart");
     log("Exported metric chart", { metric_chart_markdown_path: body.metric_chart_markdown_path });
   } catch (error) {
     log(`Metric chart export failed: ${error.message}`);
@@ -1535,6 +1562,7 @@ el("exportVisualDiffBtn").addEventListener("click", async () => {
     renderVisualDiff(body.visual_diff);
     el("visualDiffMarkdown").textContent = body.visual_diff_markdown;
     await refreshWorkflow();
+    await refreshExperimentStateBoardIfAvailable("visual diff");
     log("Exported visual diff", { visual_diff_markdown_path: body.visual_diff_markdown_path });
   } catch (error) {
     log(`Visual diff export failed: ${error.message}`);
@@ -1566,6 +1594,7 @@ el("recordGuidedVisualObservationBtn").addEventListener("click", async () => {
     });
     renderGuidedVisualObservation(body);
     await refreshWorkflow();
+    await refreshExperimentStateBoardIfAvailable("guided visual observation");
     log("Recorded guided visual observation", {
       label: body.observation.label,
       timeline_markdown_path: body.timeline_markdown_path,
