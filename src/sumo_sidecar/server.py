@@ -18,6 +18,7 @@ from .models import (
     ScreenshotRequest,
     StepRequest,
     TemplateCheckpointRequest,
+    TimelineNoteRequest,
 )
 from .output_inspection import inspect_output_pair
 from .session_manager import AdapterFactory, SessionManager
@@ -247,6 +248,19 @@ def create_app(
             }
         except KeyError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    @app.post("/api/session/{session_id}/timeline/note")
+    def add_timeline_note(session_id: str, request: TimelineNoteRequest) -> dict[str, Any]:
+        try:
+            note = manager.add_timeline_note(session_id, request.label, request.note)
+            return {
+                "note": note,
+                "evidence": manager.evidence(session_id).model_dump(mode="json"),
+            }
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     @app.post("/api/session/{session_id}/visual-diff/export")
     def export_visual_diff(session_id: str) -> dict[str, Any]:

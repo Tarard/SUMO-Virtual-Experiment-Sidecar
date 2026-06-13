@@ -110,6 +110,7 @@ class SessionManager:
             "session_dir": str(session_dir),
             "options": options,
             "evidence": [],
+            "timeline_notes": [],
         }
 
         baseline: SumoRun | None = None
@@ -318,6 +319,21 @@ class SessionManager:
             "evidence": self.evidence(session_id),
         }
 
+    def add_timeline_note(self, session_id: str, label: str, note: str) -> dict[str, Any]:
+        session = self.get(session_id)
+        clean_label = _safe_label(label)
+        clean_note = note.strip()
+        if not clean_note:
+            raise ValueError("timeline note cannot be empty")
+        entry = {
+            "label": clean_label,
+            "note": clean_note,
+            "created_at": _utc_now(),
+        }
+        session.manifest.setdefault("timeline_notes", []).append(entry)
+        self._write_manifest(session)
+        return entry
+
     def export_visual_diff(self, session_id: str) -> dict[str, Any]:
         session = self.get(session_id)
         visual_diff = self._build_visual_diff(session)
@@ -412,6 +428,20 @@ class SessionManager:
                         self._relative_artifact(session, item.baseline_screenshot),
                         self._relative_artifact(session, item.variant_screenshot),
                     ],
+                }
+            )
+        for note in session.manifest.get("timeline_notes", []):
+            events.append(
+                {
+                    "sequence": len(events) + 1,
+                    "kind": "user-note",
+                    "label": note.get("label", "note"),
+                    "simulation_time": None,
+                    "wall_time": note.get("created_at"),
+                    "status": "recorded",
+                    "template": None,
+                    "note": note.get("note"),
+                    "artifacts": ["manifest.json"],
                 }
             )
         if "output_inspection" in session.manifest:

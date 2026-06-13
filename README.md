@@ -14,6 +14,7 @@ MVP focus:
 - capture paired screenshots from the SUMO GUI view;
 - capture a fixed first visual checkpoint into the evidence bundle;
 - capture named `before-change`, `after-change`, `queue-build-up`, and `final-state` checkpoints with notes;
+- record user-authored timeline notes without taking screenshots;
 - export a before/after visual-diff index for paired template checkpoints;
 - generate pixel-level visual-diff PNGs when before/after screenshots are valid raster images;
 - write `manifest.json` and `comparison.md` for Codex to inspect.
@@ -95,6 +96,8 @@ After a GUI session is active, use `Capture First Checkpoint` to write the first
 
 Use `Capture Template Checkpoint` for before/after work. The built-in templates are `before-change`, `after-change`, `queue-build-up`, and `final-state`. The optional note is written into `comparison.md` and `timeline.md`.
 
+Use `Add Timeline Note` to record parameter changes, observations, or assumptions without taking another screenshot.
+
 Use `Export Visual Diff` after capturing at least one `before-change` and one `after-change` checkpoint. It builds a four-view baseline/variant before/after index for visual inspection. When screenshots are valid raster images with matching dimensions, it also writes pixel-level diff PNGs.
 
 ## Codex Bridge
@@ -116,12 +119,13 @@ Typical workflow:
 2. Run environment preflight and config-pair preflight.
 3. Create a paired baseline/variant session in the web page.
 4. Capture the first paired checkpoint, then capture named before/after checkpoints while watching the SUMO GUI windows.
-5. Inspect `summary.xml` and `tripinfo.xml` output evidence before interpreting performance metrics.
-6. Export the visual diff index for the paired before/after checkpoints.
-7. Export a run timeline to align checkpoints, output inspection, and packet evidence.
-8. Export a Codex packet when the session has enough screenshots and output evidence.
-9. Ask Codex to inspect the evidence folder, visual diff, packet, timeline, or local API.
-10. Use the generated `comparison.md`, `visual-diff.md`, `timeline.md`, and `codex-packet.md` as diagnostic evidence indexes, then pair them with SUMO output files before making formal claims.
+5. Add timeline notes when you change parameters, observe a behavior, or record an assumption.
+6. Inspect `summary.xml` and `tripinfo.xml` output evidence before interpreting performance metrics.
+7. Export the visual diff index for the paired before/after checkpoints.
+8. Export a run timeline to align checkpoints, notes, output inspection, and packet evidence.
+9. Export a Codex packet when the session has enough screenshots and output evidence.
+10. Ask Codex to inspect the evidence folder, visual diff, packet, timeline, or local API.
+11. Use the generated `comparison.md`, `visual-diff.md`, `timeline.md`, and `codex-packet.md` as diagnostic evidence indexes, then pair them with SUMO output files before making formal claims.
 
 See [docs/codex-bridge.md](docs/codex-bridge.md) for exact prompts and API examples.
 
@@ -148,6 +152,7 @@ GET  /api/session/{id}/evidence
 GET  /api/session/{id}/artifact/{path}
 POST /api/session/{id}/packet/export
 POST /api/session/{id}/timeline/export
+POST /api/session/{id}/timeline/note
 POST /api/session/{id}/visual-diff/export
 POST /api/session/{id}/close
 ```
@@ -179,7 +184,7 @@ The web page renders PNG artifacts as screenshot previews through a session-scop
 
 `codex-packet.md` is a single Markdown entrypoint for agent review. It lists the session, artifacts, comparison notes, output inspection when available, and the claim boundary. It is an index over evidence, not an automatic scientific conclusion.
 
-`timeline.md` aligns session creation, screenshot checkpoints, notes, output inspection, and exported Codex packets. This is the quickest way to see what evidence was produced before and after a controller or configuration change.
+`timeline.md` aligns session creation, screenshot checkpoints, user notes, output inspection, visual diffs, and exported Codex packets. This is the quickest way to see what evidence was produced before and after a controller or configuration change.
 
 `visual-diff.md` pairs `before-change` and `after-change` screenshots and lists the four key views: baseline before, baseline after, variant before, and variant after. This is still diagnostic visual evidence; it does not replace output-based performance checks.
 
@@ -244,4 +249,4 @@ The tests use fake SUMO adapters so they can run without launching a GUI.
 
 The MVP is a local visual sidecar. The next targets are:
 
-- add user-authored timeline events that do not require screenshots.
+- add richer timeline filtering and export presets for long experiment sessions.

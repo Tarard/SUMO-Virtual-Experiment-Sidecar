@@ -428,6 +428,48 @@ def test_visual_diff_export_creates_pixel_diff_artifacts_for_valid_pngs(tmp_path
     assert "variant_pixel_diff" in body["visual_diff_markdown"]
 
 
+def test_timeline_note_api_records_user_event_without_screenshot(tmp_path: Path) -> None:
+    baseline = tmp_path / "baseline.sumocfg"
+    variant = tmp_path / "variant.sumocfg"
+    baseline.write_text("<configuration/>", encoding="utf-8")
+    variant.write_text("<configuration/>", encoding="utf-8")
+
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+
+    create_response = client.post(
+        "/api/session/create",
+        json={
+            "name": "note-demo",
+            "baseline_config": str(baseline),
+            "variant_config": str(variant),
+        },
+    )
+    session_id = create_response.json()["id"]
+
+    response = client.post(
+        f"/api/session/{session_id}/timeline/note",
+        json={
+            "label": "parameter-change",
+            "note": "Changed max green from 30 to 45 seconds.",
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["note"]["label"] == "parameter-change"
+    assert body["note"]["note"] == "Changed max green from 30 to 45 seconds."
+    assert body["evidence"]["manifest"]["timeline_notes"][0]["label"] == "parameter-change"
+
+    timeline_response = client.post(f"/api/session/{session_id}/timeline/export")
+
+    assert timeline_response.status_code == 200
+    timeline_body = timeline_response.json()
+    event_kinds = [event["kind"] for event in timeline_body["timeline"]["events"]]
+    assert "user-note" in event_kinds
+    assert "Changed max green from 30 to 45 seconds." in timeline_body["timeline_markdown"]
+
+
 def test_config_preflight_api_reports_pair_risks(tmp_path: Path) -> None:
     baseline = tmp_path / "baseline.sumocfg"
     variant = tmp_path / "variant.sumocfg"

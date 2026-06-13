@@ -44,6 +44,11 @@ class TemplateCheckpointRequest(BaseModel):
     note: str | None = None
 
 
+class TimelineNoteRequest(BaseModel):
+    label: str = "note"
+    note: str
+
+
 class SessionState(BaseModel):
     id: str
     name: str

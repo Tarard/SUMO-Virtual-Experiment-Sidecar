@@ -16,6 +16,7 @@ function setControls(enabled) {
     "runUntilBtn",
     "screenshotBtn",
     "templateCheckpointBtn",
+    "addTimelineNoteBtn",
     "firstCheckpointBtn",
     "stateBtn",
     "evidenceBtn",
@@ -447,6 +448,25 @@ el("templateCheckpointBtn").addEventListener("click", async () => {
     log("Captured template checkpoint", body.screenshot);
   } catch (error) {
     log(`Template checkpoint failed: ${error.message}`);
+  }
+});
+
+el("addTimelineNoteBtn").addEventListener("click", async () => {
+  try {
+    const body = await api(`/api/session/${state.sessionId}/timeline/note`, {
+      method: "POST",
+      body: JSON.stringify({
+        label: el("timelineNoteLabel").value,
+        note: el("timelineNoteText").value,
+      }),
+    });
+    renderEvidence(body.evidence);
+    const timeline = await api(`/api/session/${state.sessionId}/timeline/export`, { method: "POST" });
+    renderEvidence(timeline.evidence);
+    el("timelinePreview").textContent = timeline.timeline_markdown;
+    log("Added timeline note", body.note);
+  } catch (error) {
+    log(`Timeline note failed: ${error.message}`);
   }
 });
 
