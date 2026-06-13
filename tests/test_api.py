@@ -472,6 +472,35 @@ def test_source_evidence_guide_renders_next_step_summary(tmp_path: Path) -> None
     assert "workflow cue only; execute the guide step manually." in summary_renderer
 
 
+def test_workflow_control_screen_renders_compact_cue_board(tmp_path: Path) -> None:
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+
+    index_response = client.get("/")
+    script_response = client.get("/static/app.js")
+    style_response = client.get("/static/styles.css")
+
+    assert index_response.status_code == 200
+    assert script_response.status_code == 200
+    assert style_response.status_code == 200
+    assert "workflowCueBoard" in index_response.text
+    assert "workflowCueWorkflow" in index_response.text
+    assert "workflowCueCompare" in index_response.text
+    assert "workflowCueEvidence" in index_response.text
+    assert "workflowCueSourceGuide" in index_response.text
+    script = script_response.text
+    assert "function updateWorkflowCue(id, label, status, detail)" in script
+    assert "function workflowCueStatusClass(status)" in script
+    assert 'updateWorkflowCue("workflowCueWorkflow"' in script
+    assert 'updateWorkflowCue("workflowCueCompare"' in script
+    assert 'updateWorkflowCue("workflowCueEvidence"' in script
+    assert 'updateWorkflowCue("workflowCueSourceGuide"' in script
+    style = style_response.text
+    assert ".workflow-cue-board" in style
+    assert ".workflow-cue" in style
+    assert ".workflow-cue strong" in style
+
+
 def test_homepage_exposes_next_action_review_action(tmp_path: Path) -> None:
     app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
     client = TestClient(app)

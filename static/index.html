@@ -272,6 +272,28 @@
 
       <section class="panel workflow">
         <h2>Workflow Control Screen</h2>
+        <div id="workflowCueBoard" class="workflow-cue-board" aria-label="Workflow cue board">
+          <div id="workflowCueWorkflow" class="workflow-cue status-unknown">
+            <span>Workflow</span>
+            <strong>not checked</strong>
+            <em>Create a session, then refresh workflow.</em>
+          </div>
+          <div id="workflowCueCompare" class="workflow-cue status-unknown">
+            <span>Compare</span>
+            <strong>not checked</strong>
+            <em>Check comparison readiness.</em>
+          </div>
+          <div id="workflowCueEvidence" class="workflow-cue status-unknown">
+            <span>Evidence loop</span>
+            <strong>not checked</strong>
+            <em>Check evidence loop readiness.</em>
+          </div>
+          <div id="workflowCueSourceGuide" class="workflow-cue status-unknown">
+            <span>Source guide</span>
+            <strong>not checked</strong>
+            <em>Guide missing source evidence.</em>
+          </div>
+        </div>
         <pre id="workflowOutput">Create a session, then refresh workflow status.</pre>
         <pre id="compareReadinessOutput">Create a session, then check comparison readiness.</pre>
         <pre id="evidenceLoopNextAction">Evidence loop next action will appear here.</pre>

@@ -174,6 +174,8 @@ After a session-scoped `Inspect Outputs` succeeds, the web UI refreshes the Evid
 
 The Workflow Control Screen also surfaces the first Evidence Loop `next_action` in a short banner above the detailed status. Use it as the immediate UI cue; inspect the full Evidence Loop status before making claims or deciding that evidence is complete.
 
+The top of the Workflow Control Screen is a compact cue board for `Workflow`, `Compare`, `Evidence loop`, and `Source guide`. It is the operator-facing dashboard; the detailed `pre` blocks below remain the audit trail.
+
 Each Evidence Loop refresh also syncs the Source Evidence Guide panel. If source evidence is missing, the guide steps appear without a second click; if the session is ready, the guide points toward the next review-loop action. This is still only UI guidance and does not run SUMO, create screenshots, parse output files, or certify the experiment.
 
 The Source Evidence Guide also has a compact next-step summary that mirrors the first guide step with its UI action, required inputs, and manual gate. Use it as the quick operator cue; the full guide remains the detailed reference.

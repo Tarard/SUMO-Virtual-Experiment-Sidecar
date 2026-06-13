@@ -1052,11 +1052,32 @@ async function loadEvidence() {
   log("Loaded evidence", { session_dir: body.session_dir });
 }
 
+function workflowCueStatusClass(status) {
+  return `status-${String(status || "unknown")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "") || "unknown"}`;
+}
+
+function updateWorkflowCue(id, label, status, detail) {
+  const cue = el(id);
+  cue.className = `workflow-cue ${workflowCueStatusClass(status)}`;
+  cue.replaceChildren();
+  const labelNode = document.createElement("span");
+  labelNode.textContent = label;
+  const statusNode = document.createElement("strong");
+  statusNode.textContent = status || "unknown";
+  const detailNode = document.createElement("em");
+  detailNode.textContent = detail || "No next action reported.";
+  cue.append(labelNode, statusNode, detailNode);
+}
+
 function renderWorkflow(body) {
   const checklist = (body.checklist || [])
     .map((item) => `${item.status.toUpperCase()} ${item.label}\n  evidence: ${item.evidence}`)
     .join("\n");
   const actions = (body.next_actions || []).map((item) => `- ${item}`).join("\n");
+  updateWorkflowCue("workflowCueWorkflow", "Workflow", body.status, (body.next_actions || [])[0] || body.claim_status);
   el("workflowOutput").textContent = [
     `status: ${body.status}`,
     `claim_status: ${body.claim_status}`,
@@ -1074,6 +1095,7 @@ function renderComparisonReadiness(body) {
     .map((item) => `${item.status.toUpperCase()} ${item.label}\n  evidence: ${item.evidence}`)
     .join("\n");
   const actions = (body.next_actions || []).map((item) => `- ${item}`).join("\n");
+  updateWorkflowCue("workflowCueCompare", "Compare", body.status, (body.next_actions || [])[0] || body.claim_status);
   el("compareReadinessOutput").textContent = [
     `status: ${body.status}`,
     `claim_status: ${body.claim_status}`,
@@ -1118,6 +1140,7 @@ function renderEvidenceLoopStatus(body, refreshTrigger = "manual-check") {
 
 function renderEvidenceLoopNextAction(body, refreshTrigger) {
   const firstNextAction = (body.next_actions || [])[0] || "No next action reported.";
+  updateWorkflowCue("workflowCueEvidence", "Evidence loop", body.status, firstNextAction);
   el("evidenceLoopNextAction").textContent = [
     `status: ${body.status}`,
     `refresh_trigger: ${refreshTrigger}`,
@@ -1129,6 +1152,7 @@ function renderEvidenceLoopNextAction(body, refreshTrigger) {
 function renderSourceGuideNextStep(body, refreshTrigger) {
   const firstGuideStep = (body.steps || [])[0];
   if (!firstGuideStep) {
+    updateWorkflowCue("workflowCueSourceGuide", "Source guide", body.status, "No guide step reported.");
     el("sourceGuideNextStep").textContent = [
       `status: ${body.status}`,
       `refresh_trigger: ${refreshTrigger}`,
@@ -1137,6 +1161,7 @@ function renderSourceGuideNextStep(body, refreshTrigger) {
     ].join("\n");
     return;
   }
+  updateWorkflowCue("workflowCueSourceGuide", "Source guide", body.status, firstGuideStep.ui_action);
   el("sourceGuideNextStep").textContent = [
     `status: ${body.status}`,
     `refresh_trigger: ${refreshTrigger}`,
