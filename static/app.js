@@ -110,11 +110,64 @@ async function api(path, options = {}) {
     headers: { "Content-Type": "application/json" },
     ...options,
   });
-  const body = await response.json();
+  const body = await parseApiResponse(response);
   if (!response.ok) {
-    throw new Error(body.detail || response.statusText);
+    throw new Error(body.detail || response.statusText || body.raw_text || "Request failed");
   }
   return body;
+}
+
+async function parseApiResponse(response) {
+  const text = await response.text();
+  if (!text) {
+    return {};
+  }
+  try {
+    return JSON.parse(text);
+  } catch {
+    return { raw_text: text };
+  }
+}
+
+async function apiWithTimeout(path, options = {}, timeoutMs = 15000) {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await api(path, {
+      ...options,
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (error.name === "AbortError") {
+      throw new Error(`Launch timed out after ${Math.round(timeoutMs / 1000)}s. Close duplicate Sidecar/SUMO instances or retry after preflight.`);
+    }
+    throw error;
+  } finally {
+    window.clearTimeout(timeout);
+  }
+}
+
+function renderGuiLaunchStatus(status, detail) {
+  const target = el("guiLaunchStatus");
+  if (!target) return;
+  target.className = `gui-launch-status status-${status}`;
+  target.textContent = detail;
+}
+
+async function runGuiLaunchAction(buttonId, label, action) {
+  const button = el(buttonId);
+  button.disabled = true;
+  renderGuiLaunchStatus("pending", `${label}: waiting for SUMO/TraCI to connect. Do not start another GUI launch yet.`);
+  try {
+    const body = await action();
+    renderGuiLaunchStatus("pass", `${label}: connected. Continue with checkpoints and evidence.`);
+    return body;
+  } catch (error) {
+    renderGuiLaunchStatus("fail", `${label}: ${error.message}`);
+    throw error;
+  } finally {
+    button.disabled = false;
+  }
 }
 
 function sessionPageUrl(sessionId) {
@@ -748,9 +801,11 @@ el("guidedDemoBtn").addEventListener("click", async () => {
 
 el("launchDemoGuiBtn").addEventListener("click", async () => {
   try {
-    const demo = await api("/api/examples/minimal-paired");
-    applyMinimalDemo(demo);
-    const body = await api("/api/examples/minimal-paired/launch-gui", { method: "POST" });
+    const body = await runGuiLaunchAction("launchDemoGuiBtn", "Launch Demo GUI", async () => {
+      const demo = await api("/api/examples/minimal-paired");
+      applyMinimalDemo(demo);
+      return apiWithTimeout("/api/examples/minimal-paired/launch-gui", { method: "POST" });
+    });
     renderState(body);
     log("Launched minimal demo GUI session", body);
   } catch (error) {
@@ -760,7 +815,9 @@ el("launchDemoGuiBtn").addEventListener("click", async () => {
 
 el("launchGuidedGuiBtn").addEventListener("click", async () => {
   try {
-    const body = await api("/api/examples/minimal-paired/launch-guided-gui", { method: "POST" });
+    const body = await runGuiLaunchAction("launchGuidedGuiBtn", "Launch Guided GUI", async () =>
+      apiWithTimeout("/api/examples/minimal-paired/launch-guided-gui", { method: "POST" }),
+    );
     await renderGuidedGuiLaunch(body);
     log("Launched guided demo GUI session", body);
   } catch (error) {
@@ -770,7 +827,9 @@ el("launchGuidedGuiBtn").addEventListener("click", async () => {
 
 el("launchFullWorkflowGuiBtn").addEventListener("click", async () => {
   try {
-    const body = await api("/api/examples/minimal-paired/launch-full-workflow-gui", { method: "POST" });
+    const body = await runGuiLaunchAction("launchFullWorkflowGuiBtn", "Launch Full Workflow", async () =>
+      apiWithTimeout("/api/examples/minimal-paired/launch-full-workflow-gui", { method: "POST" }),
+    );
     renderFullWorkflowLaunch(body);
     log("Launched full workflow demo GUI session", body);
   } catch (error) {

@@ -717,6 +717,50 @@ def test_homepage_groups_advanced_actions_behind_drawers(tmp_path: Path) -> None
     assert ".primary-action-row" in style_response.text
 
 
+def test_homepage_guards_gui_launch_actions_with_timeout_status(tmp_path: Path) -> None:
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+
+    index_response = client.get("/")
+    script_response = client.get("/static/app.js")
+    style_response = client.get("/static/styles.css")
+
+    assert index_response.status_code == 200
+    assert script_response.status_code == 200
+    assert style_response.status_code == 200
+    html = index_response.text
+    script = script_response.text
+    assert 'id="guiLaunchStatus"' in html
+    assert "GUI launch can block while SUMO/TraCI starts" in html
+    assert "function apiWithTimeout(path, options = {}, timeoutMs = 15000)" in script
+    assert "AbortController" in script
+    assert "function renderGuiLaunchStatus(status, detail)" in script
+    assert "async function runGuiLaunchAction(buttonId, label, action)" in script
+    assert "runGuiLaunchAction(\"launchDemoGuiBtn\"" in script
+    assert "runGuiLaunchAction(\"launchGuidedGuiBtn\"" in script
+    assert "runGuiLaunchAction(\"launchFullWorkflowGuiBtn\"" in script
+    assert "Launch timed out" in script
+    assert ".gui-launch-status" in style_response.text
+    launch_demo_handler = script.split('el("launchDemoGuiBtn").addEventListener', 1)[1].split('el("launchGuidedGuiBtn")', 1)[0]
+    assert 'api("/api/examples/minimal-paired/launch-gui"' not in launch_demo_handler
+
+
+def test_homepage_api_reports_non_json_errors_without_parse_noise(tmp_path: Path) -> None:
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+
+    script_response = client.get("/static/app.js")
+
+    assert script_response.status_code == 200
+    script = script_response.text
+    assert "async function parseApiResponse(response)" in script
+    assert "const text = await response.text()" in script
+    assert "JSON.parse(text)" in script
+    assert "response.statusText || body.raw_text ||" in script
+    api_function = script.split("async function api", 1)[1].split("async function apiWithTimeout", 1)[0]
+    assert "response.json()" not in api_function
+
+
 def test_homepage_uses_sidebar_first_operator_layout(tmp_path: Path) -> None:
     app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
     client = TestClient(app)

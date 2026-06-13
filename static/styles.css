@@ -36,6 +36,20 @@ body {
   gap: 10px;
 }
 
+.gui-launch-status {
+  border: 1px solid var(--line);
+  border-left: 5px solid var(--muted);
+  border-radius: 6px;
+  background: #fbfcfb;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+  margin: 0 0 10px;
+  min-height: 46px;
+  padding: 10px;
+  white-space: pre-wrap;
+}
+
 h1,
 h2,
 h3,
