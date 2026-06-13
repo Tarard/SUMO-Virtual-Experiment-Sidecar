@@ -181,6 +181,38 @@ def test_homepage_exposes_visual_observation_controls(tmp_path: Path) -> None:
     assert "renderVisualObservation" in script_response.text
 
 
+def test_visual_observation_taxonomy_api_returns_claim_bounded_entries(tmp_path: Path) -> None:
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+
+    response = client.get("/api/visual-observation/taxonomy")
+
+    assert response.status_code == 200
+    body = response.json()
+    taxonomy = {item["id"]: item for item in body["taxonomy"]}
+    assert {"queue-growth", "spillback", "phase-mismatch", "insertion-teleport"}.issubset(taxonomy)
+    assert "visual-diff.md" in taxonomy["spillback"]["evidence_targets"]
+    assert "output-inspection.md" in taxonomy["spillback"]["evidence_targets"]
+    assert any("completion" in item for item in taxonomy["queue-growth"]["evidence_checks"])
+    assert "does not prove causality" in taxonomy["phase-mismatch"]["claim_boundary"]
+
+
+def test_homepage_exposes_visual_observation_taxonomy_controls(tmp_path: Path) -> None:
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+
+    index_response = client.get("/")
+    script_response = client.get("/static/app.js")
+
+    assert index_response.status_code == 200
+    assert script_response.status_code == 200
+    assert "visualObservationTaxonomy" in index_response.text
+    assert "Load Observation Types" in index_response.text
+    assert "visualObservationGuidePreview" in index_response.text
+    assert "/api/visual-observation/taxonomy" in script_response.text
+    assert "applyVisualObservationTaxonomy" in script_response.text
+
+
 def test_homepage_exposes_visual_diff_matrix_renderer(tmp_path: Path) -> None:
     app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
     client = TestClient(app)
@@ -1009,6 +1041,48 @@ def test_visual_observation_record_enters_evidence_review_and_prompt(tmp_path: P
     prompt = prompt_response.json()
     assert "visual-observations.md" in prompt["agent_prompt"]["artifacts_to_open"]
     assert "visual-observations.md" in prompt["agent_prompt_markdown"]
+
+
+def test_visual_observation_record_includes_taxonomy_guidance(tmp_path: Path) -> None:
+    baseline = tmp_path / "baseline.sumocfg"
+    variant = tmp_path / "variant.sumocfg"
+    baseline.write_text("<configuration/>", encoding="utf-8")
+    variant.write_text("<configuration/>", encoding="utf-8")
+
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+    create_response = client.post(
+        "/api/session/create",
+        json={
+            "name": "taxonomy-observation-demo",
+            "baseline_config": str(baseline),
+            "variant_config": str(variant),
+        },
+    )
+    session_id = create_response.json()["id"]
+
+    response = client.post(
+        f"/api/session/{session_id}/visual-observation/record",
+        json={
+            "label": "possible-spillback",
+            "observation_type": "spillback",
+            "evidence_artifact": "visual-diff.md",
+            "confidence": "diagnostic",
+            "note": "The downstream queue appears to block the upstream approach.",
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    observation = body["observation"]
+    assert observation["taxonomy"]["label"] == "Spillback"
+    assert "output-inspection.md" in observation["taxonomy"]["evidence_targets"]
+    assert "does not prove causality" in observation["taxonomy"]["claim_boundary"]
+    markdown_path = tmp_path / "runs" / session_id / "visual-observations.md"
+    markdown = markdown_path.read_text(encoding="utf-8")
+    assert "Evidence to check" in markdown
+    assert "output-inspection.md" in markdown
+    assert "does not prove causality" in markdown
 
 
 def test_next_action_review_turns_visual_observations_into_next_actions(tmp_path: Path) -> None:

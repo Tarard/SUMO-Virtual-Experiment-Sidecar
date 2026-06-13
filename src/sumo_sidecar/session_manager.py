@@ -26,6 +26,7 @@ from .models import (
 )
 from .output_inspection import inspect_output_pair, render_output_inspection_markdown
 from .sumo_adapter import TraCISumoRun
+from .visual_observation_taxonomy import find_visual_observation_type
 
 
 class SumoRun(Protocol):
@@ -552,6 +553,7 @@ class SessionManager:
         if not note:
             raise ValueError("visual observation note cannot be empty")
         state = self.state(session_id)
+        taxonomy = find_visual_observation_type(observation_type)
         entry = {
             "label": _safe_label(request.label),
             "observation_type": observation_type,
@@ -561,6 +563,15 @@ class SessionManager:
             "simulation_time": float(state.baseline.get("time", 0.0)),
             "created_at": _utc_now(),
         }
+        if taxonomy:
+            entry["taxonomy"] = {
+                "label": taxonomy["label"],
+                "description": taxonomy["description"],
+                "evidence_targets": taxonomy["evidence_targets"],
+                "evidence_checks": taxonomy["evidence_checks"],
+                "next_actions": taxonomy["next_actions"],
+                "claim_boundary": taxonomy["claim_boundary"],
+            }
         session.manifest.setdefault("visual_observations", []).append(entry)
         self._write_visual_observations(session)
         self._write_manifest(session)
@@ -2346,9 +2357,22 @@ class SessionManager:
                     f"- Evidence artifact: `{observation.get('evidence_artifact') or 'not specified'}`",
                     f"- Note: {observation['note']}",
                     f"- Recorded at: `{observation['created_at']}`",
-                    "",
                 ]
             )
+            taxonomy = observation.get("taxonomy")
+            if taxonomy:
+                lines.extend(
+                    [
+                        f"- Taxonomy label: `{taxonomy.get('label', 'unknown')}`",
+                        f"- Taxonomy description: {taxonomy.get('description', '')}",
+                        "- Evidence to check: "
+                        + (", ".join(f"`{target}`" for target in taxonomy.get("evidence_targets", [])) or "`not specified`"),
+                        "- Suggested checks: " + ("; ".join(taxonomy.get("evidence_checks", [])) or "not specified"),
+                        "- Suggested next actions: " + (", ".join(taxonomy.get("next_actions", [])) or "not specified"),
+                        f"- Taxonomy claim boundary: {taxonomy.get('claim_boundary', '')}",
+                    ]
+                )
+            lines.append("")
         return "\n".join(lines)
 
     def _render_timeline_markdown(self, timeline: dict[str, Any]) -> str:

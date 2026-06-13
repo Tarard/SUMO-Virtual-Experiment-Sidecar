@@ -3,6 +3,7 @@ const state = {
 };
 
 const scenarioTemplates = new Map();
+const visualObservationTaxonomy = new Map();
 
 const el = (id) => document.getElementById(id);
 
@@ -104,6 +105,50 @@ function visualObservationPayload() {
     confidence: el("visualObservationConfidence").value,
     note: el("visualObservationNote").value,
   };
+}
+
+async function loadVisualObservationTaxonomy() {
+  const body = await api("/api/visual-observation/taxonomy");
+  visualObservationTaxonomy.clear();
+  const selector = el("visualObservationTaxonomy");
+  selector.replaceChildren();
+  selector.append(new Option("custom", ""));
+  for (const item of body.taxonomy || []) {
+    visualObservationTaxonomy.set(item.id, item);
+    selector.append(new Option(item.label, item.id));
+  }
+  if (body.taxonomy && body.taxonomy.length) {
+    selector.value = body.taxonomy[0].id;
+    applyVisualObservationTaxonomy();
+  }
+  return body;
+}
+
+function applyVisualObservationTaxonomy() {
+  const item = visualObservationTaxonomy.get(el("visualObservationTaxonomy").value);
+  if (!item) {
+    el("visualObservationGuidePreview").textContent = "Select an observation type to see evidence checks.";
+    return;
+  }
+  el("visualObservationType").value = item.id;
+  el("visualObservationArtifact").value = (item.evidence_targets || [])[0] || "visual-diff.md";
+  el("visualObservationNote").placeholder = item.note_prompt || "What did you see in the SUMO GUI or visual diff matrix?";
+  el("visualObservationGuidePreview").textContent = [
+    `${item.label} (${item.id})`,
+    item.description,
+    "",
+    "Evidence to check:",
+    formatList(item.evidence_targets || []),
+    "",
+    "Suggested checks:",
+    formatList(item.evidence_checks || []),
+    "",
+    "Suggested next actions:",
+    formatList(item.next_actions || []),
+    "",
+    "Claim boundary:",
+    item.claim_boundary,
+  ].join("\n");
 }
 
 function syncConfigPatchFieldsFromScenario() {
@@ -1105,6 +1150,17 @@ el("recordVisualObservationBtn").addEventListener("click", async () => {
     log(`Visual observation failed: ${error.message}`);
   }
 });
+
+el("loadVisualObservationTaxonomyBtn").addEventListener("click", async () => {
+  try {
+    const body = await loadVisualObservationTaxonomy();
+    log("Loaded visual observation taxonomy", { count: (body.taxonomy || []).length });
+  } catch (error) {
+    log(`Visual observation taxonomy load failed: ${error.message}`);
+  }
+});
+
+el("visualObservationTaxonomy").addEventListener("change", applyVisualObservationTaxonomy);
 
 function renderVisualObservation(body) {
   renderEvidence(body.evidence);

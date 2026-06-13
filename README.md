@@ -21,6 +21,7 @@ MVP focus:
 - record user-authored timeline notes without taking screenshots;
 - record structured parameter/controller changes with before value, after value, and rationale;
 - record human visual observations from the SUMO GUI or visual-diff matrix;
+- load a visual-observation taxonomy for queue growth, spillback, phase mismatch, insertion/teleport symptoms, density change, deadlock/gridlock, and route/demand mismatch clues;
 - export completion-first metric comparisons from persisted paired SUMO outputs;
 - export metric-delta SVG charts from completion-first comparisons;
 - export a before/after visual-diff matrix for paired template checkpoints;
@@ -131,6 +132,8 @@ Use `Record Change` when you want Codex to know exactly what changed between two
 
 Use `Record Visual Observation` after looking at the SUMO GUI or the visual-diff matrix. Record what you saw, which artifact supports it, and how confident you are. This helps Codex connect human visual inspection to the evidence bundle without treating the observation as proof.
 
+Use `Load Observation Types` before recording a visual observation when you want guided labels and evidence checks. The taxonomy helps classify observations such as queue growth, spillback, phase mismatch, insertion/teleport symptoms, density change, deadlock/gridlock, or route/demand mismatch suspicion. It is not automatic image understanding.
+
 Use `Compare Metrics` after output inspection. It exports a completion-first baseline/variant/delta table from `output-inspection.json`, with completion and unfinished-vehicle evidence placed before tripinfo means.
 
 Use `Export Metric Chart` after metric comparison. It writes `metric-delta-chart.svg` and `metric-delta-chart.md`, making signs and relative magnitudes easier to inspect while keeping the actual delta values visible.
@@ -222,6 +225,7 @@ POST /api/session/{id}/timeline/note
 POST /api/session/{id}/scenario/plan
 GET  /api/session/{id}/scenario/status
 POST /api/session/{id}/change/record
+GET  /api/visual-observation/taxonomy
 POST /api/session/{id}/visual-observation/record
 POST /api/session/{id}/metrics/compare
 POST /api/session/{id}/metrics/chart
@@ -246,6 +250,8 @@ runs/<session_id>/
   change-records.md
   visual-observations.json
   visual-observations.md
+  next-action-review.json
+  next-action-review.md
   metric-comparison.json
   metric-comparison.md
   metric-delta-chart.svg
@@ -278,7 +284,9 @@ Scenario templates prefill `scenario-plan.md` inputs for common workflows. They 
 
 `change-records.md` records structured edits such as controller parameters, detector mappings, route settings, or experiment assumptions with before value, after value, and rationale. It is the link between "what changed" and the visual/output evidence.
 
-`visual-observations.md` records what the user noticed in the SUMO GUI or visual-diff matrix, such as queue growth, spillback, phase mismatch, deadlock, or density changes. It is a diagnostic annotation that should be checked against paired outputs before being used in a claim.
+`visual-observations.md` records what the user noticed in the SUMO GUI or visual-diff matrix, such as queue growth, spillback, phase mismatch, deadlock, or density changes. When a known observation type is used, it also stores taxonomy guidance with evidence targets, suggested checks, next actions, and a claim boundary. It is a diagnostic annotation that should be checked against paired outputs before being used in a claim.
+
+`next-action-review.md` turns the current evidence state into a concrete next Sidecar operation. It is a diagnostic control screen, not a claim generator.
 
 `metric-comparison.md` compares persisted baseline and variant output evidence using completion-first ordering. It reports loaded, inserted, arrived, running, waiting, teleports, and completion ratio before tripinfo means such as duration, waiting time, and time loss.
 

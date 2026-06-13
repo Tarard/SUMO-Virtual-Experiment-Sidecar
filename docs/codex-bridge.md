@@ -71,6 +71,14 @@ The web UI also has `Patch Config From Scenario`. It uses the current Scenario G
 
 After a paired session exists, `Record Scenario Change` writes the Scenario Guide fields into `change-records.md` through the same `/change/record` endpoint used by the manual change form.
 
+Before recording a visual observation, Codex can inspect the public observation taxonomy:
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:8765/api/visual-observation/taxonomy
+```
+
+Use it to choose labels such as `queue-growth`, `spillback`, `phase-mismatch`, `insertion-teleport`, `density-change`, `deadlock-gridlock`, or `route-demand-mismatch`. These labels guide evidence checks; they are not automatic image understanding and do not prove a traffic mechanism.
+
 After looking at the GUI or visual-diff matrix, record a human visual observation:
 
 ```powershell

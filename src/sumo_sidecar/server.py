@@ -29,6 +29,7 @@ from .output_inspection import inspect_output_pair
 from .scenario_templates import list_scenario_templates
 from .session_manager import AdapterFactory, SessionManager
 from .sumo_adapter import preflight
+from .visual_observation_taxonomy import list_visual_observation_taxonomy
 
 
 def create_app(
@@ -47,6 +48,10 @@ def create_app(
     @app.get("/api/scenario/templates")
     def api_scenario_templates() -> dict[str, Any]:
         return {"templates": list_scenario_templates()}
+
+    @app.get("/api/visual-observation/taxonomy")
+    def api_visual_observation_taxonomy() -> dict[str, Any]:
+        return {"taxonomy": list_visual_observation_taxonomy()}
 
     @app.get("/api/examples/minimal-paired")
     def api_minimal_paired_example() -> dict[str, Any]:
