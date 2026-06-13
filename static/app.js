@@ -567,15 +567,19 @@ function renderVisualDiff(visualDiff) {
     article.className = "visual-diff-pair";
 
     const title = document.createElement("h4");
-    title.textContent = `Pair ${pair.index}`;
+    title.textContent = `Pair ${pair.index} (${pair.pixel_diff ? pair.pixel_diff.status : "index-only"})`;
     article.append(title);
 
-    for (const item of [
+    const images = [
       ["baseline_before", pair.baseline_before],
       ["baseline_after", pair.baseline_after],
       ["variant_before", pair.variant_before],
       ["variant_after", pair.variant_after],
-    ]) {
+      ["baseline_pixel_diff", pair.baseline_pixel_diff],
+      ["variant_pixel_diff", pair.variant_pixel_diff],
+    ].filter((item) => item[1]);
+
+    for (const item of images) {
       const [labelText, relativePath] = item;
       article.append(makeDiffImage(labelText, relativePath));
     }

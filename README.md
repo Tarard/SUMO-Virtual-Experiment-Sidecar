@@ -15,6 +15,7 @@ MVP focus:
 - capture a fixed first visual checkpoint into the evidence bundle;
 - capture named `before-change`, `after-change`, `queue-build-up`, and `final-state` checkpoints with notes;
 - export a before/after visual-diff index for paired template checkpoints;
+- generate pixel-level visual-diff PNGs when before/after screenshots are valid raster images;
 - write `manifest.json` and `comparison.md` for Codex to inspect.
 
 Not in this release:
@@ -94,7 +95,7 @@ After a GUI session is active, use `Capture First Checkpoint` to write the first
 
 Use `Capture Template Checkpoint` for before/after work. The built-in templates are `before-change`, `after-change`, `queue-build-up`, and `final-state`. The optional note is written into `comparison.md` and `timeline.md`.
 
-Use `Export Visual Diff` after capturing at least one `before-change` and one `after-change` checkpoint. It builds a four-view baseline/variant before/after index for visual inspection.
+Use `Export Visual Diff` after capturing at least one `before-change` and one `after-change` checkpoint. It builds a four-view baseline/variant before/after index for visual inspection. When screenshots are valid raster images with matching dimensions, it also writes pixel-level diff PNGs.
 
 ## Codex Bridge
 
@@ -182,6 +183,8 @@ The web page renders PNG artifacts as screenshot previews through a session-scop
 
 `visual-diff.md` pairs `before-change` and `after-change` screenshots and lists the four key views: baseline before, baseline after, variant before, and variant after. This is still diagnostic visual evidence; it does not replace output-based performance checks.
 
+When possible, the sidecar also writes pixel-level diff artifacts under `visual-diff/`. White pixels indicate changed pixels and black pixels indicate unchanged pixels. If screenshots are not valid raster images, or if image dimensions differ, the export remains available as an index and records the pixel-diff warning instead of failing.
+
 ## Config Pair Preflight
 
 Before opening SUMO GUI sessions, the sidecar can inspect the two `.sumocfg` files and report:
@@ -241,5 +244,4 @@ The tests use fake SUMO adapters so they can run without launching a GUI.
 
 The MVP is a local visual sidecar. The next targets are:
 
-- add real pixel-level image difference artifacts when screenshots are valid raster images;
 - add user-authored timeline events that do not require screenshots.

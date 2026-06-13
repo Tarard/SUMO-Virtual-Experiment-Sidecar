@@ -1,11 +1,30 @@
 from pathlib import Path
 from shutil import which
+import struct
+import zlib
 
 import pytest
 from fastapi.testclient import TestClient
 
 from sumo_sidecar.server import create_app
 from tests.test_session_manager import FakeAdapterFactory
+
+
+def write_rgb_png(path: Path, rgb: tuple[int, int, int]) -> None:
+    def chunk(kind: bytes, data: bytes) -> bytes:
+        return (
+            struct.pack(">I", len(data))
+            + kind
+            + data
+            + struct.pack(">I", zlib.crc32(kind + data) & 0xFFFFFFFF)
+        )
+
+    path.write_bytes(
+        b"\x89PNG\r\n\x1a\n"
+        + chunk(b"IHDR", struct.pack(">IIBBBBB", 1, 1, 8, 2, 0, 0, 0))
+        + chunk(b"IDAT", zlib.compress(b"\x00" + bytes(rgb)))
+        + chunk(b"IEND", b"")
+    )
 
 
 def test_preflight_reports_available_fields(tmp_path: Path) -> None:
@@ -360,6 +379,53 @@ def test_visual_diff_export_pairs_before_after_template_checkpoints(tmp_path: Pa
     assert "After tuning." in body["visual_diff_markdown"]
     assert "baseline_before" in body["visual_diff_markdown"]
     assert "variant_after" in body["visual_diff_markdown"]
+
+
+def test_visual_diff_export_creates_pixel_diff_artifacts_for_valid_pngs(tmp_path: Path) -> None:
+    baseline = tmp_path / "baseline.sumocfg"
+    variant = tmp_path / "variant.sumocfg"
+    baseline.write_text("<configuration/>", encoding="utf-8")
+    variant.write_text("<configuration/>", encoding="utf-8")
+
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+
+    create_response = client.post(
+        "/api/session/create",
+        json={
+            "name": "pixel-diff-demo",
+            "baseline_config": str(baseline),
+            "variant_config": str(variant),
+        },
+    )
+    session_id = create_response.json()["id"]
+    before_response = client.post(
+        f"/api/session/{session_id}/checkpoint/template",
+        json={"template": "before-change", "note": "Before tuning."},
+    )
+    write_rgb_png(Path(before_response.json()["screenshot"]["baseline_screenshot"]), (0, 0, 0))
+    write_rgb_png(Path(before_response.json()["screenshot"]["variant_screenshot"]), (20, 20, 20))
+
+    client.post(f"/api/session/{session_id}/step", json={"count": 3})
+    after_response = client.post(
+        f"/api/session/{session_id}/checkpoint/template",
+        json={"template": "after-change", "note": "After tuning."},
+    )
+    write_rgb_png(Path(after_response.json()["screenshot"]["baseline_screenshot"]), (255, 255, 255))
+    write_rgb_png(Path(after_response.json()["screenshot"]["variant_screenshot"]), (20, 20, 20))
+
+    response = client.post(f"/api/session/{session_id}/visual-diff/export")
+
+    assert response.status_code == 200
+    body = response.json()
+    pair = body["visual_diff"]["pairs"][0]
+    assert pair["pixel_diff"]["status"] == "ready"
+    assert pair["pixel_diff"]["baseline_changed_pixels"] == 1
+    assert pair["pixel_diff"]["variant_changed_pixels"] == 0
+    assert Path(tmp_path / "runs" / session_id / pair["baseline_pixel_diff"]).exists()
+    assert Path(tmp_path / "runs" / session_id / pair["variant_pixel_diff"]).exists()
+    assert "baseline_pixel_diff" in body["visual_diff_markdown"]
+    assert "variant_pixel_diff" in body["visual_diff_markdown"]
 
 
 def test_config_preflight_api_reports_pair_risks(tmp_path: Path) -> None:

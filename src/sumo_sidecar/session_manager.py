@@ -9,6 +9,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Callable, Protocol
 
+from PIL import Image
+
 from .models import (
     CreateSessionRequest,
     EvidenceArtifact,
@@ -475,6 +477,7 @@ class SessionManager:
         after_items = [item for item in session.evidence if item.template == "after-change"]
         pairs = []
         for index, (before, after) in enumerate(zip(before_items, after_items), start=1):
+            pixel_diff = self._build_pixel_diff(session, index, before, after)
             pairs.append(
                 {
                     "index": index,
@@ -485,6 +488,9 @@ class SessionManager:
                     "baseline_after": self._relative_artifact(session, after.baseline_screenshot),
                     "variant_before": self._relative_artifact(session, before.variant_screenshot),
                     "variant_after": self._relative_artifact(session, after.variant_screenshot),
+                    "pixel_diff": pixel_diff,
+                    "baseline_pixel_diff": pixel_diff.get("baseline_diff"),
+                    "variant_pixel_diff": pixel_diff.get("variant_diff"),
                     "claim_boundary": "Visual differences are diagnostic only; pair them with SUMO output evidence before making performance claims.",
                 }
             )
@@ -512,6 +518,74 @@ class SessionManager:
             "variant_screenshot": self._relative_artifact(session, item.variant_screenshot),
         }
 
+    def _build_pixel_diff(
+        self,
+        session: PairedSession,
+        pair_index: int,
+        before: ScreenshotEvidence,
+        after: ScreenshotEvidence,
+    ) -> dict[str, Any]:
+        diff_dir = session.session_dir / "visual-diff"
+        baseline_diff = diff_dir / f"pair-{pair_index}-baseline-pixel-diff.png"
+        variant_diff = diff_dir / f"pair-{pair_index}-variant-pixel-diff.png"
+        baseline_result = self._write_pixel_diff(before.baseline_screenshot, after.baseline_screenshot, baseline_diff)
+        variant_result = self._write_pixel_diff(before.variant_screenshot, after.variant_screenshot, variant_diff)
+        warnings = [
+            warning
+            for warning in [baseline_result.get("warning"), variant_result.get("warning")]
+            if warning
+        ]
+        status = "ready" if baseline_result["status"] == "ready" and variant_result["status"] == "ready" else "unavailable"
+        return {
+            "status": status,
+            "baseline_changed_pixels": baseline_result["changed_pixels"],
+            "variant_changed_pixels": variant_result["changed_pixels"],
+            "baseline_total_pixels": baseline_result["total_pixels"],
+            "variant_total_pixels": variant_result["total_pixels"],
+            "baseline_diff": self._relative_artifact(session, baseline_diff) if baseline_result["status"] == "ready" else None,
+            "variant_diff": self._relative_artifact(session, variant_diff) if variant_result["status"] == "ready" else None,
+            "warnings": warnings,
+        }
+
+    def _write_pixel_diff(self, before_path: Path, after_path: Path, output_path: Path) -> dict[str, Any]:
+        try:
+            with Image.open(before_path) as before_image, Image.open(after_path) as after_image:
+                before_rgb = before_image.convert("RGB")
+                after_rgb = after_image.convert("RGB")
+                if before_rgb.size != after_rgb.size:
+                    return {
+                        "status": "unavailable",
+                        "changed_pixels": None,
+                        "total_pixels": None,
+                        "warning": f"image size mismatch: {before_path.name} {before_rgb.size} vs {after_path.name} {after_rgb.size}",
+                    }
+                changed_pixels = 0
+                diff = Image.new("RGB", before_rgb.size, "black")
+                diff_pixels = diff.load()
+                before_pixels = before_rgb.load()
+                after_pixels = after_rgb.load()
+                width, height = before_rgb.size
+                for y in range(height):
+                    for x in range(width):
+                        if before_pixels[x, y] != after_pixels[x, y]:
+                            changed_pixels += 1
+                            diff_pixels[x, y] = (255, 255, 255)
+                output_path.parent.mkdir(parents=True, exist_ok=True)
+                diff.save(output_path)
+                return {
+                    "status": "ready",
+                    "changed_pixels": changed_pixels,
+                    "total_pixels": width * height,
+                    "warning": None,
+                }
+        except OSError as exc:
+            return {
+                "status": "unavailable",
+                "changed_pixels": None,
+                "total_pixels": None,
+                "warning": f"pixel diff unavailable for {before_path.name} / {after_path.name}: {exc}",
+            }
+
     def _render_visual_diff_markdown(self, visual_diff: dict[str, Any]) -> str:
         lines = [
             f"# SUMO Visual Diff Index: {visual_diff['session_name']}",
@@ -538,6 +612,7 @@ class SessionManager:
         for pair in visual_diff["pairs"]:
             before = pair["before"]
             after = pair["after"]
+            pixel_diff = pair["pixel_diff"]
             lines.extend(
                 [
                     f"### Pair {pair['index']}",
@@ -550,10 +625,18 @@ class SessionManager:
                     f"- baseline_after: `{pair['baseline_after']}`",
                     f"- variant_before: `{pair['variant_before']}`",
                     f"- variant_after: `{pair['variant_after']}`",
+                    f"- Pixel diff status: `{pixel_diff['status']}`",
+                    f"- Baseline changed pixels: `{pixel_diff['baseline_changed_pixels']}` / `{pixel_diff['baseline_total_pixels']}`",
+                    f"- Variant changed pixels: `{pixel_diff['variant_changed_pixels']}` / `{pixel_diff['variant_total_pixels']}`",
+                    f"- baseline_pixel_diff: `{pair['baseline_pixel_diff']}`",
+                    f"- variant_pixel_diff: `{pair['variant_pixel_diff']}`",
                     f"- Claim boundary: {pair['claim_boundary']}",
                     "",
                 ]
             )
+            if pixel_diff["warnings"]:
+                lines.extend(f"- Pixel warning: {warning}" for warning in pixel_diff["warnings"])
+                lines.append("")
         return "\n".join(lines)
 
     def _render_timeline_markdown(self, timeline: dict[str, Any]) -> str:
