@@ -73,11 +73,34 @@ p {
 
 .sidecar-sidebar {
   display: grid;
-  gap: 12px;
+  gap: 10px;
   max-height: calc(100vh - 104px);
   overflow: auto;
   position: sticky;
   top: 16px;
+}
+
+.workflow-rail {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 8px;
+}
+
+.workflow-rail span {
+  border-radius: 6px;
+  background: #eef4e7;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1.2;
+  padding: 7px 4px;
+  text-align: center;
+  text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .main-workspace {
@@ -139,6 +162,12 @@ p {
   gap: 14px;
 }
 
+.active-checklist-heading div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
 .active-checklist-heading span {
   color: var(--muted);
   font-size: 11px;
@@ -152,6 +181,12 @@ p {
   font-size: 15px;
   line-height: 1.3;
   text-align: right;
+}
+
+.active-checklist-heading button {
+  flex: 0 0 auto;
+  width: auto;
+  white-space: nowrap;
 }
 
 .active-checklist-grid {
@@ -229,7 +264,7 @@ p {
 
 .sidebar-drawer-body {
   display: grid;
-  gap: 0;
+  gap: 10px;
   padding: 14px;
 }
 
@@ -285,6 +320,9 @@ button:disabled {
 }
 
 .primary-action-row {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
   margin-bottom: 10px;
 }
 
@@ -311,6 +349,10 @@ button:disabled {
 }
 
 .action-drawer .row {
+  padding: 10px;
+}
+
+.action-drawer .control-grid {
   padding: 10px;
 }
 
@@ -402,6 +444,38 @@ button:disabled {
 .sidecar-sidebar .row label,
 .sidecar-sidebar button {
   width: 100%;
+}
+
+.sidecar-sidebar .control-grid label {
+  margin-bottom: 0;
+}
+
+.main-drawer {
+  border: 0;
+  background: transparent;
+  margin: 0;
+}
+
+.workflow .main-drawer {
+  border-top: 1px solid var(--line);
+  margin-top: 12px;
+  padding-top: 2px;
+}
+
+.main-drawer > summary {
+  cursor: pointer;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1.2;
+  list-style-position: inside;
+  padding: 10px 0;
+}
+
+.main-drawer-body {
+  display: grid;
+  gap: 12px;
+  padding-top: 8px;
 }
 
 .output-grid {
@@ -698,6 +772,15 @@ button:disabled {
   overflow-wrap: anywhere;
 }
 
+#evidenceLoopNextAction,
+#sourceGuideNextStep {
+  min-height: 58px;
+  border-left: 5px solid var(--accent-2);
+  background: #fbfcfb;
+  color: var(--ink);
+  white-space: pre-wrap;
+}
+
 .status-active,
 .status-pass,
 .status-ready-to-compare,
@@ -839,6 +922,10 @@ code {
     text-align: left;
   }
 
+  .active-checklist-heading button {
+    width: 100%;
+  }
+
   .active-checklist-grid {
     grid-template-columns: 1fr;
   }
@@ -864,5 +951,10 @@ code {
 
   .workflow-cue-board {
     grid-template-columns: 1fr;
+  }
+
+  .workflow-rail {
+    grid-template-columns: repeat(5, minmax(56px, 1fr));
+    overflow-x: auto;
   }
 }

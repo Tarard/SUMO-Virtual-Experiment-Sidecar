@@ -172,15 +172,17 @@ The Output Evidence panel also shows a lightweight `ready-to-inspect` hint when 
 
 After a session-scoped `Inspect Outputs` succeeds, the web UI refreshes the Evidence Loop status automatically. This makes the source-evidence gate reflect the new output inspection evidence immediately, but it is still a workflow readiness update, not a validity certificate. The Evidence Loop panel includes a `refresh_trigger` line so users can tell whether the status came from a manual check, output inspection, or the guided evidence loop.
 
-The Workflow Control Screen also surfaces the first Evidence Loop `next_action` in a short banner above the detailed status. Use it as the immediate UI cue; inspect the full Evidence Loop status before making claims or deciding that evidence is complete.
+The Workflow Cockpit also surfaces the first Evidence Loop `next_action` and Source Evidence next step above the detailed status. Use it as the immediate UI cue; inspect the full Evidence Loop status before making claims or deciding that evidence is complete.
 
-The top of the Workflow Control Screen is a compact cue board for `Workflow`, `Compare`, `Evidence loop`, and `Source guide`. It is the operator-facing dashboard; the detailed `pre` blocks below remain the audit trail.
+The top of the Workflow Cockpit is a compact cue board for `Workflow`, `Compare`, `Evidence loop`, and `Source guide`. It is the operator-facing dashboard; the detailed trace drawer keeps the raw workflow, comparison, evidence-loop, and source-guide reports available without making them the first screen.
 
 Use `Refresh Cockpit` when you want the cue board and detailed workflow panels updated in one pass. It refreshes workflow status, comparison readiness, Evidence Loop status, and the synchronized Source Evidence Guide. It does not run SUMO, step the simulation, capture screenshots, mutate configs, or create new evidence.
 
-The visible controls now follow a sidebar-first layout. Demo, session setup, and paired control stay immediately available; scenario setup, construction preflight, output evidence, and advanced exports live in collapsible sidebar drawers. The main workspace stays focused on cockpit cues, live state, the evidence bundle, and the event log. This keeps the page usable as an operator sidecar instead of a wall of equal-weight buttons.
+The visible controls follow a sidebar-first workflow. Demo actions, session setup, run/capture controls, change notes, scenario setup, construction preflight, output evidence, and advanced exports are grouped into collapsible sidebar sections. The main workspace stays focused on the cockpit, the active-session checklist, compact evidence indexes, and optional trace drawers. This keeps the page usable as an operator sidecar instead of a wall of equal-weight buttons.
 
 The Active Session Checklist summarizes the current operator gate for Session, Workflow, Compare, Evidence Loop, and Source Guide. It mirrors the same status responses rendered in the detailed workflow blocks, so it is a quick navigation cue, not a separate validation layer.
+
+Use `Focus Source Evidence` when the Source Guide reports a missing evidence step and you want the UI to move to the right place. It opens the relevant sidebar drawer, fills candidate output paths only into empty fields when the guide provides them, or selects the missing checkpoint template. It does not run SUMO, step the simulation, capture screenshots, inspect outputs, or certify evidence.
 
 The Codex Evidence panel is grouped into collapsible drawers for evidence artifacts, the agent bridge, metrics/review outputs, and visual review. The session folder and artifact list stay visible as the compact evidence index; deeper Markdown, charts, screenshots, prompts, and observation forms open only when needed.
 

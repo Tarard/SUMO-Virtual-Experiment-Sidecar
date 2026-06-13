@@ -36,6 +36,7 @@ function setControls(enabled) {
     "enableLiveExperimentStateBoardBtn",
     "checkEvidenceLoopBtn",
     "guideSourceEvidenceBtn",
+    "focusSourceEvidenceBtn",
     "applySuggestedOutputPathsBtn",
     "runEvidenceLoopBtn",
     "evidenceBtn",
@@ -996,7 +997,19 @@ async function refreshSourceEvidenceGuide(refreshTrigger = "manual-guide") {
 async function applySuggestedOutputPaths() {
   const body = await refreshSourceEvidenceGuide();
   const inspectStep = (body.steps || []).find((step) => step.id === "inspect_outputs");
-  const suggestedInputs = inspectStep ? inspectStep.suggested_inputs || {} : {};
+  const { applied, skipped } = applySuggestedOutputPathsFromStep(inspectStep);
+  log("Suggested output paths applied", {
+    applied,
+    skipped,
+    manual_gate: "Suggested paths fill text inputs only. Inspect Outputs still requires a separate user action.",
+  });
+  renderSuggestedOutputPathStatus(applied, skipped);
+  refreshOutputInspectionReadiness();
+  return { applied, skipped };
+}
+
+function applySuggestedOutputPathsFromStep(step) {
+  const suggestedInputs = step ? step.suggested_inputs || {} : {};
   const applied = [];
   const skipped = [];
   for (const [sourceKey, inputId] of [
@@ -1012,11 +1025,6 @@ async function applySuggestedOutputPaths() {
       skipped.push(`${sourceKey}:${result}`);
     }
   }
-  log("Suggested output paths applied", {
-    applied,
-    skipped,
-    manual_gate: "Suggested paths fill text inputs only. Inspect Outputs still requires a separate user action.",
-  });
   renderSuggestedOutputPathStatus(applied, skipped);
   refreshOutputInspectionReadiness();
   return { applied, skipped };
@@ -1048,6 +1056,79 @@ function renderSuggestedOutputPathStatus(applied, skipped) {
     "- Inspect Outputs still requires a separate user action.",
     "- Confirm the suggested files belong to the intended completed paired run.",
   ].join("\n");
+}
+
+function openSidebarDrawer(id) {
+  const drawer = el(id);
+  if (!drawer) {
+    return null;
+  }
+  if (drawer.tagName.toLowerCase() === "details") {
+    drawer.open = true;
+  }
+  drawer.scrollIntoView({ behavior: "smooth", block: "center" });
+  return drawer;
+}
+
+function focusElement(id) {
+  const node = el(id);
+  if (!node) {
+    return;
+  }
+  node.scrollIntoView({ behavior: "smooth", block: "center" });
+  if (typeof node.focus === "function") {
+    node.focus({ preventScroll: true });
+  }
+}
+
+async function focusSourceEvidence() {
+  const body = await refreshSourceEvidenceGuide("focus-source-evidence");
+  const step = (body.steps || [])[0];
+  const result = focusSourceEvidenceStep(step);
+  log("Focused source evidence", {
+    step_id: step ? step.id : "none",
+    ui_action: step ? step.ui_action : "none",
+    manual_gate: step ? step.manual_gate : "No source evidence guide step reported.",
+    result,
+  });
+  return result;
+}
+
+function focusSourceEvidenceStep(step) {
+  if (!step) {
+    focusElement("sourceGuideNextStep");
+    return { target: "sourceGuideNextStep", action: "no-step" };
+  }
+  if (step.id === "inspect_outputs") {
+    openSidebarDrawer("outputEvidenceDrawer");
+    const copied = applySuggestedOutputPathsFromStep(step);
+    const required = step.required_inputs || [];
+    const target = required.includes("baseline_summary") ? "baselineSummary" : "variantSummary";
+    focusElement(target);
+    return { target: "outputEvidenceDrawer", action: "inspect-output-fields", copied };
+  }
+  if (step.id === "capture_before_after_checkpoints") {
+    openSidebarDrawer("runControlsDrawer");
+    const templateInput = (step.required_inputs || []).find((item) => item.startsWith("template="));
+    const template = templateInput ? templateInput.split("=", 2)[1] : "before-change";
+    el("checkpointTemplate").value = template;
+    focusElement("checkpointTemplate");
+    return { target: "checkpointTemplate", action: "checkpoint-template", template };
+  }
+  if (step.id === "run_evidence_loop") {
+    focusElement("runEvidenceLoopBtn");
+    return { target: "runEvidenceLoopBtn", action: "run-evidence-loop" };
+  }
+  if (step.id === "inspect_review_package") {
+    const drawer = el("evidenceArtifactsDrawer");
+    if (drawer && drawer.tagName.toLowerCase() === "details") {
+      drawer.open = true;
+    }
+    focusElement("evidenceArtifactsDrawer");
+    return { target: "evidenceArtifactsDrawer", action: "review-evidence" };
+  }
+  focusElement("sourceGuideNextStep");
+  return { target: "sourceGuideNextStep", action: step.ui_action || "unknown" };
 }
 
 function refreshOutputInspectionReadiness() {
@@ -1434,6 +1515,14 @@ el("guideSourceEvidenceBtn").addEventListener("click", async () => {
     await refreshSourceEvidenceGuide();
   } catch (error) {
     log(`Source evidence guide failed: ${error.message}`);
+  }
+});
+
+el("focusSourceEvidenceBtn").addEventListener("click", async () => {
+  try {
+    await focusSourceEvidence();
+  } catch (error) {
+    log(`Source evidence focus failed: ${error.message}`);
   }
 });
 

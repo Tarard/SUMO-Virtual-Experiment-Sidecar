@@ -321,6 +321,37 @@ def test_homepage_exposes_source_evidence_guide(tmp_path: Path) -> None:
     assert "candidate source" in script_response.text
 
 
+def test_homepage_exposes_source_evidence_focus_helper(tmp_path: Path) -> None:
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+
+    index_response = client.get("/")
+    script_response = client.get("/static/app.js")
+
+    assert index_response.status_code == 200
+    assert script_response.status_code == 200
+    html = index_response.text
+    script = script_response.text
+    assert 'id="focusSourceEvidenceBtn"' in html
+    assert "Focus Source Evidence" in html
+    assert 'id="scenarioGuideDrawer"' in html
+    assert 'id="constructionPreflightDrawer"' in html
+    assert 'id="outputEvidenceDrawer"' in html
+    assert '"focusSourceEvidenceBtn"' in script
+    assert "async function focusSourceEvidence()" in script
+    assert "function focusSourceEvidenceStep(step)" in script
+    assert "function openSidebarDrawer(id)" in script
+    assert "function applySuggestedOutputPathsFromStep(step)" in script
+    assert 'openSidebarDrawer("outputEvidenceDrawer")' in script
+    assert "applySuggestedOutputPathsFromStep(step)" in script
+    assert 'el("checkpointTemplate").value = template' in script
+    focus_function = script.split("async function focusSourceEvidence", 1)[1].split("function focusSourceEvidenceStep", 1)[0]
+    assert "/outputs/inspect" not in focus_function
+    assert "/run" not in focus_function
+    assert "/step" not in focus_function
+    assert "/screenshot" not in focus_function
+
+
 def test_homepage_exposes_manual_copy_for_suggested_output_paths(tmp_path: Path) -> None:
     app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
     client = TestClient(app)
@@ -597,6 +628,7 @@ def test_homepage_uses_sidebar_first_operator_layout(tmp_path: Path) -> None:
     assert 'class="app-shell"' in html
     assert 'class="sidecar-sidebar"' in html
     assert 'aria-label="Sidecar controls"' in html
+    assert 'class="workflow-rail"' in html
     assert 'class="main-workspace"' in html
     assert 'class="operator-summary"' in html
     assert html.index('class="sidecar-sidebar"') < html.index('class="main-workspace"')
@@ -604,6 +636,9 @@ def test_homepage_uses_sidebar_first_operator_layout(tmp_path: Path) -> None:
     assert "loadDemoBtn" in sidebar
     assert "createBtn" in sidebar
     assert "runEvidenceLoopBtn" in sidebar
+    assert 'id="sessionSetupDrawer"' in sidebar
+    assert 'id="runControlsDrawer"' in sidebar
+    assert 'id="changeNotesDrawer"' in sidebar
     assert "advancedReviewActions" in sidebar
     assert 'class="panel scenario-guide sidebar-section sidebar-drawer"' in sidebar
     assert 'class="panel config-preflight sidebar-section sidebar-drawer"' in sidebar
@@ -612,7 +647,12 @@ def test_homepage_uses_sidebar_first_operator_layout(tmp_path: Path) -> None:
     assert "<summary>Construction Preflight</summary>" in sidebar
     assert "<summary>Output Evidence</summary>" in sidebar
     main_workspace = html.split('class="main-workspace"', 1)[1]
+    assert "Workflow Cockpit" in main_workspace
     assert "workflowCueBoard" in main_workspace
+    assert 'id="workflowTraceDrawer"' in main_workspace
+    assert "<summary>Detailed workflow trace</summary>" in main_workspace
+    assert 'id="liveStateDrawer"' in main_workspace
+    assert 'id="eventLogDrawer"' in main_workspace
     assert "baselineState" in main_workspace
     assert "artifactList" in main_workspace
     assert ".app-shell" in style_response.text
@@ -620,6 +660,8 @@ def test_homepage_uses_sidebar_first_operator_layout(tmp_path: Path) -> None:
     assert ".main-workspace" in style_response.text
     assert ".operator-summary" in style_response.text
     assert ".sidebar-drawer" in style_response.text
+    assert ".workflow-rail" in style_response.text
+    assert ".main-drawer" in style_response.text
 
 
 def test_homepage_groups_codex_evidence_into_drawers(tmp_path: Path) -> None:

@@ -16,6 +16,14 @@
 
     <main class="app-shell">
       <aside class="sidecar-sidebar" aria-label="Sidecar controls">
+      <nav class="workflow-rail" aria-label="Sidecar workflow">
+        <span>Start</span>
+        <span>Session</span>
+        <span>Run</span>
+        <span>Evidence</span>
+        <span>Review</span>
+      </nav>
+
       <section class="panel sidebar-section quick-start">
         <h2>Quick Start</h2>
         <div class="top-actions">
@@ -34,8 +42,9 @@
         </details>
       </section>
 
-      <section class="panel setup sidebar-section">
-        <h2>Session</h2>
+      <details id="sessionSetupDrawer" class="panel setup sidebar-section sidebar-drawer" open>
+        <summary>Session Setup</summary>
+        <div class="sidebar-drawer-body">
         <label>
           Name
           <input id="sessionName" value="visual-comparison">
@@ -68,14 +77,25 @@
         </div>
         <button id="configPreflightBtn" type="button">Check Config Pair</button>
         <button id="createBtn" type="button">Create Paired Session</button>
-      </section>
+        </div>
+      </details>
 
       <section class="panel controls sidebar-section">
-        <h2>Control</h2>
+        <h2>Operate</h2>
         <div class="session-id">
           <span>Active session</span>
           <strong id="sessionId">none</strong>
         </div>
+        <div class="row primary-action-row">
+          <button id="refreshCockpitBtn" type="button" disabled>Refresh Cockpit</button>
+          <button id="firstCheckpointBtn" type="button" disabled>Capture First Checkpoint</button>
+          <button id="runEvidenceLoopBtn" type="button" disabled>Run Evidence Loop</button>
+          <button id="evidenceBtn" type="button" disabled>Load Evidence</button>
+          <button id="closeBtn" type="button" disabled>Close Session</button>
+        </div>
+
+        <details id="runControlsDrawer" class="action-drawer" open>
+          <summary>Run and capture</summary>
         <div class="control-grid">
           <label>
             Step count
@@ -106,6 +126,12 @@
             Checkpoint note
             <input id="checkpointNote" placeholder="What changed or what should Codex compare?">
           </label>
+        </div>
+        </details>
+
+        <details id="changeNotesDrawer" class="action-drawer">
+          <summary>Change notes</summary>
+        <div class="control-grid">
           <label>
             Timeline note label
             <input id="timelineNoteLabel" value="parameter-change">
@@ -141,13 +167,8 @@
             <input id="changeNote" placeholder="Optional link to checkpoint intent or expected metric change.">
           </label>
         </div>
-        <div class="row primary-action-row">
-          <button id="firstCheckpointBtn" type="button" disabled>Capture First Checkpoint</button>
-          <button id="refreshCockpitBtn" type="button" disabled>Refresh Cockpit</button>
-          <button id="runEvidenceLoopBtn" type="button" disabled>Run Evidence Loop</button>
-          <button id="evidenceBtn" type="button" disabled>Load Evidence</button>
-          <button id="closeBtn" type="button" disabled>Close Session</button>
-        </div>
+        </details>
+
         <details id="advancedReviewActions" class="action-drawer">
           <summary>Advanced review/export actions</summary>
           <div class="row">
@@ -184,7 +205,7 @@
         </details>
       </section>
 
-      <details class="panel scenario-guide sidebar-section sidebar-drawer">
+      <details id="scenarioGuideDrawer" class="panel scenario-guide sidebar-section sidebar-drawer">
         <summary>Scenario Guide</summary>
         <div class="sidebar-drawer-body">
         <div class="row">
@@ -236,7 +257,7 @@
         </div>
       </details>
 
-      <details class="panel config-preflight sidebar-section sidebar-drawer">
+      <details id="constructionPreflightDrawer" class="panel config-preflight sidebar-section sidebar-drawer">
         <summary>Construction Preflight</summary>
         <div class="sidebar-drawer-body">
         <div class="output-grid">
@@ -263,7 +284,7 @@
         </div>
       </details>
 
-      <details class="panel output-evidence sidebar-section sidebar-drawer">
+      <details id="outputEvidenceDrawer" class="panel output-evidence sidebar-section sidebar-drawer">
         <summary>Output Evidence</summary>
         <div class="sidebar-drawer-body">
         <div class="output-grid">
@@ -297,21 +318,24 @@
       <section class="operator-summary">
         <div>
           <span>Operator flow</span>
-          <strong>Plan, run, observe, verify.</strong>
+          <strong>Keep the screen on the next decision.</strong>
         </div>
-        <p>Use the sidebar for actions. Keep this workspace focused on status, evidence, and the next review gate.</p>
+        <p>Use the sidebar for actions. Keep this workspace focused on status, source evidence, and the next review gate.</p>
       </section>
 
       <section class="active-session-checklist" aria-label="Active session checklist">
         <div class="active-checklist-heading">
-          <span>Active Session Checklist</span>
-          <strong id="activeChecklistHeadline">No session active</strong>
+          <div>
+            <span>Active Session Checklist</span>
+            <strong id="activeChecklistHeadline">No session active</strong>
+          </div>
+          <button id="focusSourceEvidenceBtn" type="button" disabled>Focus Source Evidence</button>
         </div>
         <div id="activeSessionChecklist" class="active-checklist-grid"></div>
       </section>
 
       <section class="panel workflow">
-        <h2>Workflow Control Screen</h2>
+        <h2>Workflow Cockpit</h2>
         <div id="workflowCueBoard" class="workflow-cue-board" aria-label="Workflow cue board">
           <div id="workflowCueWorkflow" class="workflow-cue status-unknown">
             <span>Workflow</span>
@@ -334,26 +358,34 @@
             <em>Guide missing source evidence.</em>
           </div>
         </div>
-        <pre id="workflowOutput">Create a session, then refresh workflow status.</pre>
-        <pre id="compareReadinessOutput">Create a session, then check comparison readiness.</pre>
         <pre id="evidenceLoopNextAction">Evidence loop next action will appear here.</pre>
-        <pre id="evidenceLoopOutput">Create a session, then check evidence loop readiness.</pre>
         <pre id="sourceGuideNextStep">Source evidence guide next step will appear here.</pre>
-        <pre id="sourceEvidenceGuideOutput">Create a session, then guide missing source evidence.</pre>
+
+        <details id="workflowTraceDrawer" class="main-drawer">
+          <summary>Detailed workflow trace</summary>
+          <div class="main-drawer-body">
+            <pre id="workflowOutput">Create a session, then refresh workflow status.</pre>
+            <pre id="compareReadinessOutput">Create a session, then check comparison readiness.</pre>
+            <pre id="evidenceLoopOutput">Create a session, then check evidence loop readiness.</pre>
+            <pre id="sourceEvidenceGuideOutput">Create a session, then guide missing source evidence.</pre>
+          </div>
+        </details>
       </section>
 
       <section class="panel state">
-        <h2>Live State</h2>
-        <div class="twins">
-          <article>
-            <h3>Baseline</h3>
-            <pre id="baselineState">{}</pre>
-          </article>
-          <article>
-            <h3>Variant</h3>
-            <pre id="variantState">{}</pre>
-          </article>
-        </div>
+        <details id="liveStateDrawer" class="main-drawer">
+          <summary>Live State</summary>
+          <div class="twins main-drawer-body">
+            <article>
+              <h3>Baseline</h3>
+              <pre id="baselineState">{}</pre>
+            </article>
+            <article>
+              <h3>Variant</h3>
+              <pre id="variantState">{}</pre>
+            </article>
+          </div>
+        </details>
       </section>
 
       <section class="panel evidence">
@@ -555,8 +587,12 @@
       </section>
 
       <section class="panel log">
-        <h2>Event Log</h2>
-        <pre id="logOutput"></pre>
+        <details id="eventLogDrawer" class="main-drawer">
+          <summary>Event Log</summary>
+          <div class="main-drawer-body">
+            <pre id="logOutput"></pre>
+          </div>
+        </details>
       </section>
       </section>
     </main>

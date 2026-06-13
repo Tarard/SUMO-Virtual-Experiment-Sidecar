@@ -447,17 +447,19 @@ The guide returns `steps` with `ui_action`, `endpoint`, `required_inputs`, `opti
 
 In the web UI, `Use Suggested Output Paths` copies available guide suggestions into empty Output Evidence fields and writes an inline copy-status report. It does not overwrite user-entered paths and does not call `Inspect Outputs`. Treat it as text-entry assistance only.
 
+`Focus Source Evidence` is the navigation-oriented companion to the guide. It refreshes `source-evidence/guide`, opens the relevant sidebar drawer, moves focus to the required field or checkpoint template, and may copy candidate output paths into empty fields through the same guarded helper. It does not call run, step, screenshot, output inspection, config mutation, or certification endpoints.
+
 The Output Evidence panel also has a front-end-only readiness hint. `ready-to-inspect` means the required baseline and variant summary text fields are non-empty; it does not mean the files exist, are valid XML, or belong to the intended completed paired run.
 
 After a session-scoped `Inspect Outputs` succeeds in the web UI, the page refreshes `evidence-loop/status` so the source-evidence gate can move from `needs-source-evidence` to `ready-to-run-loop` without a separate manual status check. The rendered status includes `refresh_trigger`, which may identify `manual-check`, `output-inspection`, `guided-evidence-loop-start`, or `guided-evidence-loop-finished`. This refresh only updates the workflow screen; it does not create extra evidence or certify validity.
 
 The web UI also mirrors the first `next_actions` item into `evidenceLoopNextAction`. Treat that banner as the next UI move to consider, not as a replacement for the detailed status or a claim boundary decision.
 
-The Workflow Control Screen includes `workflowCueBoard` with four compact cues: `workflowCueWorkflow`, `workflowCueCompare`, `workflowCueEvidence`, and `workflowCueSourceGuide`. Use it as the operator dashboard for deciding which panel to inspect next; use the detailed status blocks for evidence review and claim boundaries.
+The Workflow Cockpit includes `workflowCueBoard` with four compact cues: `workflowCueWorkflow`, `workflowCueCompare`, `workflowCueEvidence`, and `workflowCueSourceGuide`. Use it as the operator dashboard for deciding which panel to inspect next; use the detailed trace drawer for evidence review and claim boundaries.
 
 The `Refresh Cockpit` action is the one-click status refresh for Codex-facing review. It refreshes workflow status, comparison readiness, Evidence Loop status, and the synchronized Source Evidence Guide. It is read-only and does not call SUMO run/step, screenshot capture, config mutation, output inspection, or evidence-creating endpoints.
 
-The page uses a sidebar-first operator layout. `sidecar-sidebar` contains demo loading, session setup, paired run controls, collapsible drawers for scenario setup, construction preflight, output evidence inputs, and advanced review/export actions. `main-workspace` keeps the workflow cue board, live state, evidence bundle, and event log visible as the observation surface. This preserves the full audit surface while keeping the operator path short.
+The page uses a sidebar-first operator layout. `sidecar-sidebar` contains a workflow rail, demo loading, session setup, run/capture controls, change notes, scenario setup, construction preflight, output evidence inputs, and advanced review/export actions. `main-workspace` keeps the workflow cue board, active checklist, compact evidence index, and optional trace drawers as the observation surface. This preserves the full audit surface while keeping the operator path short.
 
 The Active Session Checklist in `activeSessionChecklist` mirrors Session, Workflow, Compare, Evidence Loop, and Source Guide status into one compact operator strip. It is updated by the same front-end renderers that update the detailed workflow blocks, so Codex should treat it as a navigation cue and still inspect the underlying status artifacts before making claims.
 
