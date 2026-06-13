@@ -67,7 +67,7 @@ Invoke-RestMethod `
 
 This writes a new `.sumocfg` copy and refuses to overwrite the source config or an explicitly named existing output file. It only updates an existing SUMO option in the config file. It does not edit route files, controller scripts, TLS phases, or detector definitions.
 
-The web UI also has `Patch Config From Scenario`. It uses the current Scenario Guide `parameter` and `after value` as the config-patch request, then synchronizes the structured change fields. This is a convenience bridge from plan to construction, not evidence that the experiment has been run.
+The web UI also has `Patch Config From Scenario`. It uses the current Scenario Guide `parameter` and `after value` as the config-patch request, synchronizes the structured change fields, and immediately runs config-pair preflight on the baseline/generated-variant pair. This is a convenience bridge from plan to construction, not evidence that the experiment has been run.
 
 ```powershell
 Invoke-RestMethod `
@@ -313,7 +313,7 @@ Scenario templates are even lighter than scenario plans. They only provide reusa
 
 Config patch generation is also construction support, not evidence. Treat the returned `.sumocfg` path as a candidate variant config, then run config-pair preflight and preserve paired outputs before interpreting behavior.
 
-Patch-from-scenario is the same construction boundary with fewer manual fields. It links the plan form to the config-copy helper, but the generated config still needs preflight, paired GUI/output evidence, and a recorded structured change.
+Patch-from-scenario is the same construction boundary with fewer manual fields. It links the plan form to the config-copy helper and runs config-pair preflight, but the generated config still needs paired GUI/output evidence and a recorded structured change.
 
 Metric comparison makes output deltas easier to review, but it is still an evidence view. If completion, route demand, seed, horizon, or controller identity is unpaired, metric deltas should remain diagnostic rather than formal claims.
 

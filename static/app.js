@@ -143,6 +143,19 @@ function renderConfigPatch(body) {
   }
 }
 
+async function preflightPatchedScenarioConfig(patchReport) {
+  if (!el("baselineConfig").value.trim()) {
+    el("baselineConfig").value = patchReport.source_config;
+  }
+  el("variantConfig").value = patchReport.output_config;
+  const body = await api("/api/config/preflight", {
+    method: "POST",
+    body: JSON.stringify(configPreflightPayload()),
+  });
+  renderConfigPreflight(body);
+  return body;
+}
+
 function autofillOutputPaths(body) {
   setOutputPath("baselineSummary", findOutputPath(body.baseline, "summary-output"));
   setOutputPath("baselineTripinfo", findOutputPath(body.baseline, "tripinfo-output"));
@@ -552,24 +565,30 @@ async function patchConfigFromScenario() {
     body: JSON.stringify(scenarioPatchPayload()),
   });
   renderConfigPatch(body);
+  const preflight = await preflightPatchedScenarioConfig(body);
   syncChangeFieldsFromScenario();
   el("scenarioOutput").textContent = [
     "config_patch: generated",
+    `config_preflight: ${preflight.status}`,
     `source_config: ${body.source_config}`,
     `output_config: ${body.output_config}`,
     `option: ${body.option}`,
     `old_value: ${body.old_value}`,
     `new_value: ${body.new_value}`,
     "",
-    "Next: run config-pair preflight, create a paired session, start the scenario, and record the structured change.",
+    "Next: create a paired session, start the scenario, and record the structured change.",
   ].join("\n");
-  return body;
+  return { patch: body, preflight };
 }
 
 el("patchFromScenarioBtn").addEventListener("click", async () => {
   try {
     const body = await patchConfigFromScenario();
-    log("Patched config from scenario", { output_config: body.output_config, option: body.option });
+    log("Patched and preflighted config from scenario", {
+      output_config: body.patch.output_config,
+      option: body.patch.option,
+      preflight_status: body.preflight.status,
+    });
   } catch (error) {
     log(`Scenario config patch failed: ${error.message}`);
   }
