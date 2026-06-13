@@ -28,6 +28,7 @@ function setControls(enabled) {
     "scenarioStatusBtn",
     "firstCheckpointBtn",
     "stateBtn",
+    "refreshCockpitBtn",
     "workflowBtn",
     "compareReadinessBtn",
     "exportExperimentStateBoardBtn",
@@ -917,6 +918,13 @@ async function refreshWorkflow() {
   log("Refreshed workflow", { status: body.status, claim_status: body.claim_status });
 }
 
+async function refreshComparisonReadiness() {
+  const body = await api(`/api/session/${state.sessionId}/comparison/readiness`);
+  renderComparisonReadiness(body);
+  log("Checked comparison readiness", { status: body.status, claim_status: body.claim_status });
+  return body;
+}
+
 async function refreshEvidenceLoopStatus(refreshTrigger = "manual-check") {
   const body = await api(`/api/session/${state.sessionId}/evidence-loop/status`);
   renderEvidenceLoopStatus(body, refreshTrigger);
@@ -1296,11 +1304,17 @@ el("workflowBtn").addEventListener("click", async () => {
   }
 });
 
+el("refreshCockpitBtn").addEventListener("click", async () => {
+  try {
+    await refreshCockpit();
+  } catch (error) {
+    log(`Cockpit refresh failed: ${error.message}`);
+  }
+});
+
 el("compareReadinessBtn").addEventListener("click", async () => {
   try {
-    const body = await api(`/api/session/${state.sessionId}/comparison/readiness`);
-    renderComparisonReadiness(body);
-    log("Checked comparison readiness", { status: body.status, claim_status: body.claim_status });
+    await refreshComparisonReadiness();
   } catch (error) {
     log(`Comparison readiness failed: ${error.message}`);
   }
@@ -1329,6 +1343,25 @@ el("applySuggestedOutputPathsBtn").addEventListener("click", async () => {
     log(`Suggested output path copy failed: ${error.message}`);
   }
 });
+
+async function refreshCockpit() {
+  const results = [];
+  results.push(await runCockpitRefreshStep("workflow status", async () => refreshWorkflow()));
+  results.push(await runCockpitRefreshStep("comparison readiness", async () => refreshComparisonReadiness()));
+  results.push(await runCockpitRefreshStep("evidence loop status", async () => refreshEvidenceLoopStatus("cockpit-refresh")));
+  log("Refreshed cockpit", { results });
+  return results;
+}
+
+async function runCockpitRefreshStep(label, action) {
+  try {
+    const output = await action();
+    return { label, status: "pass", output: output || {} };
+  } catch (error) {
+    log(`Cockpit refresh step failed: ${label}: ${error.message}`);
+    return { label, status: "fail", error: error.message };
+  }
+}
 
 el("exportExperimentStateBoardBtn").addEventListener("click", async () => {
   try {

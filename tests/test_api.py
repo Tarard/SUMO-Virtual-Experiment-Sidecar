@@ -501,6 +501,99 @@ def test_workflow_control_screen_renders_compact_cue_board(tmp_path: Path) -> No
     assert ".workflow-cue strong" in style
 
 
+def test_homepage_exposes_cockpit_refresh_action(tmp_path: Path) -> None:
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+
+    index_response = client.get("/")
+    script_response = client.get("/static/app.js")
+
+    assert index_response.status_code == 200
+    assert script_response.status_code == 200
+    assert "refreshCockpitBtn" in index_response.text
+    assert "Refresh Cockpit" in index_response.text
+    script = script_response.text
+    assert '"refreshCockpitBtn"' in script
+    assert "async function refreshComparisonReadiness()" in script
+    assert "async function refreshCockpit()" in script
+    assert "async function runCockpitRefreshStep(label, action)" in script
+    assert 'runCockpitRefreshStep("workflow status", async () => refreshWorkflow())' in script
+    assert 'runCockpitRefreshStep("comparison readiness", async () => refreshComparisonReadiness())' in script
+    assert 'runCockpitRefreshStep("evidence loop status", async () => refreshEvidenceLoopStatus("cockpit-refresh"))' in script
+    assert "Refreshed cockpit" in script
+    assert "Cockpit refresh failed" in script
+    cockpit_function = script.split("async function refreshCockpit", 1)[1].split("async function runCockpitRefreshStep", 1)[0]
+    assert "/run" not in cockpit_function
+    assert "/step" not in cockpit_function
+    assert "/screenshot" not in cockpit_function
+
+
+def test_homepage_groups_advanced_actions_behind_drawers(tmp_path: Path) -> None:
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+
+    index_response = client.get("/")
+    style_response = client.get("/static/styles.css")
+
+    assert index_response.status_code == 200
+    assert style_response.status_code == 200
+    html = index_response.text
+    assert 'class="row primary-action-row"' in html
+    assert 'id="advancedDemoActions"' in html
+    assert 'id="advancedReviewActions"' in html
+    assert "Advanced demos" in html
+    assert "Advanced review/export actions" in html
+    primary_row = html.split('class="row primary-action-row"', 1)[1].split("</div>", 1)[0]
+    assert "refreshCockpitBtn" in primary_row
+    assert "firstCheckpointBtn" in primary_row
+    assert "runEvidenceLoopBtn" in primary_row
+    advanced_review = html.split('id="advancedReviewActions"', 1)[1].split("</details>", 1)[0]
+    assert "workflowBtn" in advanced_review
+    assert "compareReadinessBtn" in advanced_review
+    assert "exportPacketBtn" in advanced_review
+    assert "exportMetricChartBtn" in advanced_review
+    assert ".action-drawer" in style_response.text
+    assert ".primary-action-row" in style_response.text
+
+
+def test_homepage_uses_sidebar_first_operator_layout(tmp_path: Path) -> None:
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+
+    index_response = client.get("/")
+    style_response = client.get("/static/styles.css")
+
+    assert index_response.status_code == 200
+    assert style_response.status_code == 200
+    html = index_response.text
+    assert 'class="app-shell"' in html
+    assert 'class="sidecar-sidebar"' in html
+    assert 'aria-label="Sidecar controls"' in html
+    assert 'class="main-workspace"' in html
+    assert 'class="operator-summary"' in html
+    assert html.index('class="sidecar-sidebar"') < html.index('class="main-workspace"')
+    sidebar = html.split('class="sidecar-sidebar"', 1)[1].split("</aside>", 1)[0]
+    assert "loadDemoBtn" in sidebar
+    assert "createBtn" in sidebar
+    assert "runEvidenceLoopBtn" in sidebar
+    assert "advancedReviewActions" in sidebar
+    assert 'class="panel scenario-guide sidebar-section sidebar-drawer"' in sidebar
+    assert 'class="panel config-preflight sidebar-section sidebar-drawer"' in sidebar
+    assert 'class="panel output-evidence sidebar-section sidebar-drawer"' in sidebar
+    assert "<summary>Scenario Guide</summary>" in sidebar
+    assert "<summary>Construction Preflight</summary>" in sidebar
+    assert "<summary>Output Evidence</summary>" in sidebar
+    main_workspace = html.split('class="main-workspace"', 1)[1]
+    assert "workflowCueBoard" in main_workspace
+    assert "baselineState" in main_workspace
+    assert "artifactList" in main_workspace
+    assert ".app-shell" in style_response.text
+    assert ".sidecar-sidebar" in style_response.text
+    assert ".main-workspace" in style_response.text
+    assert ".operator-summary" in style_response.text
+    assert ".sidebar-drawer" in style_response.text
+
+
 def test_homepage_exposes_next_action_review_action(tmp_path: Path) -> None:
     app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
     client = TestClient(app)

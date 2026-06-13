@@ -12,19 +12,29 @@
         <h1>SUMO Virtual Experiment Sidecar</h1>
         <p>Paired visual feedback for SUMO/TraCI experiments.</p>
       </div>
-      <div class="top-actions">
-        <button id="loadDemoBtn" type="button">Load Minimal Demo</button>
-        <button id="runDemoBtn" type="button">Run Demo Headless</button>
-        <button id="guidedDemoBtn" type="button">Run Guided Demo</button>
-        <button id="launchDemoGuiBtn" type="button">Launch Demo GUI</button>
-        <button id="launchGuidedGuiBtn" type="button">Launch Guided GUI</button>
-        <button id="launchFullWorkflowGuiBtn" type="button">Launch Full Workflow</button>
-        <button id="preflightBtn" type="button">Preflight</button>
-      </div>
     </header>
 
-    <main class="layout">
-      <section class="panel setup">
+    <main class="app-shell">
+      <aside class="sidecar-sidebar" aria-label="Sidecar controls">
+      <section class="panel sidebar-section quick-start">
+        <h2>Quick Start</h2>
+        <div class="top-actions">
+          <button id="loadDemoBtn" type="button">Load Minimal Demo</button>
+          <button id="runDemoBtn" type="button">Run Demo Headless</button>
+          <button id="preflightBtn" type="button">Preflight</button>
+        </div>
+        <details id="advancedDemoActions" class="action-drawer">
+          <summary>Advanced demos</summary>
+          <div class="row">
+            <button id="guidedDemoBtn" type="button">Run Guided Demo</button>
+            <button id="launchDemoGuiBtn" type="button">Launch Demo GUI</button>
+            <button id="launchGuidedGuiBtn" type="button">Launch Guided GUI</button>
+            <button id="launchFullWorkflowGuiBtn" type="button">Launch Full Workflow</button>
+          </div>
+        </details>
+      </section>
+
+      <section class="panel setup sidebar-section">
         <h2>Session</h2>
         <label>
           Name
@@ -60,7 +70,7 @@
         <button id="createBtn" type="button">Create Paired Session</button>
       </section>
 
-      <section class="panel controls">
+      <section class="panel controls sidebar-section">
         <h2>Control</h2>
         <div class="session-id">
           <span>Active session</span>
@@ -131,45 +141,52 @@
             <input id="changeNote" placeholder="Optional link to checkpoint intent or expected metric change.">
           </label>
         </div>
-        <div class="row">
+        <div class="row primary-action-row">
           <button id="firstCheckpointBtn" type="button" disabled>Capture First Checkpoint</button>
-          <button id="stateBtn" type="button" disabled>Refresh State</button>
-          <button id="workflowBtn" type="button" disabled>Refresh Workflow</button>
-          <button id="compareReadinessBtn" type="button" disabled>Check Compare Readiness</button>
-          <button id="exportExperimentStateBoardBtn" type="button" disabled>Export Experiment State Board</button>
-          <button id="enableLiveExperimentStateBoardBtn" type="button" disabled>Enable Live Board</button>
-          <button id="checkEvidenceLoopBtn" type="button" disabled>Check Evidence Loop</button>
-          <button id="guideSourceEvidenceBtn" type="button" disabled>Guide Source Evidence</button>
+          <button id="refreshCockpitBtn" type="button" disabled>Refresh Cockpit</button>
           <button id="runEvidenceLoopBtn" type="button" disabled>Run Evidence Loop</button>
           <button id="evidenceBtn" type="button" disabled>Load Evidence</button>
-          <button id="exportPacketBtn" type="button" disabled>Export Codex Packet</button>
-          <button id="exportAgentPromptBtn" type="button" disabled>Export Agent Prompt</button>
-          <button id="exportAgentActionPlanBtn" type="button" disabled>Export Agent Action Plan</button>
-          <button id="exportAgentLoopReviewBtn" type="button" disabled>Export Agent Loop Review</button>
-          <button id="exportNextActionReviewBtn" type="button" disabled>Export Next Action Review</button>
-          <label>
-            Timeline preset
-            <select id="timelinePreset">
-              <option value="full">full</option>
-              <option value="review">review</option>
-              <option value="visual">visual</option>
-              <option value="outputs">outputs</option>
-              <option value="notes">notes</option>
-            </select>
-          </label>
-          <button id="exportTimelineBtn" type="button" disabled>Export Timeline</button>
-          <button id="compareMetricsBtn" type="button" disabled>Compare Metrics</button>
-          <button id="exportMetricChartBtn" type="button" disabled>Export Metric Chart</button>
-          <button id="exportReviewSummaryBtn" type="button" disabled>Export Review Summary</button>
-          <button id="exportVisualDiffBtn" type="button" disabled>Export Visual Diff</button>
-          <button id="recordVisualObservationBtn" type="button" disabled>Record Visual Observation</button>
-          <button id="recordGuidedVisualObservationBtn" type="button" disabled>Record Guided Observation</button>
           <button id="closeBtn" type="button" disabled>Close Session</button>
         </div>
+        <details id="advancedReviewActions" class="action-drawer">
+          <summary>Advanced review/export actions</summary>
+          <div class="row">
+            <button id="stateBtn" type="button" disabled>Refresh State</button>
+            <button id="workflowBtn" type="button" disabled>Refresh Workflow</button>
+            <button id="compareReadinessBtn" type="button" disabled>Check Compare Readiness</button>
+            <button id="exportExperimentStateBoardBtn" type="button" disabled>Export Experiment State Board</button>
+            <button id="enableLiveExperimentStateBoardBtn" type="button" disabled>Enable Live Board</button>
+            <button id="checkEvidenceLoopBtn" type="button" disabled>Check Evidence Loop</button>
+            <button id="guideSourceEvidenceBtn" type="button" disabled>Guide Source Evidence</button>
+            <button id="exportPacketBtn" type="button" disabled>Export Codex Packet</button>
+            <button id="exportAgentPromptBtn" type="button" disabled>Export Agent Prompt</button>
+            <button id="exportAgentActionPlanBtn" type="button" disabled>Export Agent Action Plan</button>
+            <button id="exportAgentLoopReviewBtn" type="button" disabled>Export Agent Loop Review</button>
+            <button id="exportNextActionReviewBtn" type="button" disabled>Export Next Action Review</button>
+            <label>
+              Timeline preset
+              <select id="timelinePreset">
+                <option value="full">full</option>
+                <option value="review">review</option>
+                <option value="visual">visual</option>
+                <option value="outputs">outputs</option>
+                <option value="notes">notes</option>
+              </select>
+            </label>
+            <button id="exportTimelineBtn" type="button" disabled>Export Timeline</button>
+            <button id="compareMetricsBtn" type="button" disabled>Compare Metrics</button>
+            <button id="exportMetricChartBtn" type="button" disabled>Export Metric Chart</button>
+            <button id="exportReviewSummaryBtn" type="button" disabled>Export Review Summary</button>
+            <button id="exportVisualDiffBtn" type="button" disabled>Export Visual Diff</button>
+            <button id="recordVisualObservationBtn" type="button" disabled>Record Visual Observation</button>
+            <button id="recordGuidedVisualObservationBtn" type="button" disabled>Record Guided Observation</button>
+          </div>
+        </details>
       </section>
 
-      <section class="panel scenario-guide">
-        <h2>Scenario Guide</h2>
+      <details class="panel scenario-guide sidebar-section sidebar-drawer">
+        <summary>Scenario Guide</summary>
+        <div class="sidebar-drawer-body">
         <div class="row">
           <label>
             Template
@@ -216,10 +233,12 @@
           <button id="scenarioStatusBtn" type="button" disabled>Refresh Scenario</button>
         </div>
         <pre id="scenarioOutput">Create a paired session, then start a guided before/after scenario.</pre>
-      </section>
+        </div>
+      </details>
 
-      <section class="panel config-preflight">
-        <h2>Construction Preflight</h2>
+      <details class="panel config-preflight sidebar-section sidebar-drawer">
+        <summary>Construction Preflight</summary>
+        <div class="sidebar-drawer-body">
         <div class="output-grid">
           <label>
             Source .sumocfg
@@ -241,10 +260,12 @@
         <button id="createConfigPatchBtn" type="button">Create Config Patch</button>
         <pre id="configPatchOutput">Generate a non-destructive SUMO config copy before creating a paired session.</pre>
         <pre id="configPreflightOutput">Run config preflight before opening paired SUMO GUI sessions.</pre>
-      </section>
+        </div>
+      </details>
 
-      <section class="panel output-evidence">
-        <h2>Output Evidence</h2>
+      <details class="panel output-evidence sidebar-section sidebar-drawer">
+        <summary>Output Evidence</summary>
+        <div class="sidebar-drawer-body">
         <div class="output-grid">
           <label>
             Baseline summary.xml
@@ -268,6 +289,17 @@
         <pre id="outputInspectionReadiness">Output inspection readiness will appear here.</pre>
         <button id="inspectOutputsBtn" type="button">Inspect Outputs</button>
         <pre id="outputEvidenceOutput">Load SUMO output files to inspect completion before performance metrics.</pre>
+        </div>
+      </details>
+      </aside>
+
+      <section class="main-workspace">
+      <section class="operator-summary">
+        <div>
+          <span>Operator flow</span>
+          <strong>Plan, run, observe, verify.</strong>
+        </div>
+        <p>Use the sidebar for actions. Keep this workspace focused on status, evidence, and the next review gate.</p>
       </section>
 
       <section class="panel workflow">
@@ -489,6 +521,7 @@
       <section class="panel log">
         <h2>Event Log</h2>
         <pre id="logOutput"></pre>
+      </section>
       </section>
     </main>
 

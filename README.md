@@ -176,6 +176,10 @@ The Workflow Control Screen also surfaces the first Evidence Loop `next_action` 
 
 The top of the Workflow Control Screen is a compact cue board for `Workflow`, `Compare`, `Evidence loop`, and `Source guide`. It is the operator-facing dashboard; the detailed `pre` blocks below remain the audit trail.
 
+Use `Refresh Cockpit` when you want the cue board and detailed workflow panels updated in one pass. It refreshes workflow status, comparison readiness, Evidence Loop status, and the synchronized Source Evidence Guide. It does not run SUMO, step the simulation, capture screenshots, mutate configs, or create new evidence.
+
+The visible controls now follow a sidebar-first layout. Demo, session setup, and paired control stay immediately available; scenario setup, construction preflight, output evidence, and advanced exports live in collapsible sidebar drawers. The main workspace stays focused on cockpit cues, live state, the evidence bundle, and the event log. This keeps the page usable as an operator sidecar instead of a wall of equal-weight buttons.
+
 Each Evidence Loop refresh also syncs the Source Evidence Guide panel. If source evidence is missing, the guide steps appear without a second click; if the session is ready, the guide points toward the next review-loop action. This is still only UI guidance and does not run SUMO, create screenshots, parse output files, or certify the experiment.
 
 The Source Evidence Guide also has a compact next-step summary that mirrors the first guide step with its UI action, required inputs, and manual gate. Use it as the quick operator cue; the full guide remains the detailed reference.

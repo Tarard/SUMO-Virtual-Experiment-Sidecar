@@ -455,6 +455,10 @@ The web UI also mirrors the first `next_actions` item into `evidenceLoopNextActi
 
 The Workflow Control Screen includes `workflowCueBoard` with four compact cues: `workflowCueWorkflow`, `workflowCueCompare`, `workflowCueEvidence`, and `workflowCueSourceGuide`. Use it as the operator dashboard for deciding which panel to inspect next; use the detailed status blocks for evidence review and claim boundaries.
 
+The `Refresh Cockpit` action is the one-click status refresh for Codex-facing review. It refreshes workflow status, comparison readiness, Evidence Loop status, and the synchronized Source Evidence Guide. It is read-only and does not call SUMO run/step, screenshot capture, config mutation, output inspection, or evidence-creating endpoints.
+
+The page uses a sidebar-first operator layout. `sidecar-sidebar` contains demo loading, session setup, paired run controls, collapsible drawers for scenario setup, construction preflight, output evidence inputs, and advanced review/export actions. `main-workspace` keeps the workflow cue board, live state, evidence bundle, and event log visible as the observation surface. This preserves the full audit surface while keeping the operator path short.
+
 When the web UI refreshes Evidence Loop status, it also refreshes `source-evidence/guide` into the Source Evidence Guide panel. The guide includes its own `refresh_trigger`, such as `manual-guide` or `evidence-loop-output-inspection`, so Codex can tell whether it was manually requested or synchronized from workflow status. This is guidance only; it does not execute the guide step or certify validity.
 
 The web UI mirrors the first guide step into `sourceGuideNextStep`, including `ui_action`, `required_inputs`, and `manual_gate`. Use this as a compact operator cue and still inspect `sourceEvidenceGuideOutput` before treating the evidence workflow as ready.
