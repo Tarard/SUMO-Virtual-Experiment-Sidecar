@@ -170,6 +170,10 @@ def create_app(
             packet = manager.export_packet(session.id)
             timeline = manager.export_timeline(session.id, preset="full")
             review_timeline = manager.export_timeline(session.id, preset="review")
+            review_summary = manager.export_review_summary(session.id)
+            packet = manager.export_packet(session.id)
+            timeline = manager.export_timeline(session.id, preset="full")
+            review_timeline = manager.export_timeline(session.id, preset="review")
             workflow = manager.workflow_status(session.id)
             evidence = manager.evidence(session.id)
 
@@ -219,6 +223,12 @@ def create_app(
                     "timeline_json_path": str(review_timeline["timeline_json_path"]),
                     "timeline_markdown_path": str(review_timeline["timeline_markdown_path"]),
                     "timeline_markdown": review_timeline["timeline_markdown"],
+                },
+                "review_summary": {
+                    "review_summary": review_summary["review_summary"],
+                    "review_summary_json_path": str(review_summary["review_summary_json_path"]),
+                    "review_summary_markdown_path": str(review_summary["review_summary_markdown_path"]),
+                    "review_summary_markdown": review_summary["review_summary_markdown"],
                 },
                 "workflow": workflow,
                 "evidence": evidence.model_dump(mode="json"),
@@ -412,6 +422,20 @@ def create_app(
             raise HTTPException(status_code=404, detail=str(exc)) from exc
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @app.post("/api/session/{session_id}/review/summary")
+    def export_review_summary(session_id: str) -> dict[str, Any]:
+        try:
+            summary = manager.export_review_summary(session_id)
+            return {
+                "review_summary": summary["review_summary"],
+                "review_summary_json_path": str(summary["review_summary_json_path"]),
+                "review_summary_markdown_path": str(summary["review_summary_markdown_path"]),
+                "review_summary_markdown": summary["review_summary_markdown"],
+                "evidence": summary["evidence"].model_dump(mode="json"),
+            }
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
 
     @app.post("/api/session/{session_id}/visual-diff/export")
     def export_visual_diff(session_id: str) -> dict[str, Any]:

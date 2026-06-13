@@ -21,6 +21,7 @@ MVP focus:
 - generate pixel-level visual-diff PNGs when before/after screenshots are valid raster images;
 - report workflow status and next actions for the active evidence bundle;
 - export timeline presets for full, review, visual, output, or note-focused evidence review;
+- export a compact review summary that links changes, metric deltas, visual diff status, and claim boundaries;
 - run a bundled full workflow demo that produces a review-ready evidence bundle;
 - write `manifest.json` and `comparison.md` for Codex to inspect.
 
@@ -97,7 +98,7 @@ Use `Launch Demo GUI` to open the same bundled baseline and variant as a paired 
 
 Use `Launch Guided GUI` to run the guided demo first, then open a paired GUI session with the output inspection report already written into the session evidence bundle.
 
-Use `Launch Full Workflow` to run the guided demo, open the paired GUI session, capture first and before/after checkpoints, add a timeline note, export visual diff, export metric comparison, export full and review timelines, export a Codex packet, and return a review-ready workflow status. This is the shortest public demonstration of the full evidence loop.
+Use `Launch Full Workflow` to run the guided demo, open the paired GUI session, capture first and before/after checkpoints, add a timeline note, export visual diff, export metric comparison, export full and review timelines, export a review summary, export a Codex packet, and return a review-ready workflow status. This is the shortest public demonstration of the full evidence loop.
 
 After a GUI session is active, use `Capture First Checkpoint` to write the first paired visual checkpoint and refresh the Codex evidence panel immediately.
 
@@ -108,6 +109,8 @@ Use `Add Timeline Note` to record parameter changes, observations, or assumption
 Use `Record Change` when you want Codex to know exactly what changed between two checkpoints. Record the parameter or controller element, before value, after value, and rationale before interpreting visual or metric differences.
 
 Use `Compare Metrics` after output inspection. It exports a completion-first baseline/variant/delta table from `output-inspection.json`, with completion and unfinished-vehicle evidence placed before tripinfo means.
+
+Use `Export Review Summary` when the evidence bundle is ready for agent review. It creates a compact dashboard over structured changes, output inspection, metric comparison, visual diff, timeline, packet status, and the current claim boundary.
 
 Use `Export Visual Diff` after capturing at least one `before-change` and one `after-change` checkpoint. It builds a four-view baseline/variant before/after index for visual inspection. When screenshots are valid raster images with matching dimensions, it also writes pixel-level diff PNGs.
 
@@ -125,6 +128,7 @@ Codex can interact with the sidecar in two ways:
 4. Session-scoped artifact files returned by `/api/session/{id}/artifact/{path}`.
 5. A single Codex-readable packet written by `/api/session/{id}/packet/export`.
 6. A run timeline written by `/api/session/{id}/timeline/export`.
+7. A compact review dashboard written by `/api/session/{id}/review/summary`.
 
 This is intentionally not a VS Code extension. The bridge is designed for the Codex app or any local agent that can call localhost APIs and read files from the same machine.
 
@@ -140,10 +144,11 @@ Typical workflow:
 8. Export metric comparison so completion status and tripinfo deltas are visible together.
 9. Export the visual diff index for the paired before/after checkpoints.
 10. Export a run timeline, optionally with a preset, to align checkpoints, change records, metric comparison, notes, output inspection, and packet evidence.
-11. Export a Codex packet when the session has enough screenshots and output evidence.
-12. Refresh workflow status and follow remaining next actions.
-13. Ask Codex to inspect the evidence folder, metric comparison, visual diff, packet, timeline, workflow status, or local API.
-14. Use the generated `comparison.md`, `change-records.md`, `metric-comparison.md`, `visual-diff.md`, `timeline.md`, and `codex-packet.md` as diagnostic evidence indexes, then pair them with SUMO output files before making formal claims.
+11. Export a review summary to create the compact review dashboard.
+12. Export a Codex packet when the session has enough screenshots and output evidence.
+13. Refresh workflow status and follow remaining next actions.
+14. Ask Codex to inspect the evidence folder, review summary, metric comparison, visual diff, packet, timeline, workflow status, or local API.
+15. Use the generated `comparison.md`, `change-records.md`, `metric-comparison.md`, `visual-diff.md`, `timeline.md`, `review-summary.md`, and `codex-packet.md` as diagnostic evidence indexes, then pair them with SUMO output files before making formal claims.
 
 See [docs/codex-bridge.md](docs/codex-bridge.md) for exact prompts and API examples.
 
@@ -175,6 +180,7 @@ POST /api/session/{id}/timeline/export?preset=full
 POST /api/session/{id}/timeline/note
 POST /api/session/{id}/change/record
 POST /api/session/{id}/metrics/compare
+POST /api/session/{id}/review/summary
 POST /api/session/{id}/visual-diff/export
 POST /api/session/{id}/close
 ```
@@ -192,6 +198,8 @@ runs/<session_id>/
   change-records.md
   metric-comparison.json
   metric-comparison.md
+  review-summary.json
+  review-summary.md
   timeline.json
   timeline.md
   visual-diff.json
@@ -214,9 +222,11 @@ The web page renders PNG artifacts as screenshot previews through a session-scop
 
 `metric-comparison.md` compares persisted baseline and variant output evidence using completion-first ordering. It reports loaded, inserted, arrived, running, waiting, teleports, and completion ratio before tripinfo means such as duration, waiting time, and time loss.
 
+`review-summary.md` is the compact dashboard for agent review. It links structured changes, output inspection, completion-first metric highlights, visual diff status, timeline status, packet status, and the current claim boundary. It does not re-run SUMO or certify causality.
+
 `timeline.md` aligns session creation, screenshot checkpoints, user notes, structured change records, output inspection, metric comparison, visual diffs, and exported Codex packets. This is the quickest way to see what evidence was produced before and after a controller or configuration change.
 
-Timeline presets write separate files such as `timeline-visual.md`, `timeline-outputs.md`, and `timeline-notes.md`. The default `full` preset keeps the existing `timeline.md` / `timeline.json` names. The `review` preset includes metric comparison and structured change records; the `outputs` preset includes output inspection and metric comparison.
+Timeline presets write separate files such as `timeline-visual.md`, `timeline-outputs.md`, and `timeline-notes.md`. The default `full` preset keeps the existing `timeline.md` / `timeline.json` names. The `review` preset includes metric comparison, structured change records, visual diff, Codex packet, and review summary; the `outputs` preset includes output inspection and metric comparison.
 
 `visual-diff.md` pairs `before-change` and `after-change` screenshots and lists the four key views: baseline before, baseline after, variant before, and variant after. This is still diagnostic visual evidence; it does not replace output-based performance checks.
 
@@ -281,4 +291,5 @@ The tests use fake SUMO adapters so they can run without launching a GUI.
 
 The MVP is a local visual sidecar. The next targets are:
 
-- add richer timeline filtering and export presets for long experiment sessions.
+- add graphical metric-delta views for completed output comparisons;
+- add richer user-driven before/after scenario controls beyond the bundled demo.

@@ -82,6 +82,21 @@ def test_homepage_exposes_metric_comparison_action(tmp_path: Path) -> None:
     assert "/metrics/compare" in script_response.text
 
 
+def test_homepage_exposes_review_summary_action(tmp_path: Path) -> None:
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+
+    index_response = client.get("/")
+    script_response = client.get("/static/app.js")
+
+    assert index_response.status_code == 200
+    assert script_response.status_code == 200
+    assert "exportReviewSummaryBtn" in index_response.text
+    assert "Export Review Summary" in index_response.text
+    assert "reviewSummaryPreview" in index_response.text
+    assert "/review/summary" in script_response.text
+
+
 def test_minimal_demo_metadata_api_returns_usable_paths(tmp_path: Path) -> None:
     app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
     client = TestClient(app)
@@ -196,7 +211,10 @@ def test_minimal_demo_full_workflow_gui_api_exports_review_ready_bundle(tmp_path
     assert body["timeline"]["timeline"]["preset"] == "full"
     assert body["review_timeline"]["timeline"]["preset"] == "review"
     assert Path(body["packet"]["packet_path"]).name == "codex-packet.md"
+    assert Path(body["review_summary"]["review_summary_markdown_path"]).name == "review-summary.md"
     assert "Output Inspection" in body["packet"]["packet_markdown"]
+    assert "Review Summary" in body["packet"]["packet_markdown"]
+    assert "Claim boundary" in body["review_summary"]["review_summary_markdown"]
     assert body["workflow"]["status"] == "review-ready"
     assert body["workflow"]["claim_status"] == "evidence-index-ready"
 
@@ -207,6 +225,8 @@ def test_minimal_demo_full_workflow_gui_api_exports_review_ready_bundle(tmp_path
     assert "visual-diff.md" in artifact_paths
     assert "metric-comparison.json" in artifact_paths
     assert "metric-comparison.md" in artifact_paths
+    assert "review-summary.json" in artifact_paths
+    assert "review-summary.md" in artifact_paths
     assert "timeline.json" in artifact_paths
     assert "timeline-review.json" in artifact_paths
     assert "codex-packet.md" in artifact_paths
@@ -794,6 +814,110 @@ def test_metric_comparison_api_writes_completion_first_delta_report(tmp_path: Pa
     event_kinds = [event["kind"] for event in timeline_body["timeline"]["events"]]
     assert "metric-comparison" in event_kinds
     assert "metric-comparison.md" in timeline_body["timeline_markdown"]
+
+
+def test_review_summary_api_writes_compact_claim_dashboard(tmp_path: Path) -> None:
+    baseline = tmp_path / "baseline.sumocfg"
+    variant = tmp_path / "variant.sumocfg"
+    baseline.write_text("<configuration/>", encoding="utf-8")
+    variant.write_text("<configuration/>", encoding="utf-8")
+
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+
+    create_response = client.post(
+        "/api/session/create",
+        json={
+            "name": "review-summary-demo",
+            "baseline_config": str(baseline),
+            "variant_config": str(variant),
+        },
+    )
+    session_id = create_response.json()["id"]
+    client.post(f"/api/session/{session_id}/checkpoint/first")
+    client.post(
+        f"/api/session/{session_id}/checkpoint/template",
+        json={"template": "before-change", "note": "Before tuning."},
+    )
+    client.post(f"/api/session/{session_id}/step", json={"count": 2})
+    client.post(
+        f"/api/session/{session_id}/checkpoint/template",
+        json={"template": "after-change", "note": "After tuning."},
+    )
+    client.post(
+        f"/api/session/{session_id}/timeline/note",
+        json={"label": "parameter-change", "note": "Changed max green after inspecting the first checkpoint."},
+    )
+    client.post(
+        f"/api/session/{session_id}/change/record",
+        json={
+            "label": "max-green-change",
+            "parameter": "max_green",
+            "before_value": "30",
+            "after_value": "45",
+            "rationale": "Check whether extra green improves duration without reducing completion.",
+        },
+    )
+    baseline_summary = tmp_path / "baseline-summary.xml"
+    variant_summary = tmp_path / "variant-summary.xml"
+    baseline_tripinfo = tmp_path / "baseline-tripinfo.xml"
+    variant_tripinfo = tmp_path / "variant-tripinfo.xml"
+    baseline_summary.write_text(
+        '<summary><step time="10" loaded="2" inserted="2" running="0" waiting="0" arrived="2" teleports="0"/></summary>',
+        encoding="utf-8",
+    )
+    variant_summary.write_text(
+        '<summary><step time="10" loaded="2" inserted="2" running="0" waiting="0" arrived="2" teleports="0"/></summary>',
+        encoding="utf-8",
+    )
+    baseline_tripinfo.write_text(
+        '<tripinfos><tripinfo id="b0" duration="10" waitingTime="1" timeLoss="2"/><tripinfo id="b1" duration="20" waitingTime="3" timeLoss="4"/></tripinfos>',
+        encoding="utf-8",
+    )
+    variant_tripinfo.write_text(
+        '<tripinfos><tripinfo id="v0" duration="8" waitingTime="0" timeLoss="1"/><tripinfo id="v1" duration="18" waitingTime="2" timeLoss="3"/></tripinfos>',
+        encoding="utf-8",
+    )
+    client.post(
+        f"/api/session/{session_id}/outputs/inspect",
+        json={
+            "baseline_summary": str(baseline_summary),
+            "baseline_tripinfo": str(baseline_tripinfo),
+            "variant_summary": str(variant_summary),
+            "variant_tripinfo": str(variant_tripinfo),
+        },
+    )
+    client.post(f"/api/session/{session_id}/metrics/compare")
+    client.post(f"/api/session/{session_id}/visual-diff/export")
+    client.post(f"/api/session/{session_id}/timeline/export")
+    client.post(f"/api/session/{session_id}/packet/export")
+
+    response = client.post(f"/api/session/{session_id}/review/summary")
+
+    assert response.status_code == 200
+    body = response.json()
+    summary = body["review_summary"]
+    assert summary["status"] == "review-ready"
+    assert summary["claim_status"] == "evidence-index-ready"
+    card_ids = {card["id"] for card in summary["cards"]}
+    assert {"change_records", "metric_comparison", "visual_diff", "workflow"}.issubset(card_ids)
+    highlights = {item["metric"]: item for item in summary["metric_highlights"]}
+    assert highlights["completion_ratio"]["delta"] == 0.0
+    assert highlights["mean_duration"]["delta"] == -2.0
+    assert "Claim boundary" in body["review_summary_markdown"]
+    assert "metric-comparison.md" in body["review_summary_markdown"]
+    assert "visual-diff.md" in body["review_summary_markdown"]
+    assert "change-records.md" in body["review_summary_markdown"]
+    assert Path(body["review_summary_json_path"]).exists()
+    assert Path(body["review_summary_markdown_path"]).exists()
+
+    artifact_paths = {item["relative_path"] for item in body["evidence"]["artifacts"]}
+    assert "review-summary.json" in artifact_paths
+    assert "review-summary.md" in artifact_paths
+
+    timeline_response = client.post(f"/api/session/{session_id}/timeline/export")
+    event_kinds = [event["kind"] for event in timeline_response.json()["timeline"]["events"]]
+    assert "review-summary" in event_kinds
 
 
 def test_workflow_status_guides_incomplete_session_next_actions(tmp_path: Path) -> None:

@@ -69,7 +69,7 @@ CHECKPOINT_TEMPLATES = {
 
 TIMELINE_PRESETS = {
     "full": None,
-    "review": {"session-created", "user-note", "change-record", "screenshot-checkpoint", "output-inspection", "metric-comparison", "visual-diff", "codex-packet"},
+    "review": {"session-created", "user-note", "change-record", "screenshot-checkpoint", "output-inspection", "metric-comparison", "visual-diff", "codex-packet", "review-summary"},
     "visual": {"session-created", "screenshot-checkpoint", "visual-diff"},
     "outputs": {"session-created", "output-inspection", "metric-comparison"},
     "notes": {"session-created", "user-note", "change-record"},
@@ -296,6 +296,10 @@ class SessionManager:
             "## Metric Comparison",
             "",
             self._read_optional_text(session.session_dir / "metric-comparison.md", "No metric comparison exported yet."),
+            "",
+            "## Review Summary",
+            "",
+            self._read_optional_text(session.session_dir / "review-summary.md", "No review summary exported yet."),
             "",
             "## Claim Boundary",
             "",
@@ -536,6 +540,30 @@ class SessionManager:
             "evidence": self.evidence(session_id),
         }
 
+    def export_review_summary(self, session_id: str) -> dict[str, Any]:
+        session = self.get(session_id)
+        workflow = self.workflow_status(session_id)
+        review_summary = self._build_review_summary(session, workflow)
+        review_summary_markdown = self._render_review_summary_markdown(review_summary)
+        json_path = session.session_dir / "review-summary.json"
+        markdown_path = session.session_dir / "review-summary.md"
+        json_path.write_text(json.dumps(review_summary, indent=2), encoding="utf-8")
+        markdown_path.write_text(review_summary_markdown, encoding="utf-8")
+        session.manifest["review_summary"] = {
+            "status": review_summary["status"],
+            "json": str(json_path),
+            "markdown": str(markdown_path),
+            "updated_at": _utc_now(),
+        }
+        self._write_manifest(session)
+        return {
+            "review_summary": review_summary,
+            "review_summary_json_path": json_path,
+            "review_summary_markdown_path": markdown_path,
+            "review_summary_markdown": review_summary_markdown,
+            "evidence": self.evidence(session_id),
+        }
+
     def close(self, session_id: str) -> None:
         session = self.get(session_id)
         session.baseline.close()
@@ -743,6 +771,24 @@ class SessionManager:
                     "artifacts": [
                         self._relative_artifact(session, visual_diff.get("json", "")),
                         self._relative_artifact(session, visual_diff.get("markdown", "")),
+                    ],
+                }
+            )
+        if "review_summary" in session.manifest:
+            summary = session.manifest["review_summary"]
+            events.append(
+                {
+                    "sequence": len(events) + 1,
+                    "kind": "review-summary",
+                    "label": "Review summary",
+                    "simulation_time": None,
+                    "wall_time": summary.get("updated_at"),
+                    "status": summary.get("status", "unknown"),
+                    "template": None,
+                    "note": "compact evidence and claim-boundary dashboard",
+                    "artifacts": [
+                        self._relative_artifact(session, summary.get("json", "")),
+                        self._relative_artifact(session, summary.get("markdown", "")),
                     ],
                 }
             )
@@ -1047,6 +1093,183 @@ class SessionManager:
 
     def _format_metric_value(self, value: Any) -> str:
         return "" if value is None else f"`{value}`"
+
+    def _build_review_summary(self, session: PairedSession, workflow: dict[str, Any]) -> dict[str, Any]:
+        cards = [
+            self._review_card(
+                "change_records",
+                "Structured change records",
+                "pass" if session.manifest.get("change_records") else "warn",
+                f"{len(session.manifest.get('change_records', []))} change record(s)",
+                ["change-records.md", "change-records.json"] if session.manifest.get("change_records_artifact") else [],
+            ),
+            self._review_manifest_card(
+                session,
+                "output_inspection",
+                "Output inspection",
+                session.manifest.get("output_inspection"),
+            ),
+            self._review_manifest_card(
+                session,
+                "metric_comparison",
+                "Completion-first metric comparison",
+                session.manifest.get("metric_comparison"),
+            ),
+            self._review_manifest_card(
+                session,
+                "visual_diff",
+                "Before/after visual diff",
+                session.manifest.get("visual_diff"),
+            ),
+            self._review_manifest_card(
+                session,
+                "timeline",
+                "Run timeline",
+                session.manifest.get("timeline"),
+            ),
+            self._review_manifest_card(
+                session,
+                "codex_packet",
+                "Codex packet",
+                session.manifest.get("codex_packet"),
+            ),
+            self._review_card(
+                "workflow",
+                "Workflow control screen",
+                workflow["status"],
+                workflow["claim_status"],
+                [],
+            ),
+        ]
+        return {
+            "session_id": session.id,
+            "session_name": session.name,
+            "session_dir": str(session.session_dir),
+            "status": workflow["status"],
+            "claim_status": workflow["claim_status"],
+            "cards": cards,
+            "metric_highlights": self._metric_highlights(session),
+            "change_records": session.manifest.get("change_records", []),
+            "artifacts_to_review": self._review_artifacts_to_review(session),
+            "next_actions": workflow["next_actions"],
+            "claim_boundary": "This summary is a review dashboard for existing Sidecar evidence. It does not re-run SUMO, prove causality, or certify controller performance.",
+        }
+
+    def _review_manifest_card(
+        self,
+        session: PairedSession,
+        card_id: str,
+        label: str,
+        manifest_entry: dict[str, Any] | None,
+    ) -> dict[str, Any]:
+        if not manifest_entry:
+            return self._review_card(card_id, label, "missing", "not exported", [])
+        artifacts = [
+            self._relative_artifact(session, manifest_entry.get(key, ""))
+            for key in ("markdown", "json", "path")
+            if manifest_entry.get(key)
+        ]
+        return self._review_card(
+            card_id,
+            label,
+            manifest_entry.get("status", "exported"),
+            ", ".join(path for path in artifacts if path) or "exported",
+            [path for path in artifacts if path],
+        )
+
+    def _review_card(
+        self,
+        card_id: str,
+        label: str,
+        status: str,
+        summary: str,
+        artifacts: list[str],
+    ) -> dict[str, Any]:
+        return {
+            "id": card_id,
+            "label": label,
+            "status": status,
+            "summary": summary,
+            "artifacts": artifacts,
+        }
+
+    def _metric_highlights(self, session: PairedSession) -> list[dict[str, Any]]:
+        metric_path = session.session_dir / "metric-comparison.json"
+        if not metric_path.exists():
+            return []
+        comparison = json.loads(metric_path.read_text(encoding="utf-8"))
+        preferred = {
+            "completion_ratio",
+            "arrived",
+            "running",
+            "teleports",
+            "mean_duration",
+            "mean_waiting_time",
+            "mean_time_loss",
+        }
+        rows = comparison.get("completion_metrics", []) + comparison.get("tripinfo_metrics", [])
+        return [row for row in rows if row.get("metric") in preferred]
+
+    def _review_artifacts_to_review(self, session: PairedSession) -> list[str]:
+        candidates = [
+            "codex-packet.md",
+            "review-summary.md",
+            "timeline.md",
+            "timeline-review.md",
+            "metric-comparison.md",
+            "visual-diff.md",
+            "output-inspection.md",
+            "change-records.md",
+            "comparison.md",
+        ]
+        return [path for path in candidates if (session.session_dir / path).exists()]
+
+    def _render_review_summary_markdown(self, summary: dict[str, Any]) -> str:
+        lines = [
+            f"# SUMO Review Summary: {summary['session_name']}",
+            "",
+            "A compact dashboard for Codex or Claude to inspect the current Sidecar evidence bundle before interpreting an experiment change.",
+            "",
+            "## Status",
+            "",
+            f"- Workflow status: `{summary['status']}`",
+            f"- Claim status: `{summary['claim_status']}`",
+            "",
+            "## Claim boundary",
+            "",
+            summary["claim_boundary"],
+            "",
+            "## Review cards",
+            "",
+            "| Area | Status | Summary | Artifacts |",
+            "|---|---|---|---|",
+        ]
+        for card in summary["cards"]:
+            artifacts = ", ".join(f"`{artifact}`" for artifact in card["artifacts"]) or ""
+            lines.append(
+                f"| {self._markdown_table_cell(card['label'])} | `{card['status']}` | {self._markdown_table_cell(card['summary'])} | {artifacts} |"
+            )
+        lines.extend(["", "## Metric highlights", ""])
+        if summary["metric_highlights"]:
+            lines.extend(self._render_metric_table(summary["metric_highlights"]))
+        else:
+            lines.append("No metric comparison has been exported yet.")
+        lines.extend(["", "## Change records", ""])
+        if summary["change_records"]:
+            lines.extend(
+                f"- `{record['parameter']}`: `{record['before_value']}` -> `{record['after_value']}` ({record['rationale']})"
+                for record in summary["change_records"]
+            )
+        else:
+            lines.append("- none")
+        lines.extend(["", "## Artifacts to review", ""])
+        if summary["artifacts_to_review"]:
+            lines.extend(f"- `{artifact}`" for artifact in summary["artifacts_to_review"])
+        else:
+            lines.append("- none")
+        lines.extend(["", "## Next actions", ""])
+        lines.extend(f"- {action}" for action in summary["next_actions"])
+        return "\n".join(lines)
 
     def _write_change_records(self, session: PairedSession) -> None:
         records = session.manifest.get("change_records", [])

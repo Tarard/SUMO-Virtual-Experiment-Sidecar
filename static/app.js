@@ -25,6 +25,7 @@ function setControls(enabled) {
     "exportPacketBtn",
     "exportTimelineBtn",
     "compareMetricsBtn",
+    "exportReviewSummaryBtn",
     "exportVisualDiffBtn",
     "closeBtn",
   ]) {
@@ -197,13 +198,14 @@ function renderFullWorkflowLaunch(body) {
   el("metricComparisonPreview").textContent = body.metric_comparison.metric_comparison_markdown;
   el("packetPreview").textContent = body.packet.packet_markdown;
   el("timelinePreview").textContent = body.timeline.timeline_markdown;
+  el("reviewSummaryPreview").textContent = body.review_summary.review_summary_markdown;
   el("configPreflightOutput").textContent += [
     "",
     "full_workflow_session:",
     `- ${body.session.id}`,
     "- first checkpoint captured",
     "- before/after checkpoints captured",
-    "- output inspection, visual diff, timeline, review timeline, and Codex packet exported",
+    "- output inspection, visual diff, timeline, review summary, review timeline, and Codex packet exported",
     `- workflow: ${body.workflow.status}`,
   ].join("\n");
 }
@@ -670,6 +672,18 @@ el("compareMetricsBtn").addEventListener("click", async () => {
     log("Exported metric comparison", { metric_comparison_markdown_path: body.metric_comparison_markdown_path });
   } catch (error) {
     log(`Metric comparison failed: ${error.message}`);
+  }
+});
+
+el("exportReviewSummaryBtn").addEventListener("click", async () => {
+  try {
+    const body = await api(`/api/session/${state.sessionId}/review/summary`, { method: "POST" });
+    renderEvidence(body.evidence);
+    el("reviewSummaryPreview").textContent = body.review_summary_markdown;
+    await refreshWorkflow();
+    log("Exported review summary", { review_summary_markdown_path: body.review_summary_markdown_path });
+  } catch (error) {
+    log(`Review summary export failed: ${error.message}`);
   }
 });
 
