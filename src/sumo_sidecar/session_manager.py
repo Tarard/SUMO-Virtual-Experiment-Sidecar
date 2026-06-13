@@ -2773,9 +2773,11 @@ class SessionManager:
         feedback_items = session.manifest.get("agent_feedback", [])
         latest_feedback = feedback_items[-1] if feedback_items else None
         action = latest_feedback.get("recommended_action") if latest_feedback else None
+        ui_focus_target = self._agent_action_ui_focus_target(action)
         recommended_action = {
             "action": action or "Record Agent Feedback",
             "evidence_target": self._agent_action_evidence_target(action),
+            "ui_focus_target": ui_focus_target,
             "reason": (
                 "Latest agent feedback recommended this Sidecar action."
                 if action
@@ -2809,6 +2811,7 @@ class SessionManager:
             "latest_feedback": latest_feedback,
             "feedback_count": len(feedback_items),
             "recommended_action": recommended_action,
+            "ui_focus_target": ui_focus_target,
             "readiness_status": readiness["status"],
             "workflow_status": workflow["status"],
             "sidecar_next_actions": workflow.get("next_actions", []),
@@ -2838,6 +2841,136 @@ class SessionManager:
             if needle in normalized:
                 return target
         return "manual-review"
+
+    def _agent_action_ui_focus_target(self, action: str | None) -> dict[str, str]:
+        if not action:
+            return {
+                "drawer": "agentBridgeDrawer",
+                "focus": "recordAgentFeedbackBtn",
+                "label": "Record Agent Feedback",
+                "manual_gate": "Record Codex or Claude feedback before exporting an action plan.",
+            }
+        normalized = action.strip().lower()
+        mapping = [
+            (
+                "inspect outputs",
+                {
+                    "drawer": "outputEvidenceDrawer",
+                    "focus": "inspectOutputsBtn",
+                    "label": "Inspect Outputs",
+                    "manual_gate": "Open Output Evidence and review paths before clicking Inspect Outputs.",
+                },
+            ),
+            (
+                "compare metrics",
+                {
+                    "drawer": "advancedReviewActions",
+                    "focus": "compareMetricsBtn",
+                    "label": "Compare Metrics",
+                    "manual_gate": "Open Advanced Review Actions and confirm paired outputs before clicking Compare Metrics.",
+                },
+            ),
+            (
+                "metric chart",
+                {
+                    "drawer": "advancedReviewActions",
+                    "focus": "exportMetricChartBtn",
+                    "label": "Export Metric Chart",
+                    "manual_gate": "Open Advanced Review Actions and verify metric comparison exists before exporting the chart.",
+                },
+            ),
+            (
+                "visual diff",
+                {
+                    "drawer": "advancedReviewActions",
+                    "secondary_drawer": "visualReviewDrawer",
+                    "focus": "exportVisualDiffBtn",
+                    "label": "Export Visual Diff",
+                    "manual_gate": "Open visual review evidence and confirm before/after checkpoints before exporting visual diff.",
+                },
+            ),
+            (
+                "record visual observation",
+                {
+                    "drawer": "visualReviewDrawer",
+                    "focus": "visualObservationNote",
+                    "label": "Record Visual Observation",
+                    "manual_gate": "Open Visual Review and write the human-visible observation before recording it.",
+                },
+            ),
+            (
+                "review summary",
+                {
+                    "drawer": "advancedReviewActions",
+                    "focus": "exportReviewSummaryBtn",
+                    "label": "Export Review Summary",
+                    "manual_gate": "Open Advanced Review Actions and confirm evidence coverage before exporting the summary.",
+                },
+            ),
+            (
+                "codex packet",
+                {
+                    "drawer": "advancedReviewActions",
+                    "focus": "exportPacketBtn",
+                    "label": "Export Codex Packet",
+                    "manual_gate": "Open Advanced Review Actions and confirm the current evidence bundle before exporting the packet.",
+                },
+            ),
+            (
+                "agent prompt",
+                {
+                    "drawer": "advancedReviewActions",
+                    "focus": "exportAgentPromptBtn",
+                    "label": "Export Agent Prompt",
+                    "manual_gate": "Open Advanced Review Actions and confirm the prompt should reflect current evidence.",
+                },
+            ),
+            (
+                "next action review",
+                {
+                    "drawer": "advancedReviewActions",
+                    "focus": "exportNextActionReviewBtn",
+                    "label": "Export Next Action Review",
+                    "manual_gate": "Open Advanced Review Actions and confirm current evidence gaps before exporting next action review.",
+                },
+            ),
+            (
+                "timeline",
+                {
+                    "drawer": "advancedReviewActions",
+                    "focus": "exportTimelineBtn",
+                    "label": "Export Timeline",
+                    "manual_gate": "Open Advanced Review Actions and choose the timeline preset before exporting.",
+                },
+            ),
+            (
+                "record change",
+                {
+                    "drawer": "changeNotesDrawer",
+                    "focus": "recordChangeBtn",
+                    "label": "Record Change",
+                    "manual_gate": "Open Change Notes and verify the change description before recording it.",
+                },
+            ),
+            (
+                "checkpoint",
+                {
+                    "drawer": "runControlsDrawer",
+                    "focus": "templateCheckpointBtn",
+                    "label": "Capture Template Checkpoint",
+                    "manual_gate": "Open Run Controls and confirm the checkpoint template before capturing a screenshot.",
+                },
+            ),
+        ]
+        for needle, target in mapping:
+            if needle in normalized:
+                return target
+        return {
+            "drawer": "agentBridgeDrawer",
+            "focus": "agentActionPlanPreview",
+            "label": action.strip() or "Manual Review",
+            "manual_gate": "Open the agent action plan and choose the next Sidecar operation manually.",
+        }
 
     def _build_next_action_review(
         self,
@@ -3215,6 +3348,7 @@ class SessionManager:
 
     def _render_agent_action_plan_markdown(self, plan: dict[str, Any]) -> str:
         latest_feedback = plan.get("latest_feedback") or {}
+        ui_focus_target = plan.get("ui_focus_target") or {}
         artifact_lines = [f"- `{artifact}`" for artifact in plan["artifacts_to_open"]] or ["- none"]
         sidecar_action_lines = [f"- {action}" for action in plan["sidecar_next_actions"]] or ["- none"]
         return "\n".join(
@@ -3242,6 +3376,16 @@ class SessionManager:
                 f"- Action: `{plan['recommended_action']['action']}`",
                 f"- Evidence target: `{plan['recommended_action']['evidence_target']}`",
                 f"- Reason: {plan['recommended_action']['reason']}",
+                "",
+                "## UI focus target",
+                "",
+                f"- Drawer: `{ui_focus_target.get('drawer', 'not specified')}`",
+                f"- Secondary drawer: `{ui_focus_target.get('secondary_drawer', 'not specified')}`",
+                f"- Focus: `{ui_focus_target.get('focus', 'not specified')}`",
+                f"- Label: `{ui_focus_target.get('label', 'not specified')}`",
+                f"- Manual gate: {ui_focus_target.get('manual_gate', 'not specified')}",
+                "",
+                "This UI focus target does not execute any Sidecar operation. It only points the user to the next control to inspect.",
                 "",
                 "## Sidecar next actions",
                 "",

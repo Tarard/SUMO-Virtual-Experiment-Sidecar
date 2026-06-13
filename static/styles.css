@@ -781,7 +781,8 @@ button:disabled {
   white-space: pre-wrap;
 }
 
-.visual-focus-cue {
+.visual-focus-cue,
+.agent-action-plan-focus {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -793,13 +794,15 @@ button:disabled {
   padding: 12px;
 }
 
-.visual-focus-cue div {
+.visual-focus-cue div,
+.agent-action-plan-focus div {
   display: grid;
   gap: 4px;
   min-width: 0;
 }
 
-.visual-focus-cue span {
+.visual-focus-cue span,
+.agent-action-plan-focus span {
   color: var(--muted);
   font-size: 11px;
   font-weight: 800;
@@ -807,14 +810,16 @@ button:disabled {
   text-transform: uppercase;
 }
 
-.visual-focus-cue strong {
+.visual-focus-cue strong,
+.agent-action-plan-focus strong {
   color: var(--ink);
   font-size: 15px;
   line-height: 1.25;
   overflow-wrap: anywhere;
 }
 
-.visual-focus-cue em {
+.visual-focus-cue em,
+.agent-action-plan-focus em {
   color: var(--muted);
   font-size: 12px;
   font-style: normal;
@@ -822,7 +827,8 @@ button:disabled {
   overflow-wrap: anywhere;
 }
 
-.visual-focus-cue button {
+.visual-focus-cue button,
+.agent-action-plan-focus button {
   flex: 0 0 auto;
   width: auto;
   white-space: nowrap;

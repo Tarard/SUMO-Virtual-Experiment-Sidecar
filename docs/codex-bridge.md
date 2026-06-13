@@ -392,7 +392,7 @@ Turn the latest recorded feedback into a manual-only action plan:
 Invoke-RestMethod -Uri http://127.0.0.1:8765/api/session/<session_id>/agent-action-plan/export -Method Post
 ```
 
-This writes `agent-action-plan.json` and `agent-action-plan.md`. The plan maps the latest `recommended_action` to a likely Sidecar evidence target and repeats the manual execution boundary. It does not execute the action or validate the agent recommendation.
+This writes `agent-action-plan.json` and `agent-action-plan.md`. The plan maps the latest `recommended_action` to a likely Sidecar evidence target and UI focus target, then repeats the manual execution boundary. In the web UI, `Focus Planned Action` opens the relevant drawer and focuses the suggested control; it does not execute the action or validate the agent recommendation.
 
 After manually following, skipping, or blocking the plan, record the outcome:
 

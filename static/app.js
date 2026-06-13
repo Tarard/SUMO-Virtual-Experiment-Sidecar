@@ -1,6 +1,7 @@
 const state = {
   sessionId: null,
   hasExperimentStateBoard: false,
+  agentActionPlanFocusTarget: null,
   activeSessionChecklist: defaultActiveSessionChecklist(),
 };
 
@@ -38,6 +39,7 @@ function setControls(enabled) {
     "guideSourceEvidenceBtn",
     "focusSourceEvidenceBtn",
     "focusVisualComparisonBtn",
+    "focusAgentActionPlanBtn",
     "applySuggestedOutputPathsBtn",
     "runEvidenceLoopBtn",
     "evidenceBtn",
@@ -61,8 +63,13 @@ function setControls(enabled) {
   }
   if (enabled) {
     updateActiveSessionChecklist("session", "Session", "active", state.sessionId || "Session is active.");
+    if (!state.agentActionPlanFocusTarget) {
+      el("focusAgentActionPlanBtn").disabled = true;
+    }
   } else {
     resetActiveSessionChecklist();
+    state.agentActionPlanFocusTarget = null;
+    renderAgentActionPlanFocus({});
   }
 }
 
@@ -1158,6 +1165,38 @@ function focusVisualComparison() {
   return { target: "visualReviewDrawer", focus, action: "inspect-visual-review" };
 }
 
+function renderAgentActionPlanFocus(plan) {
+  const target =
+    plan.ui_focus_target || (plan.recommended_action ? plan.recommended_action.ui_focus_target : null) || null;
+  state.agentActionPlanFocusTarget = target;
+  const cue = el("agentActionPlanFocus");
+  const button = el("focusAgentActionPlanBtn");
+  if (!cue || !button) return;
+  const status = plan.status || (target ? "manual-action-needed" : "unknown");
+  cue.className = `agent-action-plan-focus status-${status}`;
+  cue.querySelector("strong").textContent = target ? target.label : "No action plan exported.";
+  cue.querySelector("em").textContent = target
+    ? target.manual_gate
+    : "Export an agent action plan after recording Codex or Claude feedback.";
+  button.disabled = !state.sessionId || !target;
+}
+
+function focusAgentActionPlan() {
+  const target = state.agentActionPlanFocusTarget;
+  if (!target) {
+    focusElement("agentActionPlanPreview");
+    return { target: "agentActionPlanPreview", action: "no-action-plan-target" };
+  }
+  if (target.drawer) {
+    openSidebarDrawer(target.drawer);
+  }
+  if (target.secondary_drawer) {
+    openSidebarDrawer(target.secondary_drawer);
+  }
+  focusElement(target.focus);
+  return { target, focus: target.focus, action: "focus-planned-action" };
+}
+
 function refreshOutputInspectionReadiness() {
   const required = {
     baseline_summary: Boolean(el("baselineSummary").value.trim()),
@@ -2041,8 +2080,14 @@ el("exportAgentActionPlanBtn").addEventListener("click", async () => {
 
 function renderAgentActionPlan(body) {
   renderEvidence(body.evidence);
+  renderAgentActionPlanFocus(body.agent_action_plan || {});
   el("agentActionPlanPreview").textContent = body.agent_action_plan_markdown || "No agent action plan exported.";
 }
+
+el("focusAgentActionPlanBtn").addEventListener("click", () => {
+  const result = focusAgentActionPlan();
+  log("Focused agent action plan", result);
+});
 
 el("recordAgentActionOutcomeBtn").addEventListener("click", async () => {
   try {

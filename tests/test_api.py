@@ -386,6 +386,34 @@ def test_homepage_exposes_visual_comparison_focus_helper(tmp_path: Path) -> None
     assert "/step" not in focus_function
 
 
+def test_homepage_exposes_agent_action_plan_focus_helper(tmp_path: Path) -> None:
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+
+    index_response = client.get("/")
+    script_response = client.get("/static/app.js")
+
+    assert index_response.status_code == 200
+    assert script_response.status_code == 200
+    html = index_response.text
+    script = script_response.text
+    assert 'id="agentActionPlanFocus"' in html
+    assert 'id="focusAgentActionPlanBtn"' in html
+    assert '"focusAgentActionPlanBtn"' in script
+    assert "function renderAgentActionPlanFocus(plan)" in script
+    assert "function focusAgentActionPlan()" in script
+    assert "state.agentActionPlanFocusTarget" in script
+    assert "openSidebarDrawer(target.drawer)" in script
+    assert "focusElement(target.focus)" in script
+    focus_function = script.split("function focusAgentActionPlan", 1)[1].split("function ", 1)[0]
+    assert "/outputs/inspect" not in focus_function
+    assert "/metrics/compare" not in focus_function
+    assert "/visual-diff/export" not in focus_function
+    assert "/run" not in focus_function
+    assert "/step" not in focus_function
+    assert "/screenshot" not in focus_function
+
+
 def test_homepage_exposes_manual_copy_for_suggested_output_paths(tmp_path: Path) -> None:
     app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
     client = TestClient(app)
@@ -2943,6 +2971,55 @@ def test_agent_action_plan_exports_manual_next_step_from_agent_feedback(tmp_path
     card_ids = {card["id"] for card in summary["review_summary"]["cards"]}
     assert "agent_action_plan" in card_ids
     assert "agent-action-plan.md" in summary["review_summary_markdown"]
+
+
+def test_agent_action_plan_exports_ui_focus_target_for_recommended_action(tmp_path: Path) -> None:
+    baseline = tmp_path / "baseline.sumocfg"
+    variant = tmp_path / "variant.sumocfg"
+    baseline.write_text("<configuration/>", encoding="utf-8")
+    variant.write_text("<configuration/>", encoding="utf-8")
+
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+
+    create_response = client.post(
+        "/api/session/create",
+        json={
+            "name": "agent-action-plan-focus-demo",
+            "baseline_config": str(baseline),
+            "variant_config": str(variant),
+        },
+    )
+    session_id = create_response.json()["id"]
+    client.post(f"/api/session/{session_id}/agent-review-prompt/export")
+    client.post(
+        f"/api/session/{session_id}/agent-feedback/record",
+        json={
+            "label": "codex-output-focus",
+            "source_agent": "Codex",
+            "prompt_artifact": "agent-review-prompt.md",
+            "response_text": "Inspect output-inspection.md before making any performance claim.",
+            "recommended_action": "Inspect Outputs",
+            "claim_boundary": "Treat the current review as diagnostic only.",
+        },
+    )
+
+    response = client.post(f"/api/session/{session_id}/agent-action-plan/export")
+
+    assert response.status_code == 200
+    body = response.json()
+    plan = body["agent_action_plan"]
+    assert plan["ui_focus_target"] == {
+        "drawer": "outputEvidenceDrawer",
+        "focus": "inspectOutputsBtn",
+        "label": "Inspect Outputs",
+        "manual_gate": "Open Output Evidence and review paths before clicking Inspect Outputs.",
+    }
+    assert plan["recommended_action"]["ui_focus_target"] == plan["ui_focus_target"]
+    assert "UI focus target" in body["agent_action_plan_markdown"]
+    assert "outputEvidenceDrawer" in body["agent_action_plan_markdown"]
+    assert "inspectOutputsBtn" in body["agent_action_plan_markdown"]
+    assert "does not execute" in body["agent_action_plan_markdown"]
 
 
 def test_agent_action_outcome_records_manual_result_from_action_plan(tmp_path: Path) -> None:

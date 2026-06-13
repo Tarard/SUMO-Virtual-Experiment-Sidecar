@@ -146,7 +146,7 @@ Use `Export Agent Prompt` when you want a copyable Codex/Claude instruction that
 
 Use `Record Agent Feedback` after Codex or Claude replies. Paste the response, source agent, prompt artifact, recommended action, and claim boundary back into the Sidecar. This preserves the review loop in `agent-feedback.md` without treating the agent response as proof.
 
-Use `Export Agent Action Plan` after recording agent feedback. It turns the latest pasted recommendation into a manual-only Sidecar action plan with an evidence target and claim boundary. It does not execute the action.
+Use `Export Agent Action Plan` after recording agent feedback. It turns the latest pasted recommendation into a manual-only Sidecar action plan with an evidence target, UI focus target, and claim boundary. The `Focus Planned Action` button opens the relevant Sidecar drawer and focuses the suggested control; it does not execute the action.
 
 Use `Record Agent Action Outcome` after you manually follow, skip, or block an agent action plan. It records what happened, which artifact changed, and whether the action was completed, blocked, skipped, or still needs evidence. It does not validate the experiment by itself.
 
@@ -377,7 +377,7 @@ The prompt also includes `visual_observation_review_focus` in JSON and a matchin
 
 `agent-feedback.md` is the return bridge from Codex or Claude back into the Sidecar. It records the pasted agent response, source agent, prompt artifact, suggested next action, and claim boundary. It preserves the review loop, but it is not proof that the agent's recommendation is correct.
 
-`agent-action-plan.md` turns the latest recorded agent feedback into a manual-only next-step plan. It maps the recommended action to a likely Sidecar evidence target, lists artifacts to open, and repeats the manual execution gate. It does not run SUMO, modify experiment files, or validate the agent response.
+`agent-action-plan.md` turns the latest recorded agent feedback into a manual-only next-step plan. It maps the recommended action to a likely Sidecar evidence target and UI focus target, lists artifacts to open, and repeats the manual execution gate. It does not run SUMO, modify experiment files, or validate the agent response.
 
 `agent-action-outcomes.md` records what happened after the user manually followed, skipped, or blocked an agent action plan. It links the action to an optional evidence artifact and keeps the Codex/Claude loop visible in review timelines. It documents workflow execution, not controller performance or experiment validity.
 
