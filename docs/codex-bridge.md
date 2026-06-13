@@ -67,6 +67,8 @@ Invoke-RestMethod `
 
 This writes a new `.sumocfg` copy and refuses to overwrite the source config or an explicitly named existing output file. It only updates an existing SUMO option in the config file. It does not edit route files, controller scripts, TLS phases, or detector definitions.
 
+The web UI also has `Patch Config From Scenario`. It uses the current Scenario Guide `parameter` and `after value` as the config-patch request, then synchronizes the structured change fields. This is a convenience bridge from plan to construction, not evidence that the experiment has been run.
+
 ```powershell
 Invoke-RestMethod `
   -Uri http://127.0.0.1:8765/api/config/preflight `
@@ -310,6 +312,8 @@ Scenario plans make the before/after workflow explicit before evidence is interp
 Scenario templates are even lighter than scenario plans. They only provide reusable starting values for a plan. Keep the claim boundary at `diagnostic-demo` until the scenario is started, the intended change is recorded, paired visual checkpoints are captured, outputs are inspected, and completion-first metrics are reviewed.
 
 Config patch generation is also construction support, not evidence. Treat the returned `.sumocfg` path as a candidate variant config, then run config-pair preflight and preserve paired outputs before interpreting behavior.
+
+Patch-from-scenario is the same construction boundary with fewer manual fields. It links the plan form to the config-copy helper, but the generated config still needs preflight, paired GUI/output evidence, and a recorded structured change.
 
 Metric comparison makes output deltas easier to review, but it is still an evidence view. If completion, route demand, seed, horizon, or controller identity is unpaired, metric deltas should remain diagnostic rather than formal claims.
 

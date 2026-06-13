@@ -91,6 +91,20 @@ function configPatchPayload() {
   return payload;
 }
 
+function syncConfigPatchFieldsFromScenario() {
+  const sourceConfig = el("sourcePatchConfig").value.trim() || el("baselineConfig").value.trim();
+  if (sourceConfig) {
+    el("sourcePatchConfig").value = sourceConfig;
+  }
+  el("patchOption").value = el("scenarioParameter").value;
+  el("patchValue").value = el("scenarioAfter").value;
+}
+
+function scenarioPatchPayload() {
+  syncConfigPatchFieldsFromScenario();
+  return configPatchPayload();
+}
+
 function renderConfigPreflight(body) {
   const lines = [
     `status: ${body.status}`,
@@ -205,6 +219,7 @@ function applyScenarioTemplate(template) {
   el("scenarioMetrics").value = (template.expected_metrics || []).join(", ");
   el("scenarioNote").value = template.note || "";
   syncChangeFieldsFromScenario();
+  syncConfigPatchFieldsFromScenario();
   el("scenarioOutput").textContent = [
     `template: ${template.label}`,
     "",
@@ -528,6 +543,35 @@ el("createConfigPatchBtn").addEventListener("click", async () => {
     log("Created config patch", { output_config: body.output_config, option: body.option });
   } catch (error) {
     log(`Config patch failed: ${error.message}`);
+  }
+});
+
+async function patchConfigFromScenario() {
+  const body = await api("/api/config/patch", {
+    method: "POST",
+    body: JSON.stringify(scenarioPatchPayload()),
+  });
+  renderConfigPatch(body);
+  syncChangeFieldsFromScenario();
+  el("scenarioOutput").textContent = [
+    "config_patch: generated",
+    `source_config: ${body.source_config}`,
+    `output_config: ${body.output_config}`,
+    `option: ${body.option}`,
+    `old_value: ${body.old_value}`,
+    `new_value: ${body.new_value}`,
+    "",
+    "Next: run config-pair preflight, create a paired session, start the scenario, and record the structured change.",
+  ].join("\n");
+  return body;
+}
+
+el("patchFromScenarioBtn").addEventListener("click", async () => {
+  try {
+    const body = await patchConfigFromScenario();
+    log("Patched config from scenario", { output_config: body.output_config, option: body.option });
+  } catch (error) {
+    log(`Scenario config patch failed: ${error.message}`);
   }
 });
 

@@ -11,6 +11,7 @@ MVP focus:
 - launch baseline and variant `sumo-gui` sessions;
 - keep runs paired by configuration, command, and evidence folder;
 - generate non-destructive `.sumocfg` copies for simple SUMO option changes;
+- bridge Scenario Guide fields into safe config-copy requests;
 - step or run both sessions from a local web page;
 - capture paired screenshots from the SUMO GUI view;
 - capture a fixed first visual checkpoint into the evidence bundle;
@@ -108,6 +109,8 @@ Use `Launch Full Workflow` to run the guided demo, open the paired GUI session, 
 
 Use `Load Template` in the Scenario Guide to prefill a common scenario such as signal timing, detector mapping, demand stress, controller weight, or output alignment. Templates only fill the scenario form. They do not edit SUMO files, launch runs, or prove that the planned change was applied.
 
+Use `Patch Config From Scenario` to turn the current scenario parameter and after-value into a safe config-copy request. It uses the source config from the Construction Preflight panel, or the baseline config if no source patch config is set.
+
 Use `Start Scenario` before a manual before/after comparison. It writes `scenario-plan.json` and `scenario-plan.md`, records the planned parameter, before value, after value, hypothesis, expected metrics, and then tells you the next evidence step.
 
 Use `Refresh Scenario` during the run to see the current guided step. The scenario guide advances as first checkpoint, before-change checkpoint, change record, after-change checkpoint, output inspection, metric comparison, metric chart, visual diff, timeline, review summary, and Codex packet become available.
@@ -150,7 +153,7 @@ Typical workflow:
 
 1. Start this sidecar locally.
 2. Run environment preflight and config-pair preflight.
-3. Optionally generate a variant `.sumocfg` with Create Config Patch, then run config-pair preflight again.
+3. Optionally generate a variant `.sumocfg` with Create Config Patch or Patch Config From Scenario, then run config-pair preflight again.
 4. Create a paired baseline/variant session in the web page.
 5. Optionally load a scenario template, then start a scenario plan before the manual before/after comparison.
 6. Capture the first paired checkpoint, then capture named before/after checkpoints while watching the SUMO GUI windows.
@@ -267,6 +270,8 @@ When possible, the sidecar also writes pixel-level diff artifacts under `visual-
 ## Config Pair Preflight
 
 `Create Config Patch` can generate a variant `.sumocfg` copy before session creation. It updates one existing SUMO option, writes an output config, and refuses to overwrite the source config or an explicitly named existing output file. It is useful for quick checks such as `step-length`, `begin`, `end`, or other existing `.sumocfg` options.
+
+`Patch Config From Scenario` uses the Scenario Guide fields as the patch request: `parameter` becomes the SUMO option and `after value` becomes the new value. It also synchronizes the structured change fields so the planned change can later be recorded into the evidence bundle.
 
 This helper does not edit controller scripts, route files, TLS logic, or detector definitions. It is a construction helper only. After creating the copy, run config-pair preflight and keep the run at diagnostic status until paired output and completion evidence exist.
 

@@ -191,6 +191,23 @@ def test_homepage_exposes_config_patch_controls(tmp_path: Path) -> None:
     assert "configPatchPayload" in script_response.text
 
 
+def test_homepage_exposes_patch_from_scenario_action(tmp_path: Path) -> None:
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+
+    index_response = client.get("/")
+    script_response = client.get("/static/app.js")
+
+    assert index_response.status_code == 200
+    assert script_response.status_code == 200
+    assert "patchFromScenarioBtn" in index_response.text
+    assert "Patch Config From Scenario" in index_response.text
+    assert "scenarioPatchPayload" in script_response.text
+    assert "syncConfigPatchFieldsFromScenario" in script_response.text
+    assert "patchConfigFromScenario" in script_response.text
+    assert "/api/config/patch" in script_response.text
+
+
 def test_config_patch_api_writes_variant_config_copy(tmp_path: Path) -> None:
     source = tmp_path / "baseline.sumocfg"
     output = tmp_path / "variant.sumocfg"
