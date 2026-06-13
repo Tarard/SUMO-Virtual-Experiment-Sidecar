@@ -1,6 +1,7 @@
 from pathlib import Path
 from shutil import which
 import struct
+import xml.etree.ElementTree as ET
 import zlib
 
 import pytest
@@ -171,6 +172,57 @@ def test_homepage_exposes_scenario_template_controls(tmp_path: Path) -> None:
     assert "Load Template" in index_response.text
     assert "/api/scenario/templates" in script_response.text
     assert "applyScenarioTemplate" in script_response.text
+
+
+def test_homepage_exposes_config_patch_controls(tmp_path: Path) -> None:
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+
+    index_response = client.get("/")
+    script_response = client.get("/static/app.js")
+
+    assert index_response.status_code == 200
+    assert script_response.status_code == 200
+    assert "sourcePatchConfig" in index_response.text
+    assert "createConfigPatchBtn" in index_response.text
+    assert "Create Config Patch" in index_response.text
+    assert "configPatchOutput" in index_response.text
+    assert "/api/config/patch" in script_response.text
+    assert "configPatchPayload" in script_response.text
+
+
+def test_config_patch_api_writes_variant_config_copy(tmp_path: Path) -> None:
+    source = tmp_path / "baseline.sumocfg"
+    output = tmp_path / "variant.sumocfg"
+    source.write_text(
+        '<configuration><time><step-length value="1.0"/></time></configuration>',
+        encoding="utf-8",
+    )
+
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+
+    response = client.post(
+        "/api/config/patch",
+        json={
+            "source_config": str(source),
+            "option": "step-length",
+            "value": "0.5",
+            "output_config": str(output),
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "pass"
+    assert body["source_config"] == str(source.resolve())
+    assert body["output_config"] == str(output.resolve())
+    assert body["old_value"] == "1.0"
+    assert body["new_value"] == "0.5"
+    assert body["claim_status"] == "config-copy-generated"
+    assert output.exists()
+    assert 'value="1.0"' in source.read_text(encoding="utf-8")
+    assert ET.parse(output).getroot().find(".//step-length").attrib["value"] == "0.5"
 
 
 def test_scenario_template_payload_can_start_scenario_plan(tmp_path: Path) -> None:

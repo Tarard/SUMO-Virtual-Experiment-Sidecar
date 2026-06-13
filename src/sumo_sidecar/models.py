@@ -20,6 +20,13 @@ class ConfigPreflightRequest(BaseModel):
     variant_config: Path
 
 
+class ConfigPatchRequest(BaseModel):
+    source_config: Path
+    option: str
+    value: str
+    output_config: Path | None = None
+
+
 class OutputInspectionRequest(BaseModel):
     baseline_summary: Path | None = None
     baseline_tripinfo: Path | None = None
@@ -130,6 +137,19 @@ class PairConfigPreflightReport(BaseModel):
     baseline: ConfigPreflightReport
     variant: ConfigPreflightReport
     paired_warnings: list[str]
+
+
+class ConfigPatchReport(BaseModel):
+    status: str
+    source_config: Path
+    output_config: Path
+    option: str
+    old_value: str | None
+    new_value: str
+    attribute: str
+    match_count: int
+    warnings: list[str]
+    claim_status: str
 
 
 class SummaryMetrics(BaseModel):

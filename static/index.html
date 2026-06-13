@@ -206,6 +206,26 @@
 
       <section class="panel config-preflight">
         <h2>Construction Preflight</h2>
+        <div class="output-grid">
+          <label>
+            Source .sumocfg
+            <input id="sourcePatchConfig" placeholder="C:\path\to\baseline.sumocfg">
+          </label>
+          <label>
+            SUMO option
+            <input id="patchOption" placeholder="step-length, begin, end">
+          </label>
+          <label>
+            New value
+            <input id="patchValue" placeholder="0.5">
+          </label>
+          <label>
+            Output .sumocfg
+            <input id="patchedConfigPath" placeholder="optional variant .sumocfg path">
+          </label>
+        </div>
+        <button id="createConfigPatchBtn" type="button">Create Config Patch</button>
+        <pre id="configPatchOutput">Generate a non-destructive SUMO config copy before creating a paired session.</pre>
         <pre id="configPreflightOutput">Run config preflight before opening paired SUMO GUI sessions.</pre>
       </section>
 

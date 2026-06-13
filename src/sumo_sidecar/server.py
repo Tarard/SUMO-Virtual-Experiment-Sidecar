@@ -9,9 +9,11 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from .config_preflight import preflight_pair
+from .config_patch import patch_sumo_config_option
 from .demo_runner import minimal_paired_metadata, run_minimal_paired_guided, run_minimal_paired_headless
 from .models import (
     ChangeRecordRequest,
+    ConfigPatchRequest,
     ConfigPreflightRequest,
     CreateSessionRequest,
     OutputInspectionRequest,
@@ -273,6 +275,18 @@ def create_app(
         try:
             return preflight_pair(request.baseline_config, request.variant_config).model_dump(mode="json")
         except OSError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @app.post("/api/config/patch")
+    def api_config_patch(request: ConfigPatchRequest) -> dict[str, Any]:
+        try:
+            return patch_sumo_config_option(
+                request.source_config,
+                request.option,
+                request.value,
+                output_config=request.output_config,
+            ).model_dump(mode="json")
+        except (OSError, ValueError) as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     @app.post("/api/outputs/inspect")

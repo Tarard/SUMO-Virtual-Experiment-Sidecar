@@ -10,6 +10,7 @@ MVP focus:
 
 - launch baseline and variant `sumo-gui` sessions;
 - keep runs paired by configuration, command, and evidence folder;
+- generate non-destructive `.sumocfg` copies for simple SUMO option changes;
 - step or run both sessions from a local web page;
 - capture paired screenshots from the SUMO GUI view;
 - capture a fixed first visual checkpoint into the evidence bundle;
@@ -97,6 +98,8 @@ Use `Run Demo Headless` to run the bundled baseline and variant with `sumo` and 
 
 Use `Run Guided Demo` to run config preflight, headless SUMO execution, output inspection, and next-action guidance in one step.
 
+Use `Create Config Patch` when you need a quick variant `.sumocfg` from a baseline config. It updates one existing SUMO option in an output copy and refuses to overwrite the source config or an explicitly named existing output file. Run config-pair preflight before launching the paired GUI session.
+
 Use `Launch Demo GUI` to open the same bundled baseline and variant as a paired SUMO GUI session. This starts two `sumo-gui` windows.
 
 Use `Launch Guided GUI` to run the guided demo first, then open a paired GUI session with the output inspection report already written into the session evidence bundle.
@@ -147,21 +150,22 @@ Typical workflow:
 
 1. Start this sidecar locally.
 2. Run environment preflight and config-pair preflight.
-3. Create a paired baseline/variant session in the web page.
-4. Optionally load a scenario template, then start a scenario plan before the manual before/after comparison.
-5. Capture the first paired checkpoint, then capture named before/after checkpoints while watching the SUMO GUI windows.
-6. Add timeline notes when you change parameters, observe a behavior, or record an assumption.
-7. Record structured changes so Codex can connect what changed to visual checkpoints and output metrics.
-8. Inspect `summary.xml` and `tripinfo.xml` output evidence before interpreting performance metrics.
-9. Export metric comparison so completion status and tripinfo deltas are visible together.
-10. Export a metric chart so the metric deltas are visible as an artifact.
-11. Export the visual diff index for the paired before/after checkpoints.
-12. Export a run timeline, optionally with a preset, to align scenario plan, checkpoints, change records, metric comparison, chart, notes, output inspection, and packet evidence.
-13. Export a review summary to create the compact review dashboard.
-14. Export a Codex packet when the session has enough screenshots and output evidence.
-15. Refresh scenario/workflow status and follow remaining next actions.
-16. Ask Codex to inspect the evidence folder, scenario plan, review summary, metric chart, metric comparison, visual diff, packet, timeline, workflow status, or local API.
-17. Use the generated `scenario-plan.md`, `comparison.md`, `change-records.md`, `metric-comparison.md`, `metric-delta-chart.md`, `visual-diff.md`, `timeline.md`, `review-summary.md`, and `codex-packet.md` as diagnostic evidence indexes, then pair them with SUMO output files before making formal claims.
+3. Optionally generate a variant `.sumocfg` with Create Config Patch, then run config-pair preflight again.
+4. Create a paired baseline/variant session in the web page.
+5. Optionally load a scenario template, then start a scenario plan before the manual before/after comparison.
+6. Capture the first paired checkpoint, then capture named before/after checkpoints while watching the SUMO GUI windows.
+7. Add timeline notes when you change parameters, observe a behavior, or record an assumption.
+8. Record structured changes so Codex can connect what changed to visual checkpoints and output metrics.
+9. Inspect `summary.xml` and `tripinfo.xml` output evidence before interpreting performance metrics.
+10. Export metric comparison so completion status and tripinfo deltas are visible together.
+11. Export a metric chart so the metric deltas are visible as an artifact.
+12. Export the visual diff index for the paired before/after checkpoints.
+13. Export a run timeline, optionally with a preset, to align scenario plan, checkpoints, change records, metric comparison, chart, notes, output inspection, and packet evidence.
+14. Export a review summary to create the compact review dashboard.
+15. Export a Codex packet when the session has enough screenshots and output evidence.
+16. Refresh scenario/workflow status and follow remaining next actions.
+17. Ask Codex to inspect the evidence folder, scenario plan, review summary, metric chart, metric comparison, visual diff, packet, timeline, workflow status, or local API.
+18. Use the generated `scenario-plan.md`, `comparison.md`, `change-records.md`, `metric-comparison.md`, `metric-delta-chart.md`, `visual-diff.md`, `timeline.md`, `review-summary.md`, and `codex-packet.md` as diagnostic evidence indexes, then pair them with SUMO output files before making formal claims.
 
 See [docs/codex-bridge.md](docs/codex-bridge.md) for exact prompts and API examples.
 
@@ -176,6 +180,7 @@ POST /api/examples/minimal-paired/run-guided
 POST /api/examples/minimal-paired/launch-gui
 POST /api/examples/minimal-paired/launch-guided-gui
 POST /api/examples/minimal-paired/launch-full-workflow-gui
+POST /api/config/patch
 POST /api/config/preflight
 POST /api/outputs/inspect
 POST /api/session/{id}/outputs/inspect
@@ -261,6 +266,10 @@ When possible, the sidecar also writes pixel-level diff artifacts under `visual-
 
 ## Config Pair Preflight
 
+`Create Config Patch` can generate a variant `.sumocfg` copy before session creation. It updates one existing SUMO option, writes an output config, and refuses to overwrite the source config or an explicitly named existing output file. It is useful for quick checks such as `step-length`, `begin`, `end`, or other existing `.sumocfg` options.
+
+This helper does not edit controller scripts, route files, TLS logic, or detector definitions. It is a construction helper only. After creating the copy, run config-pair preflight and keep the run at diagnostic status until paired output and completion evidence exist.
+
 Before opening SUMO GUI sessions, the sidecar can inspect the two `.sumocfg` files and report:
 
 - missing `net-file`, `route-files`, `additional-files`, or other referenced input files;
@@ -318,4 +327,4 @@ The tests use fake SUMO adapters so they can run without launching a GUI.
 
 The MVP is a local visual sidecar. The next targets are:
 
-- add controlled parameter-application helpers that can turn a saved scenario plan into an explicit file/code change while preserving before/after evidence boundaries.
+- connect scenario plans/templates directly to safe config-patch suggestions and change records.

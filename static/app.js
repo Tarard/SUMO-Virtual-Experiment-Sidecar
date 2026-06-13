@@ -79,6 +79,18 @@ function configPreflightPayload() {
   };
 }
 
+function configPatchPayload() {
+  const payload = {
+    source_config: el("sourcePatchConfig").value,
+    option: el("patchOption").value,
+    value: el("patchValue").value,
+  };
+  if (el("patchedConfigPath").value.trim()) {
+    payload.output_config = el("patchedConfigPath").value.trim();
+  }
+  return payload;
+}
+
 function renderConfigPreflight(body) {
   const lines = [
     `status: ${body.status}`,
@@ -93,6 +105,28 @@ function renderConfigPreflight(body) {
   ];
   el("configPreflightOutput").textContent = lines.join("\n");
   autofillOutputPaths(body);
+}
+
+function renderConfigPatch(body) {
+  el("configPatchOutput").textContent = [
+    `status: ${body.status}`,
+    `claim_status: ${body.claim_status}`,
+    `source_config: ${body.source_config}`,
+    `output_config: ${body.output_config}`,
+    `option: ${body.option}`,
+    `old_value: ${body.old_value}`,
+    `new_value: ${body.new_value}`,
+    `attribute: ${body.attribute}`,
+    `match_count: ${body.match_count}`,
+    "",
+    "warnings:",
+    formatList(body.warnings || []),
+    "",
+    "This is a config copy only. Run config preflight and paired SUMO evidence before interpreting results.",
+  ].join("\n");
+  if (!el("variantConfig").value.trim()) {
+    el("variantConfig").value = body.output_config;
+  }
 }
 
 function autofillOutputPaths(body) {
@@ -481,6 +515,19 @@ el("configPreflightBtn").addEventListener("click", async () => {
     log("Config preflight", body);
   } catch (error) {
     log(`Config preflight failed: ${error.message}`);
+  }
+});
+
+el("createConfigPatchBtn").addEventListener("click", async () => {
+  try {
+    const body = await api("/api/config/patch", {
+      method: "POST",
+      body: JSON.stringify(configPatchPayload()),
+    });
+    renderConfigPatch(body);
+    log("Created config patch", { output_config: body.output_config, option: body.option });
+  } catch (error) {
+    log(`Config patch failed: ${error.message}`);
   }
 });
 

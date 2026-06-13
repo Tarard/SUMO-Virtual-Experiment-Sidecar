@@ -50,6 +50,23 @@ This runs the guided demo, launches a paired GUI session, starts a demo scenario
 
 Before creating a session, Codex can also inspect the paired `.sumocfg` files:
 
+Codex can generate a non-destructive variant config copy for one existing SUMO option:
+
+```powershell
+Invoke-RestMethod `
+  -Uri http://127.0.0.1:8765/api/config/patch `
+  -Method Post `
+  -ContentType "application/json" `
+  -Body '{
+    "source_config": "C:\\path\\to\\baseline.sumocfg",
+    "option": "step-length",
+    "value": "0.5",
+    "output_config": "C:\\path\\to\\variant-step-length.sumocfg"
+  }'
+```
+
+This writes a new `.sumocfg` copy and refuses to overwrite the source config or an explicitly named existing output file. It only updates an existing SUMO option in the config file. It does not edit route files, controller scripts, TLS phases, or detector definitions.
+
 ```powershell
 Invoke-RestMethod `
   -Uri http://127.0.0.1:8765/api/config/preflight `
@@ -291,6 +308,8 @@ Structured change records close part of that gap by recording what was intention
 Scenario plans make the before/after workflow explicit before evidence is interpreted. They are planning artifacts only; still verify that the planned change was actually applied and recorded.
 
 Scenario templates are even lighter than scenario plans. They only provide reusable starting values for a plan. Keep the claim boundary at `diagnostic-demo` until the scenario is started, the intended change is recorded, paired visual checkpoints are captured, outputs are inspected, and completion-first metrics are reviewed.
+
+Config patch generation is also construction support, not evidence. Treat the returned `.sumocfg` path as a candidate variant config, then run config-pair preflight and preserve paired outputs before interpreting behavior.
 
 Metric comparison makes output deltas easier to review, but it is still an evidence view. If completion, route demand, seed, horizon, or controller identity is unpaired, metric deltas should remain diagnostic rather than formal claims.
 
