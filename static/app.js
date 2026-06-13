@@ -1168,6 +1168,10 @@ function renderVisualDiffLanePreview(preview) {
     makeStateBoardPreviewRow("Templates", `${firstPair.before_template || "before"} -> ${firstPair.after_template || "after"}`),
     makeStateBoardPreviewRow("Pixel diff", firstPair.pixel_status || "unknown"),
   );
+  const thumbGrid = renderStateBoardVisualThumbGrid(firstPair.matrix || []);
+  if (thumbGrid) {
+    panel.append(thumbGrid);
+  }
   for (const row of firstPair.matrix || []) {
     const ratio = formatPixelRatio(row) || "ratio n/a";
     panel.append(makeStateBoardPreviewRow(row.label || row.role || "Run", ratio));
@@ -1183,12 +1187,79 @@ function renderMetricLanePreview(preview) {
     panel.textContent = "No metric highlights yet.";
     return panel;
   }
+  const chartPreview = renderStateBoardMetricChartPreview(preview.chart_artifact);
+  if (chartPreview) {
+    panel.append(chartPreview);
+  }
   for (const row of metrics) {
     const label = row.label || row.metric;
     const value = `${formatMetricValue(row.baseline)} -> ${formatMetricValue(row.variant)} (${formatMetricDelta(row.delta)})`;
     panel.append(makeStateBoardPreviewRow(label, value));
   }
   return panel;
+}
+
+function renderStateBoardVisualThumbGrid(rows) {
+  const usableRows = rows.filter((row) => row.before || row.after || row.pixel_diff);
+  if (!usableRows.length) {
+    return null;
+  }
+  const grid = document.createElement("div");
+  grid.className = "state-board-thumb-grid";
+  for (const row of usableRows) {
+    for (const [label, path] of [["Before", row.before], ["After", row.after], ["Diff", row.pixel_diff]]) {
+      const tile = document.createElement("a");
+      tile.className = "state-board-thumb";
+      if (path) {
+        tile.href = artifactUrl(path);
+        tile.target = "_blank";
+        tile.rel = "noopener noreferrer";
+      } else {
+        tile.classList.add("is-missing");
+      }
+
+      if (path) {
+        const image = document.createElement("img");
+        image.src = tile.href;
+        image.alt = `${row.label || row.role || "Run"} ${label}`;
+        image.loading = "lazy";
+        tile.append(image);
+      } else {
+        const placeholder = document.createElement("strong");
+        placeholder.textContent = "n/a";
+        tile.append(placeholder);
+      }
+
+      const caption = document.createElement("span");
+      caption.textContent = `${row.label || row.role || "Run"} ${label}`;
+
+      tile.append(caption);
+      grid.append(tile);
+    }
+  }
+  return grid;
+}
+
+function renderStateBoardMetricChartPreview(chartArtifact) {
+  if (!chartArtifact) {
+    return null;
+  }
+  const link = document.createElement("a");
+  link.className = "state-board-chart";
+  link.href = artifactUrl(chartArtifact);
+  link.target = "_blank";
+  link.rel = "noopener noreferrer";
+
+  const image = document.createElement("img");
+  image.src = link.href;
+  image.alt = "Metric delta chart";
+  image.loading = "lazy";
+
+  const caption = document.createElement("span");
+  caption.textContent = chartArtifact;
+
+  link.append(image, caption);
+  return link;
 }
 
 function renderAgentLoopLanePreview(preview) {

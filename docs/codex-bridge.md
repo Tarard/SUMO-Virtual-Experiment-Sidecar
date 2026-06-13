@@ -425,7 +425,7 @@ Export the top-level experiment state board when you want one compact view of vi
 Invoke-RestMethod -Uri http://127.0.0.1:8765/api/session/<session_id>/experiment-state-board/export -Method Post
 ```
 
-This writes `experiment-state-board.json` and `experiment-state-board.md`. The board groups the session into four lanes: visual comparison, metric evidence, agent loop, and claim gate. The web page renders the same lanes with embedded previews for visual-diff pairs, key metric deltas, agent-loop steps, and claim-gate readiness. Use it as the first artifact to inspect before opening deeper files. It is still an evidence control panel, not a validity certificate.
+This writes `experiment-state-board.json` and `experiment-state-board.md`. The board groups the session into four lanes: visual comparison, metric evidence, agent loop, and claim gate. The web page renders the same lanes with embedded before/after/diff thumbnails, the metric delta chart, key metric deltas, agent-loop steps, and claim-gate readiness. Use it as the first artifact to inspect before opening deeper files. It is still an evidence control panel, not a validity certificate.
 
 Check workflow status before asking Codex for review:
 

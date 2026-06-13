@@ -236,10 +236,14 @@ def test_homepage_exposes_experiment_state_board_export(tmp_path: Path) -> None:
     assert "renderExperimentStateBoardLanePreview" in script_response.text
     assert "renderMetricLanePreview" in script_response.text
     assert "renderAgentLoopLanePreview" in script_response.text
+    assert "renderStateBoardVisualThumbGrid" in script_response.text
+    assert "renderStateBoardMetricChartPreview" in script_response.text
     assert "makeArtifactLink" in script_response.text
     assert ".state-board" in style_response.text
     assert ".state-board-lane" in style_response.text
     assert ".state-board-preview" in style_response.text
+    assert ".state-board-thumb-grid" in style_response.text
+    assert ".state-board-chart" in style_response.text
 
 
 def test_homepage_exposes_next_action_review_action(tmp_path: Path) -> None:
@@ -2589,9 +2593,13 @@ def test_experiment_state_board_exports_visual_metric_agent_gate_overview(tmp_pa
     assert lanes["visual_comparison"]["preview"]["first_pair"]["before_template"] == "before-change"
     assert lanes["visual_comparison"]["preview"]["first_pair"]["after_template"] == "after-change"
     assert lanes["visual_comparison"]["preview"]["first_pair"]["pixel_status"] in {"ready", "unavailable"}
+    visual_matrix = lanes["visual_comparison"]["preview"]["first_pair"]["matrix"]
+    assert visual_matrix[0]["before"].endswith(".png")
+    assert visual_matrix[0]["after"].endswith(".png")
     assert lanes["metric_evidence"]["status"] == "pass"
     assert "metric-comparison.md" in lanes["metric_evidence"]["artifacts"]
     assert lanes["metric_evidence"]["preview"]["kind"] == "metric_highlights"
+    assert lanes["metric_evidence"]["preview"]["chart_artifact"] == "metric-delta-chart.svg"
     metric_preview = {
         row["metric"]: row for row in lanes["metric_evidence"]["preview"]["metrics"]
     }

@@ -2300,6 +2300,7 @@ class SessionManager:
         return {
             "kind": "metric_highlights",
             "metrics": self._metric_highlights(session),
+            "chart_artifact": "metric-delta-chart.svg" if (session.session_dir / "metric-delta-chart.svg").exists() else None,
         }
 
     def _agent_loop_preview(self, session: PairedSession) -> dict[str, Any]:

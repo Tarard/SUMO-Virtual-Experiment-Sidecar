@@ -333,6 +333,65 @@ button:disabled {
   overflow-wrap: anywhere;
 }
 
+.state-board-thumb-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.state-board-thumb,
+.state-board-chart {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fbfcfb;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.2;
+  padding: 5px;
+  text-decoration: none;
+  overflow: hidden;
+}
+
+.state-board-thumb img,
+.state-board-chart img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: 4px;
+  background: #eef4e7;
+}
+
+.state-board-chart img {
+  aspect-ratio: 16 / 9;
+  object-fit: contain;
+}
+
+.state-board-thumb strong {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border-radius: 4px;
+  background: #eef4e7;
+  color: var(--muted);
+}
+
+.state-board-thumb span,
+.state-board-chart span {
+  overflow-wrap: anywhere;
+}
+
+.state-board-thumb:hover,
+.state-board-chart:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 .state-board-lanes {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
