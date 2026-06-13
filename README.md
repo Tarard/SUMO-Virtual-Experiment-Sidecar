@@ -25,6 +25,7 @@ MVP focus:
 - export a before/after visual-diff index for paired template checkpoints;
 - generate pixel-level visual-diff PNGs when before/after screenshots are valid raster images;
 - report workflow status and next actions for the active evidence bundle;
+- report comparison readiness for before/after Codex review;
 - export timeline presets for full, review, visual, output, or note-focused evidence review;
 - export a compact review summary that links changes, metric deltas, visual diff status, and claim boundaries;
 - run a bundled full workflow demo that produces a review-ready evidence bundle;
@@ -135,6 +136,8 @@ Use `Export Visual Diff` after capturing at least one `before-change` and one `a
 
 Use `Refresh Workflow` to see which evidence steps are complete, which are missing, and what should happen next before asking Codex to review the session.
 
+Use `Check Compare Readiness` to see whether the active session has the core before/after evidence needed for diagnostic comparison: scenario plan, first checkpoint, before/after checkpoints, change record, output inspection, metric comparison, and visual diff. It will still recommend metric chart, timeline, review summary, and Codex packet before final agent review.
+
 Use the `Timeline preset` selector before `Export Timeline` when a session is long. Presets include `full`, `review`, `visual`, `outputs`, and `notes`.
 
 ## Codex Bridge
@@ -168,7 +171,7 @@ Typical workflow:
 13. Export a run timeline, optionally with a preset, to align scenario plan, checkpoints, change records, metric comparison, chart, notes, output inspection, and packet evidence.
 14. Export a review summary to create the compact review dashboard.
 15. Export a Codex packet when the session has enough screenshots and output evidence.
-16. Refresh scenario/workflow status and follow remaining next actions.
+16. Refresh scenario/workflow status, check comparison readiness, and follow remaining next actions.
 17. Ask Codex to inspect the evidence folder, scenario plan, review summary, metric chart, metric comparison, visual diff, packet, timeline, workflow status, or local API.
 18. Use the generated `scenario-plan.md`, `comparison.md`, `change-records.md`, `metric-comparison.md`, `metric-delta-chart.md`, `visual-diff.md`, `timeline.md`, `review-summary.md`, and `codex-packet.md` as diagnostic evidence indexes, then pair them with SUMO output files before making formal claims.
 
@@ -197,6 +200,7 @@ POST /api/session/{id}/checkpoint/first
 POST /api/session/{id}/checkpoint/template
 GET  /api/session/{id}/state
 GET  /api/session/{id}/workflow/status
+GET  /api/session/{id}/comparison/readiness
 GET  /api/session/{id}/evidence
 GET  /api/session/{id}/artifact/{path}
 POST /api/session/{id}/packet/export
@@ -260,6 +264,8 @@ Scenario templates prefill `scenario-plan.md` inputs for common workflows. They 
 `metric-delta-chart.svg` visualizes the numeric deltas from `metric-comparison.json`. The chart uses `variant - baseline`, shows the actual delta values, and scales bars only within the artifact. It is a visual index, not a claim that a larger bar is better.
 
 `review-summary.md` is the compact dashboard for agent review. It links structured changes, output inspection, completion-first metric highlights, metric chart status, visual diff status, timeline status, packet status, and the current claim boundary. It does not re-run SUMO or certify causality.
+
+`comparison/readiness` is a status gate, not an artifact. It reports `needs-evidence`, `ready-to-compare`, or `ready-for-agent-review` based on the current session evidence. `ready-to-compare` means diagnostic before/after review is possible; it does not certify causality, controller performance, or publishable validity.
 
 `timeline.md` aligns session creation, scenario plan, screenshot checkpoints, user notes, structured change records, output inspection, metric comparison, visual diffs, and exported Codex packets. This is the quickest way to see what evidence was produced before and after a controller or configuration change.
 

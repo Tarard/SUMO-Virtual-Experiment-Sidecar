@@ -297,6 +297,14 @@ Invoke-RestMethod http://127.0.0.1:8765/api/session/<session_id>/workflow/status
 
 The status response contains a checklist and next actions. Treat `review-ready` as "ready for agent review", not as proof that the experiment is scientifically valid.
 
+Check whether the session has enough core evidence for before/after comparison:
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:8765/api/session/<session_id>/comparison/readiness
+```
+
+The readiness response focuses on the comparison gate: scenario plan, first checkpoint, before/after checkpoints, structured change record, output inspection, metric comparison, and visual diff. If these are present it returns `ready-to-compare`; it still recommends metric chart, timeline, review summary, and Codex packet before final agent review.
+
 ## Evidence Boundary
 
 GUI screenshots are useful for noticing obvious changes, such as queue spillback, phase mismatch, deadlock, unexpected teleport patterns, or controller timing behavior.
@@ -324,3 +332,5 @@ Metric comparison makes output deltas easier to review, but it is still an evide
 Metric charts make those deltas easier to scan, but they do not define improvement. Compare the numeric values, units, completion status, and metric definitions before interpreting the bars.
 
 Review summary makes the evidence easier to enter, but it is still an index. If the underlying evidence is incomplete or unpaired, the summary should preserve that limitation instead of upgrading the claim.
+
+Comparison readiness is also a status gate, not a validity certificate. `ready-to-compare` means there is enough diagnostic evidence for a before/after review, not that a performance claim is true.

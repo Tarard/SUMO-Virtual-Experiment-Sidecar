@@ -26,6 +26,7 @@ function setControls(enabled) {
     "firstCheckpointBtn",
     "stateBtn",
     "workflowBtn",
+    "compareReadinessBtn",
     "evidenceBtn",
     "exportPacketBtn",
     "exportTimelineBtn",
@@ -842,6 +843,25 @@ function renderWorkflow(body) {
   ].join("\n");
 }
 
+function renderComparisonReadiness(body) {
+  const checklist = (body.checklist || [])
+    .map((item) => `${item.status.toUpperCase()} ${item.label}\n  evidence: ${item.evidence}`)
+    .join("\n");
+  const actions = (body.next_actions || []).map((item) => `- ${item}`).join("\n");
+  el("compareReadinessOutput").textContent = [
+    `status: ${body.status}`,
+    `claim_status: ${body.claim_status}`,
+    "",
+    "checklist:",
+    checklist || "- none",
+    "",
+    "next_actions:",
+    actions || "- none",
+    "",
+    `claim_boundary: ${body.claim_boundary}`,
+  ].join("\n");
+}
+
 function renderScenarioStatus(body) {
   const checklist = (body.checklist || [])
     .map((item) => `${item.status.toUpperCase()} ${item.label}\n  evidence: ${item.evidence}`)
@@ -914,6 +934,16 @@ el("workflowBtn").addEventListener("click", async () => {
     await refreshWorkflow();
   } catch (error) {
     log(`Workflow refresh failed: ${error.message}`);
+  }
+});
+
+el("compareReadinessBtn").addEventListener("click", async () => {
+  try {
+    const body = await api(`/api/session/${state.sessionId}/comparison/readiness`);
+    renderComparisonReadiness(body);
+    log("Checked comparison readiness", { status: body.status, claim_status: body.claim_status });
+  } catch (error) {
+    log(`Comparison readiness failed: ${error.message}`);
   }
 });
 

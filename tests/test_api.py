@@ -113,6 +113,22 @@ def test_homepage_exposes_review_summary_action(tmp_path: Path) -> None:
     assert "/review/summary" in script_response.text
 
 
+def test_homepage_exposes_comparison_readiness_action(tmp_path: Path) -> None:
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+
+    index_response = client.get("/")
+    script_response = client.get("/static/app.js")
+
+    assert index_response.status_code == 200
+    assert script_response.status_code == 200
+    assert "compareReadinessBtn" in index_response.text
+    assert "Check Compare Readiness" in index_response.text
+    assert "compareReadinessOutput" in index_response.text
+    assert "/comparison/readiness" in script_response.text
+    assert "renderComparisonReadiness" in script_response.text
+
+
 def test_homepage_exposes_scenario_guide_controls(tmp_path: Path) -> None:
     app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
     client = TestClient(app)
@@ -1355,6 +1371,103 @@ def test_scenario_guide_tracks_before_after_evidence_sequence(tmp_path: Path) ->
     card_ids = {card["id"] for card in summary["review_summary"]["cards"]}
     assert "scenario_plan" in card_ids
     assert "scenario-plan.md" in summary["review_summary_markdown"]
+
+
+def test_comparison_readiness_reports_core_before_after_gate(tmp_path: Path) -> None:
+    baseline = tmp_path / "baseline.sumocfg"
+    variant = tmp_path / "variant.sumocfg"
+    baseline.write_text("<configuration/>", encoding="utf-8")
+    variant.write_text("<configuration/>", encoding="utf-8")
+
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+
+    create_response = client.post(
+        "/api/session/create",
+        json={
+            "name": "comparison-readiness-demo",
+            "baseline_config": str(baseline),
+            "variant_config": str(variant),
+        },
+    )
+    session_id = create_response.json()["id"]
+
+    initial_response = client.get(f"/api/session/{session_id}/comparison/readiness")
+
+    assert initial_response.status_code == 200
+    initial = initial_response.json()
+    assert initial["status"] == "needs-evidence"
+    assert initial["claim_status"] == "diagnostic-incomplete"
+    initial_checks = {item["id"]: item for item in initial["checklist"]}
+    assert initial_checks["scenario_plan"]["status"] == "missing"
+    assert any("Create Scenario Plan" in action for action in initial["next_actions"])
+
+    client.post(
+        f"/api/session/{session_id}/scenario/plan",
+        json={
+            "label": "step-length-scenario",
+            "parameter": "step-length",
+            "before_value": "1.0",
+            "after_value": "0.5",
+            "hypothesis": "Shorter step length should alter simulation resolution, not certify performance.",
+            "expected_metrics": ["completion_ratio", "mean_duration"],
+        },
+    )
+    client.post(f"/api/session/{session_id}/checkpoint/first")
+    client.post(
+        f"/api/session/{session_id}/checkpoint/template",
+        json={"template": "before-change", "note": "Before config patch."},
+    )
+    client.post(
+        f"/api/session/{session_id}/change/record",
+        json={
+            "label": "step-length-change",
+            "parameter": "step-length",
+            "before_value": "1.0",
+            "after_value": "0.5",
+            "rationale": "Record the config copy generated from the scenario guide.",
+        },
+    )
+    client.post(
+        f"/api/session/{session_id}/checkpoint/template",
+        json={"template": "after-change", "note": "After config patch."},
+    )
+    baseline_summary = tmp_path / "baseline-summary.xml"
+    variant_summary = tmp_path / "variant-summary.xml"
+    baseline_summary.write_text(
+        '<summary><step time="10" loaded="2" inserted="2" running="0" waiting="0" arrived="2" teleports="0"/></summary>',
+        encoding="utf-8",
+    )
+    variant_summary.write_text(
+        '<summary><step time="10" loaded="2" inserted="2" running="0" waiting="0" arrived="2" teleports="0"/></summary>',
+        encoding="utf-8",
+    )
+    client.post(
+        f"/api/session/{session_id}/outputs/inspect",
+        json={
+            "baseline_summary": str(baseline_summary),
+            "variant_summary": str(variant_summary),
+        },
+    )
+    client.post(f"/api/session/{session_id}/metrics/compare")
+    client.post(f"/api/session/{session_id}/visual-diff/export")
+
+    ready_response = client.get(f"/api/session/{session_id}/comparison/readiness")
+
+    assert ready_response.status_code == 200
+    ready = ready_response.json()
+    assert ready["status"] == "ready-to-compare"
+    assert ready["claim_status"] == "diagnostic-comparison-ready"
+    checks = {item["id"]: item for item in ready["checklist"]}
+    assert checks["scenario_plan"]["status"] == "pass"
+    assert checks["first_checkpoint"]["status"] == "pass"
+    assert checks["before_after_checkpoints"]["status"] == "pass"
+    assert checks["change_record"]["status"] == "pass"
+    assert checks["output_inspection"]["status"] == "pass"
+    assert checks["metric_comparison"]["status"] == "pass"
+    assert checks["visual_diff"]["status"] == "pass"
+    assert checks["review_summary"]["status"] == "recommended"
+    assert any("Export Review Summary" in action for action in ready["next_actions"])
 
 
 def test_workflow_status_guides_incomplete_session_next_actions(tmp_path: Path) -> None:

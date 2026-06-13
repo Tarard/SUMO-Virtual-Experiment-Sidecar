@@ -379,6 +379,13 @@ def create_app(
         except KeyError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
 
+    @app.get("/api/session/{session_id}/comparison/readiness")
+    def get_comparison_readiness(session_id: str) -> dict[str, Any]:
+        try:
+            return manager.comparison_readiness(session_id)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+
     @app.get("/api/session/{session_id}/evidence")
     def get_evidence(session_id: str) -> dict[str, Any]:
         try:

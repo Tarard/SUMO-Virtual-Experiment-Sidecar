@@ -649,6 +649,109 @@ class SessionManager:
             "next_actions": self._workflow_next_actions(checklist),
         }
 
+    def comparison_readiness(self, session_id: str) -> dict[str, Any]:
+        session = self.get(session_id)
+        relative_paths = {item.relative_path for item in self._list_artifacts(session)}
+        templates = {item.template for item in session.evidence if item.template}
+        has_scenario = "scenario_plan" in session.manifest and "scenario-plan.md" in relative_paths
+        has_first_checkpoint = any(item.label == "first-checkpoint" for item in session.evidence)
+        has_before_after = {"before-change", "after-change"}.issubset(templates)
+        output_inspection = session.manifest.get("output_inspection")
+        metric_comparison = session.manifest.get("metric_comparison")
+        visual_diff = session.manifest.get("visual_diff")
+
+        checklist = [
+            self._workflow_item("scenario_plan", "Create Scenario Plan", has_scenario, "scenario-plan.md" if has_scenario else "missing"),
+            self._workflow_item("first_checkpoint", "Capture First Checkpoint", has_first_checkpoint, "first-checkpoint screenshot evidence"),
+            self._workflow_item(
+                "before_after_checkpoints",
+                "Capture before-change and after-change checkpoints",
+                has_before_after,
+                ", ".join(sorted(template for template in templates if template)) or "missing",
+            ),
+            self._workflow_item(
+                "change_record",
+                "Record structured change",
+                bool(session.manifest.get("change_records")),
+                f"{len(session.manifest.get('change_records', []))} change record(s)",
+            ),
+            self._workflow_item(
+                "output_inspection",
+                "Inspect paired SUMO outputs",
+                bool(output_inspection),
+                output_inspection.get("status", "missing") if output_inspection else "missing",
+            ),
+            self._workflow_item(
+                "metric_comparison",
+                "Export completion-first metric comparison",
+                bool(metric_comparison),
+                metric_comparison.get("status", "missing") if metric_comparison else "missing",
+            ),
+            self._workflow_item(
+                "visual_diff",
+                "Export before/after visual diff",
+                bool(visual_diff),
+                visual_diff.get("status", "missing") if visual_diff else "missing",
+            ),
+            self._workflow_item(
+                "metric_chart",
+                "Export metric delta chart",
+                bool(session.manifest.get("metric_chart")),
+                session.manifest.get("metric_chart", {}).get("status", "missing") if session.manifest.get("metric_chart") else "missing",
+                missing_status="recommended",
+            ),
+            self._workflow_item(
+                "timeline",
+                "Export run timeline",
+                "timeline" in session.manifest and "timeline.md" in relative_paths,
+                "timeline.md" if "timeline.md" in relative_paths else "missing",
+                missing_status="recommended",
+            ),
+            self._workflow_item(
+                "review_summary",
+                "Export review summary",
+                bool(session.manifest.get("review_summary")),
+                session.manifest.get("review_summary", {}).get("status", "missing") if session.manifest.get("review_summary") else "missing",
+                missing_status="recommended",
+            ),
+            self._workflow_item(
+                "codex_packet",
+                "Export Codex packet",
+                "codex_packet" in session.manifest and "codex-packet.md" in relative_paths,
+                "codex-packet.md" if "codex-packet.md" in relative_paths else "missing",
+                missing_status="recommended",
+            ),
+        ]
+        required_ids = {
+            "scenario_plan",
+            "first_checkpoint",
+            "before_after_checkpoints",
+            "change_record",
+            "output_inspection",
+            "metric_comparison",
+            "visual_diff",
+        }
+        missing_required = [item for item in checklist if item["id"] in required_ids and item["status"] != "pass"]
+        has_recommended_gap = any(item["status"] == "recommended" for item in checklist)
+        if missing_required:
+            status = "needs-evidence"
+            claim_status = "diagnostic-incomplete"
+        elif has_recommended_gap:
+            status = "ready-to-compare"
+            claim_status = "diagnostic-comparison-ready"
+        else:
+            status = "ready-for-agent-review"
+            claim_status = "review-package-ready"
+        return {
+            "session_id": session.id,
+            "session_name": session.name,
+            "status": status,
+            "claim_status": claim_status,
+            "checklist": checklist,
+            "next_actions": self._comparison_readiness_actions(checklist),
+            "claim_boundary": "Readiness means the sidecar has enough diagnostic evidence for before/after review. It does not certify causality, controller performance, or publishable validity.",
+        }
+
     def export_visual_diff(self, session_id: str) -> dict[str, Any]:
         session = self.get(session_id)
         visual_diff = self._build_visual_diff(session)
@@ -777,6 +880,31 @@ class SessionManager:
         if not actions:
             actions.append("Ask Codex to inspect codex-packet.md, timeline.md, metric-comparison.md, visual-diff.md, and output-inspection.md.")
         return actions
+
+    def _comparison_readiness_actions(self, checklist: list[dict[str, str]]) -> list[str]:
+        status_by_id = {item["id"]: item["status"] for item in checklist}
+        required_actions = [
+            ("scenario_plan", "Create Scenario Plan."),
+            ("first_checkpoint", "Capture First Checkpoint."),
+            ("before_after_checkpoints", "Capture before-change and after-change checkpoints."),
+            ("change_record", "Record Scenario Change or Record Change."),
+            ("output_inspection", "Inspect Outputs with paired summary.xml and tripinfo.xml."),
+            ("metric_comparison", "Compare Metrics."),
+            ("visual_diff", "Export Visual Diff."),
+        ]
+        actions = [action for item_id, action in required_actions if status_by_id.get(item_id) != "pass"]
+        if actions:
+            return actions
+        recommended_actions = [
+            ("metric_chart", "Export Metric Chart."),
+            ("timeline", "Export Timeline."),
+            ("review_summary", "Export Review Summary."),
+            ("codex_packet", "Export Codex Packet."),
+        ]
+        actions = [action for item_id, action in recommended_actions if status_by_id.get(item_id) == "recommended"]
+        if actions:
+            return actions
+        return ["Ask Codex to inspect review-summary.md, codex-packet.md, metric-delta-chart.md, visual-diff.md, and output-inspection.md."]
 
     def _scenario_item(self, item_id: str, label: str, passed: bool, evidence: str) -> dict[str, str]:
         return {
