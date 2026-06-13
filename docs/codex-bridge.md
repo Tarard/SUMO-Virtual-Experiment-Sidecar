@@ -449,6 +449,8 @@ In the web UI, `Use Suggested Output Paths` copies available guide suggestions i
 
 The Output Evidence panel also has a front-end-only readiness hint. `ready-to-inspect` means the required baseline and variant summary text fields are non-empty; it does not mean the files exist, are valid XML, or belong to the intended completed paired run.
 
+After a session-scoped `Inspect Outputs` succeeds in the web UI, the page refreshes `evidence-loop/status` so the source-evidence gate can move from `needs-source-evidence` to `ready-to-run-loop` without a separate manual status check. This refresh only updates the workflow screen; it does not create extra evidence or certify validity.
+
 In the web UI, `Run Evidence Loop` is the fastest non-GUI review path after a session has source evidence. It attempts workflow status, metric comparison, metric chart, visual diff, the `review` timeline preset, review summary, agent review prompt, and live state board in order. Failed steps are logged and the loop continues. It does not launch SUMO GUI, mutate configs, capture screenshots, or certify experiment validity.
 
 Check workflow status before asking Codex for review:

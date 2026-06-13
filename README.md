@@ -170,6 +170,8 @@ Use `Use Suggested Output Paths` after `Guide Source Evidence` when you want to 
 
 The Output Evidence panel also shows a lightweight `ready-to-inspect` hint when both required summary fields are non-empty. This is only a form-completion hint; it does not check whether files exist, parse XML, or validate that outputs came from the intended paired run.
 
+After a session-scoped `Inspect Outputs` succeeds, the web UI refreshes the Evidence Loop status automatically. This makes the source-evidence gate reflect the new output inspection evidence immediately, but it is still a workflow readiness update, not a validity certificate.
+
 Use `Run Evidence Loop` when a session already has enough source evidence and you want the Sidecar to attempt the non-GUI review exports in order: workflow status, metric comparison, metric chart, visual diff, review timeline, review summary, agent prompt, and live state board. Failed steps are logged and later steps still run. This does not launch SUMO GUI, mutate configs, capture screenshots, or certify the experiment.
 
 Use the `Timeline preset` selector before `Export Timeline` when a session is long. Presets include `full`, `review`, `visual`, `outputs`, and `notes`.

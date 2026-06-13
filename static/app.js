@@ -726,6 +726,7 @@ el("inspectOutputsBtn").addEventListener("click", async () => {
     if (state.sessionId) {
       await loadEvidence();
       await refreshWorkflow();
+      await refreshEvidenceLoopStatus();
     }
     log("Output inspection", body);
   } catch (error) {

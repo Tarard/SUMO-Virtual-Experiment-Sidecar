@@ -372,6 +372,25 @@ def test_homepage_exposes_frontend_output_inspection_readiness_hint(tmp_path: Pa
     assert "/outputs/inspect" not in readiness_function
 
 
+def test_output_inspection_refreshes_evidence_loop_after_success(tmp_path: Path) -> None:
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+
+    script_response = client.get("/static/app.js")
+
+    assert script_response.status_code == 200
+    handler = script_response.text.split('el("inspectOutputsBtn").addEventListener("click"', 1)[1].split(
+        'el("createBtn")',
+        1,
+    )[0]
+    assert "/outputs/inspect" in handler
+    assert "renderOutputInspection(body)" in handler
+    assert "await refreshEvidenceLoopStatus()" in handler
+    assert handler.index("renderOutputInspection(body)") < handler.index("await refreshEvidenceLoopStatus()")
+    assert handler.index("await loadEvidence()") < handler.index("await refreshEvidenceLoopStatus()")
+    assert handler.index("await refreshEvidenceLoopStatus()") < handler.index('log("Output inspection"')
+
+
 def test_homepage_exposes_next_action_review_action(tmp_path: Path) -> None:
     app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
     client = TestClient(app)
