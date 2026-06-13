@@ -1060,22 +1060,96 @@ function renderVisualDiff(visualDiff) {
     title.textContent = `Pair ${pair.index} (${pair.pixel_diff ? pair.pixel_diff.status : "index-only"})`;
     article.append(title);
 
-    const images = [
-      ["baseline_before", pair.baseline_before],
-      ["baseline_after", pair.baseline_after],
-      ["variant_before", pair.variant_before],
-      ["variant_after", pair.variant_after],
-      ["baseline_pixel_diff", pair.baseline_pixel_diff],
-      ["variant_pixel_diff", pair.variant_pixel_diff],
-    ].filter((item) => item[1]);
-
-    for (const item of images) {
-      const [labelText, relativePath] = item;
-      article.append(makeDiffImage(labelText, relativePath));
-    }
+    article.append(renderVisualDiffMatrix(pair));
 
     container.append(article);
   }
+}
+
+function renderVisualDiffMatrix(pair) {
+  const matrix = document.createElement("div");
+  matrix.className = "visual-diff-matrix";
+
+  for (const labelText of ["Run", "Before", "After", "Pixel diff"]) {
+    const header = document.createElement("div");
+    header.className = "visual-diff-cell visual-diff-header";
+    header.textContent = labelText;
+    matrix.append(header);
+  }
+
+  for (const row of visualDiffRows(pair)) {
+    const role = document.createElement("div");
+    role.className = "visual-diff-cell visual-diff-role";
+    role.textContent = row.label || row.role;
+    const ratio = formatPixelRatio(row);
+    if (ratio) {
+      const meta = document.createElement("span");
+      meta.textContent = ratio;
+      role.append(meta);
+    }
+    matrix.append(role);
+    matrix.append(makeDiffCell("Before", row.before));
+    matrix.append(makeDiffCell("After", row.after));
+    matrix.append(makeDiffCell("Diff", row.pixel_diff));
+  }
+
+  return matrix;
+}
+
+function visualDiffRows(pair) {
+  if (Array.isArray(pair.matrix) && pair.matrix.length) {
+    return pair.matrix;
+  }
+  const pixelDiff = pair.pixel_diff || {};
+  return [
+    {
+      role: "baseline",
+      label: "Baseline",
+      before: pair.baseline_before,
+      after: pair.baseline_after,
+      pixel_diff: pair.baseline_pixel_diff,
+      changed_pixels: pixelDiff.baseline_changed_pixels,
+      total_pixels: pixelDiff.baseline_total_pixels,
+      changed_pixel_ratio: pixelRatio(pixelDiff.baseline_changed_pixels, pixelDiff.baseline_total_pixels),
+    },
+    {
+      role: "variant",
+      label: "Variant",
+      before: pair.variant_before,
+      after: pair.variant_after,
+      pixel_diff: pair.variant_pixel_diff,
+      changed_pixels: pixelDiff.variant_changed_pixels,
+      total_pixels: pixelDiff.variant_total_pixels,
+      changed_pixel_ratio: pixelRatio(pixelDiff.variant_changed_pixels, pixelDiff.variant_total_pixels),
+    },
+  ];
+}
+
+function pixelRatio(changedPixels, totalPixels) {
+  if (typeof changedPixels !== "number" || typeof totalPixels !== "number" || totalPixels <= 0) {
+    return null;
+  }
+  return changedPixels / totalPixels;
+}
+
+function formatPixelRatio(row) {
+  if (typeof row.changed_pixel_ratio !== "number") {
+    return "";
+  }
+  const changed = typeof row.changed_pixels === "number" ? row.changed_pixels : "n/a";
+  const total = typeof row.total_pixels === "number" ? row.total_pixels : "n/a";
+  return `${(row.changed_pixel_ratio * 100).toFixed(2)}% changed (${changed}/${total})`;
+}
+
+function makeDiffCell(labelText, relativePath) {
+  const cell = document.createElement("div");
+  cell.className = "visual-diff-cell";
+  if (!relativePath) {
+    cell.textContent = "Not available";
+    return cell;
+  }
+  cell.append(makeDiffImage(labelText, relativePath));
+  return cell;
 }
 
 function makeDiffImage(labelText, relativePath) {

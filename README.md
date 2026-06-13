@@ -22,7 +22,7 @@ MVP focus:
 - record structured parameter/controller changes with before value, after value, and rationale;
 - export completion-first metric comparisons from persisted paired SUMO outputs;
 - export metric-delta SVG charts from completion-first comparisons;
-- export a before/after visual-diff index for paired template checkpoints;
+- export a before/after visual-diff matrix for paired template checkpoints;
 - generate pixel-level visual-diff PNGs when before/after screenshots are valid raster images;
 - report workflow status and next actions for the active evidence bundle;
 - report comparison readiness for before/after Codex review;
@@ -132,7 +132,7 @@ Use `Export Metric Chart` after metric comparison. It writes `metric-delta-chart
 
 Use `Export Review Summary` when the evidence bundle is ready for agent review. It creates a compact dashboard over structured changes, output inspection, metric comparison, visual diff, timeline, packet status, and the current claim boundary.
 
-Use `Export Visual Diff` after capturing at least one `before-change` and one `after-change` checkpoint. It builds a four-view baseline/variant before/after index for visual inspection. When screenshots are valid raster images with matching dimensions, it also writes pixel-level diff PNGs.
+Use `Export Visual Diff` after capturing at least one `before-change` and one `after-change` checkpoint. It builds a Baseline/Variant by Before/After/Diff matrix for direct visual inspection. When screenshots are valid raster images with matching dimensions, it also writes pixel-level diff PNGs and reports changed-pixel ratios for each row.
 
 Use `Refresh Workflow` to see which evidence steps are complete, which are missing, and what should happen next before asking Codex to review the session.
 
@@ -271,9 +271,9 @@ Scenario templates prefill `scenario-plan.md` inputs for common workflows. They 
 
 Timeline presets write separate files such as `timeline-visual.md`, `timeline-outputs.md`, and `timeline-notes.md`. The default `full` preset keeps the existing `timeline.md` / `timeline.json` names. The `review` preset includes metric comparison, metric chart, structured change records, visual diff, Codex packet, and review summary; the `outputs` preset includes output inspection, metric comparison, and metric chart.
 
-`visual-diff.md` pairs `before-change` and `after-change` screenshots and lists the four key views: baseline before, baseline after, variant before, and variant after. This is still diagnostic visual evidence; it does not replace output-based performance checks.
+`visual-diff.md` pairs `before-change` and `after-change` screenshots and lists a visual comparison matrix: Baseline before, Baseline after, Baseline pixel diff, Variant before, Variant after, and Variant pixel diff. This is still diagnostic visual evidence; it does not replace output-based performance checks.
 
-When possible, the sidecar also writes pixel-level diff artifacts under `visual-diff/`. White pixels indicate changed pixels and black pixels indicate unchanged pixels. If screenshots are not valid raster images, or if image dimensions differ, the export remains available as an index and records the pixel-diff warning instead of failing.
+When possible, the sidecar also writes pixel-level diff artifacts under `visual-diff/`. White pixels indicate changed pixels and black pixels indicate unchanged pixels. The matrix reports changed-pixel counts and ratios for quick screening. If screenshots are not valid raster images, or if image dimensions differ, the export remains available as an index and records the pixel-diff warning instead of failing.
 
 ## Config Pair Preflight
 

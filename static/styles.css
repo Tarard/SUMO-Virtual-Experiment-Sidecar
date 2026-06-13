@@ -241,7 +241,6 @@ button:disabled {
 
 .visual-diff-pair {
   display: grid;
-  grid-template-columns: repeat(2, minmax(220px, 1fr));
   gap: 12px;
   padding: 12px;
   border: 1px solid var(--line);
@@ -253,6 +252,53 @@ button:disabled {
   grid-column: 1 / -1;
   margin: 0;
   font-size: 14px;
+}
+
+.visual-diff-matrix {
+  display: grid;
+  grid-template-columns: minmax(110px, 150px) repeat(3, minmax(180px, 1fr));
+  gap: 8px;
+  overflow-x: auto;
+}
+
+.visual-diff-cell {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 8px;
+  background: #fff;
+  color: var(--muted);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.visual-diff-header {
+  display: flex;
+  align-items: center;
+  min-height: 40px;
+  background: #eef4e7;
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.visual-diff-role {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.visual-diff-role span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.visual-diff-cell .screenshot-card img {
+  aspect-ratio: 4 / 3;
 }
 
 pre {
@@ -302,8 +348,11 @@ code {
 
   .twins,
   .output-grid,
-  .control-grid,
-  .visual-diff-pair {
+  .control-grid {
     grid-template-columns: 1fr;
+  }
+
+  .visual-diff-matrix {
+    grid-template-columns: minmax(92px, 120px) repeat(3, minmax(160px, 1fr));
   }
 }

@@ -1169,19 +1169,53 @@ class SessionManager:
         pairs = []
         for index, (before, after) in enumerate(zip(before_items, after_items), start=1):
             pixel_diff = self._build_pixel_diff(session, index, before, after)
+            baseline_before = self._relative_artifact(session, before.baseline_screenshot)
+            baseline_after = self._relative_artifact(session, after.baseline_screenshot)
+            variant_before = self._relative_artifact(session, before.variant_screenshot)
+            variant_after = self._relative_artifact(session, after.variant_screenshot)
+            baseline_pixel_diff = pixel_diff.get("baseline_diff")
+            variant_pixel_diff = pixel_diff.get("variant_diff")
             pairs.append(
                 {
                     "index": index,
                     "status": "paired",
                     "before": self._visual_diff_checkpoint(session, before),
                     "after": self._visual_diff_checkpoint(session, after),
-                    "baseline_before": self._relative_artifact(session, before.baseline_screenshot),
-                    "baseline_after": self._relative_artifact(session, after.baseline_screenshot),
-                    "variant_before": self._relative_artifact(session, before.variant_screenshot),
-                    "variant_after": self._relative_artifact(session, after.variant_screenshot),
+                    "baseline_before": baseline_before,
+                    "baseline_after": baseline_after,
+                    "variant_before": variant_before,
+                    "variant_after": variant_after,
                     "pixel_diff": pixel_diff,
-                    "baseline_pixel_diff": pixel_diff.get("baseline_diff"),
-                    "variant_pixel_diff": pixel_diff.get("variant_diff"),
+                    "baseline_pixel_diff": baseline_pixel_diff,
+                    "variant_pixel_diff": variant_pixel_diff,
+                    "matrix": [
+                        {
+                            "role": "baseline",
+                            "label": "Baseline",
+                            "before": baseline_before,
+                            "after": baseline_after,
+                            "pixel_diff": baseline_pixel_diff,
+                            "changed_pixels": pixel_diff["baseline_changed_pixels"],
+                            "total_pixels": pixel_diff["baseline_total_pixels"],
+                            "changed_pixel_ratio": self._pixel_ratio(
+                                pixel_diff["baseline_changed_pixels"],
+                                pixel_diff["baseline_total_pixels"],
+                            ),
+                        },
+                        {
+                            "role": "variant",
+                            "label": "Variant",
+                            "before": variant_before,
+                            "after": variant_after,
+                            "pixel_diff": variant_pixel_diff,
+                            "changed_pixels": pixel_diff["variant_changed_pixels"],
+                            "total_pixels": pixel_diff["variant_total_pixels"],
+                            "changed_pixel_ratio": self._pixel_ratio(
+                                pixel_diff["variant_changed_pixels"],
+                                pixel_diff["variant_total_pixels"],
+                            ),
+                        },
+                    ],
                     "claim_boundary": "Visual differences are diagnostic only; pair them with SUMO output evidence before making performance claims.",
                 }
             )
@@ -1198,6 +1232,13 @@ class SessionManager:
             "pairs": pairs,
             "warnings": warnings,
         }
+
+    def _pixel_ratio(self, changed_pixels: Any, total_pixels: Any) -> float | None:
+        if not isinstance(changed_pixels, (int, float)) or not isinstance(total_pixels, (int, float)):
+            return None
+        if total_pixels <= 0:
+            return None
+        return changed_pixels / total_pixels
 
     def _visual_diff_checkpoint(self, session: PairedSession, item: ScreenshotEvidence) -> dict[str, Any]:
         return {
@@ -1325,6 +1366,23 @@ class SessionManager:
                     "",
                 ]
             )
+            lines.extend(
+                [
+                    "#### Visual comparison matrix",
+                    "",
+                    "| Role | Before | After | Pixel diff | Changed pixels | Changed ratio |",
+                    "|---|---|---|---|---:|---:|",
+                ]
+            )
+            for row in pair.get("matrix", []):
+                changed_pixels = row["changed_pixels"] if row["changed_pixels"] is not None else "n/a"
+                total_pixels = row["total_pixels"] if row["total_pixels"] is not None else "n/a"
+                ratio = row["changed_pixel_ratio"]
+                ratio_text = "n/a" if ratio is None else f"{ratio:.2%}"
+                lines.append(
+                    f"| {row['label']} | `{row['before']}` | `{row['after']}` | `{row['pixel_diff']}` | {changed_pixels} / {total_pixels} | {ratio_text} |"
+                )
+            lines.append("")
             if pixel_diff["warnings"]:
                 lines.extend(f"- Pixel warning: {warning}" for warning in pixel_diff["warnings"])
                 lines.append("")

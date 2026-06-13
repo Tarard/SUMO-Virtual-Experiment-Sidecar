@@ -129,6 +129,21 @@ def test_homepage_exposes_comparison_readiness_action(tmp_path: Path) -> None:
     assert "renderComparisonReadiness" in script_response.text
 
 
+def test_homepage_exposes_visual_diff_matrix_renderer(tmp_path: Path) -> None:
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+
+    index_response = client.get("/")
+    script_response = client.get("/static/app.js")
+
+    assert index_response.status_code == 200
+    assert script_response.status_code == 200
+    assert "visualDiffPreview" in index_response.text
+    assert "renderVisualDiffMatrix" in script_response.text
+    assert "visual-diff-matrix" in script_response.text
+    assert "changed_pixel_ratio" in script_response.text
+
+
 def test_homepage_exposes_scenario_guide_controls(tmp_path: Path) -> None:
     app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
     client = TestClient(app)
@@ -840,8 +855,30 @@ def test_visual_diff_export_creates_pixel_diff_artifacts_for_valid_pngs(tmp_path
     assert pair["pixel_diff"]["status"] == "ready"
     assert pair["pixel_diff"]["baseline_changed_pixels"] == 1
     assert pair["pixel_diff"]["variant_changed_pixels"] == 0
+    assert [row["role"] for row in pair["matrix"]] == ["baseline", "variant"]
+    assert pair["matrix"][0] == {
+        "role": "baseline",
+        "label": "Baseline",
+        "before": pair["baseline_before"],
+        "after": pair["baseline_after"],
+        "pixel_diff": pair["baseline_pixel_diff"],
+        "changed_pixels": 1,
+        "total_pixels": 1,
+        "changed_pixel_ratio": 1.0,
+    }
+    assert pair["matrix"][1] == {
+        "role": "variant",
+        "label": "Variant",
+        "before": pair["variant_before"],
+        "after": pair["variant_after"],
+        "pixel_diff": pair["variant_pixel_diff"],
+        "changed_pixels": 0,
+        "total_pixels": 1,
+        "changed_pixel_ratio": 0.0,
+    }
     assert Path(tmp_path / "runs" / session_id / pair["baseline_pixel_diff"]).exists()
     assert Path(tmp_path / "runs" / session_id / pair["variant_pixel_diff"]).exists()
+    assert "Visual comparison matrix" in body["visual_diff_markdown"]
     assert "baseline_pixel_diff" in body["visual_diff_markdown"]
     assert "variant_pixel_diff" in body["visual_diff_markdown"]
 

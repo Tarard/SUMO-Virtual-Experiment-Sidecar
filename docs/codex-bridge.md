@@ -271,6 +271,8 @@ Invoke-RestMethod -Uri http://127.0.0.1:8765/api/session/<session_id>/review/sum
 Invoke-RestMethod -Uri http://127.0.0.1:8765/api/session/<session_id>/packet/export -Method Post
 ```
 
+The visual-diff response includes a `matrix` for each before/after pair. Each matrix has one Baseline row and one Variant row, with Before, After, and Pixel diff artifacts plus changed-pixel counts and ratios. Use it for quick visual screening before asking Codex to inspect the full evidence bundle.
+
 Timeline presets:
 
 ```text
@@ -313,7 +315,7 @@ They are not sufficient for performance claims. Travel time, delay, waiting time
 
 Use screenshot evidence as a diagnostic signal first. Promote it into a report only after it is paired with reproducible output data.
 
-Pixel-level visual diff artifacts are also diagnostic. They can show that pixels changed between before/after screenshots, but they do not explain why the change happened and do not replace SUMO output metrics.
+Pixel-level visual diff artifacts and visual comparison matrices are also diagnostic. They can show that pixels changed between before/after screenshots, but they do not explain why the change happened and do not replace SUMO output metrics.
 
 Structured change records close part of that gap by recording what was intentionally changed, but they still do not prove causality. They should be read together with paired outputs, completion status, and reproduced runs.
 
