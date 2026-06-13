@@ -142,7 +142,7 @@ Use `Export Review Summary` when the evidence bundle is ready for agent review. 
 
 Use `Export Agent Prompt` when you want a copyable Codex/Claude instruction that points the agent to the session folder, readiness status, review artifacts, next actions, and claim boundary. This is the bridge for using the Sidecar from the standalone Codex app.
 
-Use `Export Next Action Review` when you want the Sidecar to convert the current evidence gaps into a concrete next operation. It writes `next-action-review.json` and `next-action-review.md`. It is a diagnostic control screen, not a claim generator.
+Use `Export Next Action Review` when you want the Sidecar to convert the current evidence gaps into a concrete next operation. It writes `next-action-review.json` and `next-action-review.md`. If visual observations use a known taxonomy type, the review also lists missing evidence targets, suggested checks, and claim boundaries for those observations. It is a diagnostic control screen, not a claim generator.
 
 Use `Export Visual Diff` after capturing at least one `before-change` and one `after-change` checkpoint. It builds a Baseline/Variant by Before/After/Diff matrix for direct visual inspection. When screenshots are valid raster images with matching dimensions, it also writes pixel-level diff PNGs and reports changed-pixel ratios for each row.
 
@@ -286,7 +286,7 @@ Scenario templates prefill `scenario-plan.md` inputs for common workflows. They 
 
 `visual-observations.md` records what the user noticed in the SUMO GUI or visual-diff matrix, such as queue growth, spillback, phase mismatch, deadlock, or density changes. When a known observation type is used, it also stores taxonomy guidance with evidence targets, suggested checks, next actions, and a claim boundary. It is a diagnostic annotation that should be checked against paired outputs before being used in a claim.
 
-`next-action-review.md` turns the current evidence state into a concrete next Sidecar operation. It is a diagnostic control screen, not a claim generator.
+`next-action-review.md` turns the current evidence state into a concrete next Sidecar operation. It also uses visual-observation taxonomy guidance when available, so a `spillback` or `phase-mismatch` note can point to the missing output, timeline, change-record, or controller evidence that should be checked next. It is a diagnostic control screen, not a claim generator.
 
 `metric-comparison.md` compares persisted baseline and variant output evidence using completion-first ordering. It reports loaded, inserted, arrived, running, waiting, teleports, and completion ratio before tripinfo means such as duration, waiting time, and time loss.
 

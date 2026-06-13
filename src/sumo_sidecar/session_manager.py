@@ -1826,6 +1826,7 @@ class SessionManager:
     ) -> dict[str, Any]:
         relative_paths = {item.relative_path for item in self._list_artifacts(session)}
         visual_observations = session.manifest.get("visual_observations", [])
+        observation_guidance = self._build_observation_guidance(visual_observations, relative_paths)
         has_visual_diff = "visual-diff.md" in relative_paths
         has_visual_observations = bool(visual_observations)
         has_output_inspection = "output-inspection.md" in relative_paths
@@ -1919,6 +1920,19 @@ class SessionManager:
             )
 
         known_actions = {item["action"] for item in recommended_actions}
+        for guidance in observation_guidance:
+            evidence = guidance["missing_evidence_targets"][0] if guidance["missing_evidence_targets"] else guidance.get("evidence_artifact") or "visual-observations.md"
+            for action in guidance["suggested_next_actions"]:
+                if action not in known_actions:
+                    recommended_actions.append(
+                        self._next_action(
+                            len(recommended_actions) + 1,
+                            action,
+                            f"Observation taxonomy `{guidance['taxonomy_label']}` recommends this check for `{guidance['label']}`.",
+                            evidence,
+                        )
+                    )
+                    known_actions.add(action)
         for action in readiness.get("next_actions", []) + workflow.get("next_actions", []):
             clean_action = action.rstrip(".")
             if clean_action not in known_actions:
@@ -1954,11 +1968,38 @@ class SessionManager:
             "workflow_status": workflow["status"],
             "claim_status": "diagnostic-control-screen",
             "visual_observations": visual_observations,
+            "observation_guidance": observation_guidance,
             "missing_or_warn_checks": missing_or_warn_checks,
             "recommended_actions": recommended_actions,
             "artifacts_to_open": self._agent_prompt_artifacts_to_open(session),
             "claim_boundary": "Next-action review is a diagnostic control screen. It does not prove causality, performance improvement, or publishable validity.",
         }
+
+    def _build_observation_guidance(
+        self,
+        visual_observations: list[dict[str, Any]],
+        relative_paths: set[str],
+    ) -> list[dict[str, Any]]:
+        guidance: list[dict[str, Any]] = []
+        for observation in visual_observations:
+            taxonomy = observation.get("taxonomy")
+            if not taxonomy:
+                continue
+            evidence_targets = taxonomy.get("evidence_targets", [])
+            guidance.append(
+                {
+                    "label": observation.get("label", "visual-observation"),
+                    "observation_type": observation.get("observation_type", "unknown"),
+                    "taxonomy_label": taxonomy.get("label", observation.get("observation_type", "unknown")),
+                    "evidence_artifact": observation.get("evidence_artifact"),
+                    "evidence_targets": evidence_targets,
+                    "missing_evidence_targets": [target for target in evidence_targets if target not in relative_paths],
+                    "evidence_checks": taxonomy.get("evidence_checks", []),
+                    "suggested_next_actions": taxonomy.get("next_actions", []),
+                    "claim_boundary": taxonomy.get("claim_boundary", ""),
+                }
+            )
+        return guidance
 
     def _next_action(self, priority: int, action: str, reason: str, evidence: str) -> dict[str, str]:
         return {
@@ -2052,6 +2093,26 @@ class SessionManager:
             f"- `{item.get('label', 'visual-observation')}` / `{item.get('observation_type', 'unknown')}` / `{item.get('confidence', 'diagnostic')}`: {item.get('note', '')} (artifact: `{item.get('evidence_artifact') or 'not specified'}`)"
             for item in review["visual_observations"]
         ] or ["- none"]
+        guidance_lines: list[str] = []
+        for item in review["observation_guidance"]:
+            missing = ", ".join(f"`{target}`" for target in item["missing_evidence_targets"]) or "none"
+            checks = "; ".join(item["evidence_checks"]) or "none"
+            actions = ", ".join(item["suggested_next_actions"]) or "none"
+            guidance_lines.extend(
+                [
+                    f"### {item['label']} / {item['taxonomy_label']}",
+                    "",
+                    f"- Observation type: `{item['observation_type']}`",
+                    f"- Evidence artifact: `{item.get('evidence_artifact') or 'not specified'}`",
+                    f"- Missing evidence targets: {missing}",
+                    f"- Evidence checks: {checks}",
+                    f"- Suggested next actions: {actions}",
+                    f"- Claim boundary: {item['claim_boundary']}",
+                    "",
+                ]
+            )
+        if not guidance_lines:
+            guidance_lines = ["- none"]
         gap_lines = [
             f"- `{item['source']}` `{item['id']}`: `{item['status']}` - {item['evidence']}"
             for item in review["missing_or_warn_checks"]
@@ -2082,6 +2143,10 @@ class SessionManager:
                 *observation_lines,
                 "",
                 "Primary observation artifact: `visual-observations.md`.",
+                "",
+                "## Observation guidance",
+                "",
+                *guidance_lines,
                 "",
                 "## Remaining gaps",
                 "",

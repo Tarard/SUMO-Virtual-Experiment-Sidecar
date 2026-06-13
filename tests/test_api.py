@@ -1161,6 +1161,56 @@ def test_next_action_review_turns_visual_observations_into_next_actions(tmp_path
     assert "next-action-review.md" in artifact_paths
 
 
+def test_next_action_review_includes_taxonomy_missing_evidence_guidance(tmp_path: Path) -> None:
+    baseline = tmp_path / "baseline.sumocfg"
+    variant = tmp_path / "variant.sumocfg"
+    baseline.write_text("<configuration/>", encoding="utf-8")
+    variant.write_text("<configuration/>", encoding="utf-8")
+
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+    create_response = client.post(
+        "/api/session/create",
+        json={
+            "name": "taxonomy-next-action-demo",
+            "baseline_config": str(baseline),
+            "variant_config": str(variant),
+        },
+    )
+    session_id = create_response.json()["id"]
+    client.post(f"/api/session/{session_id}/checkpoint/template", json={"template": "before-change"})
+    client.post(f"/api/session/{session_id}/step", json={"count": 2})
+    client.post(f"/api/session/{session_id}/checkpoint/template", json={"template": "after-change"})
+    client.post(f"/api/session/{session_id}/visual-diff/export")
+    client.post(
+        f"/api/session/{session_id}/visual-observation/record",
+        json={
+            "label": "possible-spillback",
+            "observation_type": "spillback",
+            "evidence_artifact": "visual-diff.md",
+            "confidence": "diagnostic",
+            "note": "The downstream queue appears to block the upstream approach.",
+        },
+    )
+
+    response = client.post(f"/api/session/{session_id}/next-action-review/export")
+
+    assert response.status_code == 200
+    body = response.json()
+    guidance = body["next_action_review"]["observation_guidance"]
+    assert guidance[0]["label"] == "possible-spillback"
+    assert guidance[0]["taxonomy_label"] == "Spillback"
+    assert "output-inspection.md" in guidance[0]["missing_evidence_targets"]
+    assert "timeline.md" in guidance[0]["missing_evidence_targets"]
+    assert any("completion" in check for check in guidance[0]["evidence_checks"])
+    assert "Inspect Outputs" in guidance[0]["suggested_next_actions"]
+    assert "does not prove causality" in guidance[0]["claim_boundary"]
+    assert "Observation guidance" in body["next_action_review_markdown"]
+    assert "possible-spillback" in body["next_action_review_markdown"]
+    assert "output-inspection.md" in body["next_action_review_markdown"]
+    assert "does not prove causality" in body["next_action_review_markdown"]
+
+
 def test_timeline_note_api_records_user_event_without_screenshot(tmp_path: Path) -> None:
     baseline = tmp_path / "baseline.sumocfg"
     variant = tmp_path / "variant.sumocfg"

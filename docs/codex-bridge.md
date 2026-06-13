@@ -107,6 +107,8 @@ Invoke-RestMethod `
 
 This writes `next-action-review.json` and `next-action-review.md`. It reads comparison readiness, workflow status, visual observations, and exported artifacts, then suggests the next Sidecar operation. Treat it as a diagnostic control screen, not as an experiment conclusion.
 
+When visual observations use known taxonomy labels, `next-action-review.md` also reports missing evidence targets and checks for those observations. For example, a `spillback` note can point Codex back to `output-inspection.md`, `timeline.md`, and completion/teleport checks before any mechanism claim is discussed.
+
 ```powershell
 Invoke-RestMethod `
   -Uri http://127.0.0.1:8765/api/config/preflight `
