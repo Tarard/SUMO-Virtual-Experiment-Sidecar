@@ -385,10 +385,27 @@ def test_output_inspection_refreshes_evidence_loop_after_success(tmp_path: Path)
     )[0]
     assert "/outputs/inspect" in handler
     assert "renderOutputInspection(body)" in handler
-    assert "await refreshEvidenceLoopStatus()" in handler
-    assert handler.index("renderOutputInspection(body)") < handler.index("await refreshEvidenceLoopStatus()")
-    assert handler.index("await loadEvidence()") < handler.index("await refreshEvidenceLoopStatus()")
-    assert handler.index("await refreshEvidenceLoopStatus()") < handler.index('log("Output inspection"')
+    assert 'await refreshEvidenceLoopStatus("output-inspection")' in handler
+    assert handler.index("renderOutputInspection(body)") < handler.index('await refreshEvidenceLoopStatus("output-inspection")')
+    assert handler.index("await loadEvidence()") < handler.index('await refreshEvidenceLoopStatus("output-inspection")')
+    assert handler.index('await refreshEvidenceLoopStatus("output-inspection")') < handler.index('log("Output inspection"')
+
+
+def test_evidence_loop_status_shows_refresh_trigger(tmp_path: Path) -> None:
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+
+    script_response = client.get("/static/app.js")
+
+    assert script_response.status_code == 200
+    script = script_response.text
+    assert 'refresh_trigger: ${refreshTrigger}' in script
+    assert 'async function refreshEvidenceLoopStatus(refreshTrigger = "manual-check")' in script
+    assert "renderEvidenceLoopStatus(body, refreshTrigger)" in script
+    assert 'await refreshEvidenceLoopStatus("output-inspection")' in script
+    assert 'await refreshEvidenceLoopStatus("manual-check")' in script
+    assert 'refreshEvidenceLoopStatus("guided-evidence-loop-start")' in script
+    assert 'refreshEvidenceLoopStatus("guided-evidence-loop-finished")' in script
 
 
 def test_homepage_exposes_next_action_review_action(tmp_path: Path) -> None:
