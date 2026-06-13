@@ -401,6 +401,8 @@ Timeline presets write separate files such as `timeline-visual.md`, `timeline-ou
 
 The web Visual Review drawer renders a compact visual-diff summary strip before the full matrix. It reports the visual-diff status, number of paired before/after groups, the row with the largest available changed-pixel ratio, and the diagnostic claim boundary so users know where to look first.
 
+When pixel-level diff data is available, the drawer also renders a `Highest-change visual row` spotlight before the full matrix. This pulls the dominant before/after/diff row into a three-image preview so the operator can inspect the most likely visual change before reading every matrix cell.
+
 When possible, the sidecar also writes pixel-level diff artifacts under `visual-diff/`. White pixels indicate changed pixels and black pixels indicate unchanged pixels. The matrix reports changed-pixel counts and ratios for quick screening. If screenshots are not valid raster images, or if image dimensions differ, the export remains available as an index and records the pixel-diff warning instead of failing.
 
 ## Config Pair Preflight

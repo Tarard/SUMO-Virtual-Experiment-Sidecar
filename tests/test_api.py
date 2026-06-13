@@ -869,6 +869,33 @@ def test_homepage_exposes_visual_diff_summary_strip(tmp_path: Path) -> None:
     assert ".visual-diff-summary-card" in style
 
 
+def test_homepage_exposes_visual_diff_spotlight(tmp_path: Path) -> None:
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+
+    script_response = client.get("/static/app.js")
+    style_response = client.get("/static/styles.css")
+
+    assert script_response.status_code == 200
+    assert style_response.status_code == 200
+    script = script_response.text
+    style = style_response.text
+    assert "function renderVisualDiffSpotlight(visualDiff)" in script
+    assert "function dominantVisualDiffPair(visualDiff)" in script
+    assert "function makeVisualDiffSpotlightCell(labelText, relativePath)" in script
+    assert "visual-diff-spotlight" in script
+    assert "visual-diff-spotlight-gallery" in script
+    assert "Highest-change visual row" in script
+    render_function = script.split("function renderVisualDiff(visualDiff)", 1)[1].split("function renderVisualDiffSummary", 1)[0]
+    assert "renderVisualDiffSummary(visualDiff)" in render_function
+    assert "renderVisualDiffSpotlight(visualDiff)" in render_function
+    assert "renderVisualDiffMatrix(pair)" in render_function
+    assert render_function.index("renderVisualDiffSummary(visualDiff)") < render_function.index("renderVisualDiffSpotlight(visualDiff)")
+    assert render_function.index("renderVisualDiffSpotlight(visualDiff)") < render_function.index("renderVisualDiffMatrix(pair)")
+    assert ".visual-diff-spotlight" in style
+    assert ".visual-diff-spotlight-gallery" in style
+
+
 def test_homepage_exposes_scenario_guide_controls(tmp_path: Path) -> None:
     app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
     client = TestClient(app)

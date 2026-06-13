@@ -962,6 +962,58 @@ button:disabled {
   overflow-wrap: anywhere;
 }
 
+.visual-diff-spotlight {
+  display: grid;
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-left: 5px solid var(--accent);
+  border-radius: 6px;
+  background: #f7fbf1;
+  padding: 12px;
+}
+
+.visual-diff-spotlight h4 {
+  margin: 0 0 4px;
+  color: var(--ink);
+  font-size: 15px;
+}
+
+.visual-diff-spotlight p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.visual-diff-spotlight-gallery {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.visual-diff-spotlight-cell {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.visual-diff-spotlight-cell > span {
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.visual-diff-spotlight-cell .screenshot-card img {
+  aspect-ratio: 4 / 3;
+}
+
+.visual-diff-spotlight-boundary {
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+}
+
 pre {
   min-height: 96px;
   overflow: auto;
@@ -1042,6 +1094,10 @@ code {
   }
 
   .visual-diff-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .visual-diff-spotlight-gallery {
     grid-template-columns: 1fr;
   }
 

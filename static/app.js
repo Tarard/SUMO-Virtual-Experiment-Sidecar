@@ -2328,6 +2328,7 @@ function renderVisualDiff(visualDiff) {
     return;
   }
   container.append(renderVisualDiffSummary(visualDiff));
+  container.append(renderVisualDiffSpotlight(visualDiff));
   for (const pair of pairs) {
     const article = document.createElement("article");
     article.className = "visual-diff-pair";
@@ -2394,6 +2395,70 @@ function makeVisualDiffSummaryCard(label, value, detail) {
   detailNode.textContent = detail;
   card.append(labelNode, valueNode, detailNode);
   return card;
+}
+
+function renderVisualDiffSpotlight(visualDiff) {
+  const dominant = dominantVisualDiffPair(visualDiff);
+  if (!dominant) {
+    return document.createDocumentFragment();
+  }
+  const { pair, row } = dominant;
+  const section = document.createElement("section");
+  section.className = "visual-diff-spotlight";
+
+  const header = document.createElement("div");
+  const title = document.createElement("h4");
+  title.textContent = "Highest-change visual row";
+  const meta = document.createElement("p");
+  const ratio = formatPixelRatio(row) || "pixel ratio unavailable";
+  const pixelStatus = pair.pixel_diff ? pair.pixel_diff.status || "unknown" : "index-only";
+  meta.textContent = `Pair ${pair.index}; ${row.label || row.role || "unknown"}; ${ratio}; pixel_diff_status: ${pixelStatus}`;
+  header.append(title, meta);
+
+  const gallery = document.createElement("div");
+  gallery.className = "visual-diff-spotlight-gallery";
+  gallery.append(
+    makeVisualDiffSpotlightCell("Before", row.before),
+    makeVisualDiffSpotlightCell("After", row.after),
+    makeVisualDiffSpotlightCell("Diff", row.pixel_diff),
+  );
+
+  const boundary = document.createElement("p");
+  boundary.className = "visual-diff-spotlight-boundary";
+  boundary.textContent = "Use this as the first visual inspection target; confirm claims with SUMO completion and output evidence.";
+
+  section.append(header, gallery, boundary);
+  return section;
+}
+
+function dominantVisualDiffPair(visualDiff) {
+  let dominant = null;
+  for (const pair of visualDiff.pairs || []) {
+    const row = dominantVisualDiffRow(pair);
+    if (!row || typeof row.changed_pixel_ratio !== "number") {
+      continue;
+    }
+    if (!dominant || row.changed_pixel_ratio > dominant.row.changed_pixel_ratio) {
+      dominant = { pair, row };
+    }
+  }
+  return dominant;
+}
+
+function makeVisualDiffSpotlightCell(labelText, relativePath) {
+  const cell = document.createElement("div");
+  cell.className = "visual-diff-spotlight-cell";
+  const label = document.createElement("span");
+  label.textContent = labelText;
+  cell.append(label);
+  if (!relativePath) {
+    const missing = document.createElement("p");
+    missing.textContent = "Not available";
+    cell.append(missing);
+    return cell;
+  }
+  cell.append(makeDiffImage(labelText, relativePath));
+  return cell;
 }
 
 function renderVisualDiffMatrix(pair) {
