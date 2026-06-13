@@ -170,7 +170,18 @@ Export visual and agent-readable evidence:
 ```powershell
 Invoke-RestMethod -Uri http://127.0.0.1:8765/api/session/<session_id>/visual-diff/export -Method Post
 Invoke-RestMethod -Uri http://127.0.0.1:8765/api/session/<session_id>/timeline/export -Method Post
+Invoke-RestMethod -Uri "http://127.0.0.1:8765/api/session/<session_id>/timeline/export?preset=visual" -Method Post
 Invoke-RestMethod -Uri http://127.0.0.1:8765/api/session/<session_id>/packet/export -Method Post
+```
+
+Timeline presets:
+
+```text
+full     all events, written to timeline.md/json
+review   high-signal review events
+visual   screenshot checkpoints and visual diff events
+outputs  output-inspection events
+notes    user-authored timeline notes
 ```
 
 Check workflow status before asking Codex for review:

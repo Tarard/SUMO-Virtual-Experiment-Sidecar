@@ -243,9 +243,9 @@ def create_app(
             raise HTTPException(status_code=404, detail=str(exc)) from exc
 
     @app.post("/api/session/{session_id}/timeline/export")
-    def export_timeline(session_id: str) -> dict[str, Any]:
+    def export_timeline(session_id: str, preset: str = "full") -> dict[str, Any]:
         try:
-            timeline = manager.export_timeline(session_id)
+            timeline = manager.export_timeline(session_id, preset=preset)
             return {
                 "timeline": timeline["timeline"],
                 "timeline_json_path": str(timeline["timeline_json_path"]),
@@ -255,6 +255,8 @@ def create_app(
             }
         except KeyError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     @app.post("/api/session/{session_id}/timeline/note")
     def add_timeline_note(session_id: str, request: TimelineNoteRequest) -> dict[str, Any]:

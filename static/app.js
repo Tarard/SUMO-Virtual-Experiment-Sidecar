@@ -467,7 +467,7 @@ el("addTimelineNoteBtn").addEventListener("click", async () => {
       }),
     });
     renderEvidence(body.evidence);
-    const timeline = await api(`/api/session/${state.sessionId}/timeline/export`, { method: "POST" });
+    const timeline = await exportTimelineWithPreset();
     renderEvidence(timeline.evidence);
     el("timelinePreview").textContent = timeline.timeline_markdown;
     await refreshWorkflow();
@@ -592,7 +592,7 @@ el("exportPacketBtn").addEventListener("click", async () => {
 
 el("exportTimelineBtn").addEventListener("click", async () => {
   try {
-    const body = await api(`/api/session/${state.sessionId}/timeline/export`, { method: "POST" });
+    const body = await exportTimelineWithPreset();
     renderEvidence(body.evidence);
     el("timelinePreview").textContent = body.timeline_markdown;
     await refreshWorkflow();
@@ -601,6 +601,11 @@ el("exportTimelineBtn").addEventListener("click", async () => {
     log(`Timeline export failed: ${error.message}`);
   }
 });
+
+async function exportTimelineWithPreset() {
+  const preset = encodeURIComponent(el("timelinePreset").value || "full");
+  return api(`/api/session/${state.sessionId}/timeline/export?preset=${preset}`, { method: "POST" });
+}
 
 el("exportVisualDiffBtn").addEventListener("click", async () => {
   try {

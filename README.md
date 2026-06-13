@@ -18,6 +18,7 @@ MVP focus:
 - export a before/after visual-diff index for paired template checkpoints;
 - generate pixel-level visual-diff PNGs when before/after screenshots are valid raster images;
 - report workflow status and next actions for the active evidence bundle;
+- export timeline presets for full, review, visual, output, or note-focused evidence review;
 - write `manifest.json` and `comparison.md` for Codex to inspect.
 
 Not in this release:
@@ -103,6 +104,8 @@ Use `Export Visual Diff` after capturing at least one `before-change` and one `a
 
 Use `Refresh Workflow` to see which evidence steps are complete, which are missing, and what should happen next before asking Codex to review the session.
 
+Use the `Timeline preset` selector before `Export Timeline` when a session is long. Presets include `full`, `review`, `visual`, `outputs`, and `notes`.
+
 ## Codex Bridge
 
 Codex can interact with the sidecar in two ways:
@@ -125,7 +128,7 @@ Typical workflow:
 5. Add timeline notes when you change parameters, observe a behavior, or record an assumption.
 6. Inspect `summary.xml` and `tripinfo.xml` output evidence before interpreting performance metrics.
 7. Export the visual diff index for the paired before/after checkpoints.
-8. Export a run timeline to align checkpoints, notes, output inspection, and packet evidence.
+8. Export a run timeline, optionally with a preset, to align checkpoints, notes, output inspection, and packet evidence.
 9. Export a Codex packet when the session has enough screenshots and output evidence.
 10. Refresh workflow status and follow remaining next actions.
 11. Ask Codex to inspect the evidence folder, visual diff, packet, timeline, workflow status, or local API.
@@ -156,7 +159,7 @@ GET  /api/session/{id}/workflow/status
 GET  /api/session/{id}/evidence
 GET  /api/session/{id}/artifact/{path}
 POST /api/session/{id}/packet/export
-POST /api/session/{id}/timeline/export
+POST /api/session/{id}/timeline/export?preset=full
 POST /api/session/{id}/timeline/note
 POST /api/session/{id}/visual-diff/export
 POST /api/session/{id}/close
@@ -190,6 +193,8 @@ The web page renders PNG artifacts as screenshot previews through a session-scop
 `codex-packet.md` is a single Markdown entrypoint for agent review. It lists the session, artifacts, comparison notes, output inspection when available, and the claim boundary. It is an index over evidence, not an automatic scientific conclusion.
 
 `timeline.md` aligns session creation, screenshot checkpoints, user notes, output inspection, visual diffs, and exported Codex packets. This is the quickest way to see what evidence was produced before and after a controller or configuration change.
+
+Timeline presets write separate files such as `timeline-visual.md`, `timeline-outputs.md`, and `timeline-notes.md`. The default `full` preset keeps the existing `timeline.md` / `timeline.json` names.
 
 `visual-diff.md` pairs `before-change` and `after-change` screenshots and lists the four key views: baseline before, baseline after, variant before, and variant after. This is still diagnostic visual evidence; it does not replace output-based performance checks.
 

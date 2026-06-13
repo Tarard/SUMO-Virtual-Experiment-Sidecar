@@ -66,6 +66,14 @@ CHECKPOINT_TEMPLATES = {
     "final-state": "Final visual state",
 }
 
+TIMELINE_PRESETS = {
+    "full": None,
+    "review": {"session-created", "user-note", "screenshot-checkpoint", "output-inspection", "visual-diff", "codex-packet"},
+    "visual": {"session-created", "screenshot-checkpoint", "visual-diff"},
+    "outputs": {"session-created", "output-inspection"},
+    "notes": {"session-created", "user-note"},
+}
+
 
 def _default_adapter_factory(role: str, config_path: Path, session_dir: Path, options: dict[str, Any]) -> SumoRun:
     return TraCISumoRun(role=role, config_path=config_path, session_dir=session_dir, options=options)
@@ -297,15 +305,19 @@ class SessionManager:
             "evidence": self.evidence(session_id),
         }
 
-    def export_timeline(self, session_id: str) -> dict[str, Any]:
+    def export_timeline(self, session_id: str, preset: str = "full") -> dict[str, Any]:
         session = self.get(session_id)
-        timeline = self._build_timeline(session)
+        clean_preset = _safe_label(preset)
+        timeline = self._filter_timeline(self._build_timeline(session), clean_preset)
         timeline_markdown = self._render_timeline_markdown(timeline)
-        json_path = session.session_dir / "timeline.json"
-        markdown_path = session.session_dir / "timeline.md"
+        suffix = "" if clean_preset == "full" else f"-{clean_preset}"
+        json_path = session.session_dir / f"timeline{suffix}.json"
+        markdown_path = session.session_dir / f"timeline{suffix}.md"
         json_path.write_text(json.dumps(timeline, indent=2), encoding="utf-8")
         markdown_path.write_text(timeline_markdown, encoding="utf-8")
-        session.manifest["timeline"] = {
+        timeline_manifest_key = "timeline" if clean_preset == "full" else f"timeline_{clean_preset}"
+        session.manifest[timeline_manifest_key] = {
+            "preset": clean_preset,
             "json": str(json_path),
             "markdown": str(markdown_path),
             "updated_at": _utc_now(),
@@ -617,7 +629,28 @@ class SessionManager:
             "session_id": session.id,
             "session_name": session.name,
             "session_dir": str(session.session_dir),
+            "preset": "full",
             "events": events,
+        }
+
+    def _filter_timeline(self, timeline: dict[str, Any], preset: str) -> dict[str, Any]:
+        if preset not in TIMELINE_PRESETS:
+            allowed = ", ".join(sorted(TIMELINE_PRESETS))
+            raise ValueError(f"unknown timeline preset: {preset}. Allowed presets: {allowed}")
+        allowed_kinds = TIMELINE_PRESETS[preset]
+        if allowed_kinds is None:
+            timeline["preset"] = preset
+            return timeline
+        filtered_events = [
+            event for event in timeline["events"]
+            if event["kind"] in allowed_kinds
+        ]
+        for sequence, event in enumerate(filtered_events, start=1):
+            event["sequence"] = sequence
+        return {
+            **timeline,
+            "preset": preset,
+            "events": filtered_events,
         }
 
     def _build_visual_diff(self, session: PairedSession) -> dict[str, Any]:

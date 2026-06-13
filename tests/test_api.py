@@ -292,6 +292,105 @@ def test_timeline_export_aligns_checkpoints_outputs_and_packet(tmp_path: Path) -
     assert "codex-packet.md" in body["timeline_markdown"]
 
 
+def test_timeline_export_visual_preset_filters_to_visual_events(tmp_path: Path) -> None:
+    baseline = tmp_path / "baseline.sumocfg"
+    variant = tmp_path / "variant.sumocfg"
+    baseline.write_text("<configuration/>", encoding="utf-8")
+    variant.write_text("<configuration/>", encoding="utf-8")
+
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+
+    create_response = client.post(
+        "/api/session/create",
+        json={
+            "name": "timeline-visual-demo",
+            "baseline_config": str(baseline),
+            "variant_config": str(variant),
+        },
+    )
+    session_id = create_response.json()["id"]
+    client.post(f"/api/session/{session_id}/checkpoint/first")
+    client.post(
+        f"/api/session/{session_id}/checkpoint/template",
+        json={"template": "before-change", "note": "Before tuning."},
+    )
+    client.post(f"/api/session/{session_id}/step", json={"count": 2})
+    client.post(
+        f"/api/session/{session_id}/checkpoint/template",
+        json={"template": "after-change", "note": "After tuning."},
+    )
+    client.post(
+        f"/api/session/{session_id}/timeline/note",
+        json={"label": "parameter-change", "note": "Changed max green."},
+    )
+    client.post(f"/api/session/{session_id}/visual-diff/export")
+
+    response = client.post(f"/api/session/{session_id}/timeline/export?preset=visual")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["timeline"]["preset"] == "visual"
+    assert Path(body["timeline_json_path"]).name == "timeline-visual.json"
+    assert Path(body["timeline_markdown_path"]).name == "timeline-visual.md"
+    event_kinds = [event["kind"] for event in body["timeline"]["events"]]
+    assert "session-created" in event_kinds
+    assert "screenshot-checkpoint" in event_kinds
+    assert "visual-diff" in event_kinds
+    assert "user-note" not in event_kinds
+    assert "output-inspection" not in event_kinds
+    assert "Visual diff index" in body["timeline_markdown"]
+
+
+def test_timeline_export_outputs_preset_filters_to_output_events(tmp_path: Path) -> None:
+    baseline = tmp_path / "baseline.sumocfg"
+    variant = tmp_path / "variant.sumocfg"
+    baseline.write_text("<configuration/>", encoding="utf-8")
+    variant.write_text("<configuration/>", encoding="utf-8")
+
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+
+    create_response = client.post(
+        "/api/session/create",
+        json={
+            "name": "timeline-outputs-demo",
+            "baseline_config": str(baseline),
+            "variant_config": str(variant),
+        },
+    )
+    session_id = create_response.json()["id"]
+    client.post(f"/api/session/{session_id}/checkpoint/first")
+    baseline_summary = tmp_path / "baseline-summary.xml"
+    variant_summary = tmp_path / "variant-summary.xml"
+    baseline_summary.write_text(
+        '<summary><step time="10" loaded="2" inserted="2" running="0" waiting="0" arrived="2" teleports="0"/></summary>',
+        encoding="utf-8",
+    )
+    variant_summary.write_text(
+        '<summary><step time="10" loaded="2" inserted="2" running="0" waiting="0" arrived="2" teleports="0"/></summary>',
+        encoding="utf-8",
+    )
+    client.post(
+        f"/api/session/{session_id}/outputs/inspect",
+        json={
+            "baseline_summary": str(baseline_summary),
+            "variant_summary": str(variant_summary),
+        },
+    )
+
+    response = client.post(f"/api/session/{session_id}/timeline/export?preset=outputs")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["timeline"]["preset"] == "outputs"
+    assert Path(body["timeline_markdown_path"]).name == "timeline-outputs.md"
+    event_kinds = [event["kind"] for event in body["timeline"]["events"]]
+    assert event_kinds == ["session-created", "output-inspection"]
+    assert "output-inspection.md" in body["timeline_markdown"]
+    assert "first-checkpoint" not in body["timeline_markdown"]
+
+
 def test_template_checkpoint_records_note_in_evidence_and_timeline(tmp_path: Path) -> None:
     baseline = tmp_path / "baseline.sumocfg"
     variant = tmp_path / "variant.sumocfg"
