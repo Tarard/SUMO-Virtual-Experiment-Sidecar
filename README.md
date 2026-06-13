@@ -168,6 +168,8 @@ Use `Guide Source Evidence` when `Check Evidence Loop` reports `needs-source-evi
 
 Use `Use Suggested Output Paths` after `Guide Source Evidence` when you want to copy candidate `.sumocfg` output paths into empty Output Evidence fields. The Output Evidence panel reports which fields were applied, missing, or kept because the user had already typed a value. It does not overwrite existing user-entered paths and does not run `Inspect Outputs`; the user still decides whether those candidates are the right completed-run files.
 
+The Output Evidence panel also shows a lightweight `ready-to-inspect` hint when both required summary fields are non-empty. This is only a form-completion hint; it does not check whether files exist, parse XML, or validate that outputs came from the intended paired run.
+
 Use `Run Evidence Loop` when a session already has enough source evidence and you want the Sidecar to attempt the non-GUI review exports in order: workflow status, metric comparison, metric chart, visual diff, review timeline, review summary, agent prompt, and live state board. Failed steps are logged and later steps still run. This does not launch SUMO GUI, mutate configs, capture screenshots, or certify the experiment.
 
 Use the `Timeline preset` selector before `Export Timeline` when a session is long. Presets include `full`, `review`, `visual`, `outputs`, and `notes`.
@@ -362,6 +364,8 @@ Scenario templates prefill `scenario-plan.md` inputs for common workflows. They 
 `source-evidence/guide` turns missing source evidence into manual Sidecar steps. For output evidence it names `Inspect Outputs`, required `baseline_summary` / `variant_summary` inputs, optional tripinfo inputs, and any candidate paths declared by the session `.sumocfg` files. For visual evidence it names `Capture Template Checkpoint` with the missing `before-change` or `after-change` templates. It is a guide, not an executor; suggested paths still need user confirmation before inspection.
 
 `Use Suggested Output Paths` is a web UI convenience over `source-evidence/guide`. It copies available `suggested_inputs` into empty `baseline_summary`, `baseline_tripinfo`, `variant_summary`, and `variant_tripinfo` fields, then writes an inline copy-status report. It never submits output inspection by itself and never replaces paths the user has already typed.
+
+`outputInspectionReadiness` is a front-end-only hint. It reports `ready-to-inspect` when `baseline_summary` and `variant_summary` fields are non-empty, otherwise `needs-required-summary-paths`. It does not open files, validate XML, or upgrade the evidence status.
 
 `Run Evidence Loop` is the web UI shortcut for collecting the review-facing non-GUI indexes. It attempts workflow status, metric comparison, metric chart, visual diff, review timeline, review summary, agent prompt, and live state board in sequence. A missing artifact or failed export is logged as a failed step instead of stopping the loop. It does not launch SUMO GUI, capture screenshots, mutate configs, or prove that the comparison is valid.
 

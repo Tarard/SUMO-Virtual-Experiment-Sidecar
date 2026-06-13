@@ -7,6 +7,7 @@ const scenarioTemplates = new Map();
 const visualObservationTaxonomy = new Map();
 
 const el = (id) => document.getElementById(id);
+const outputPathInputIds = ["baselineSummary", "baselineTripinfo", "variantSummary", "variantTripinfo"];
 
 function log(message, payload = null) {
   const line = `[${new Date().toLocaleTimeString()}] ${message}`;
@@ -961,6 +962,7 @@ async function applySuggestedOutputPaths() {
     manual_gate: "Suggested paths fill text inputs only. Inspect Outputs still requires a separate user action.",
   });
   renderSuggestedOutputPathStatus(applied, skipped);
+  refreshOutputInspectionReadiness();
   return { applied, skipped };
 }
 
@@ -989,6 +991,40 @@ function renderSuggestedOutputPathStatus(applied, skipped) {
     "- This filled text fields only.",
     "- Inspect Outputs still requires a separate user action.",
     "- Confirm the suggested files belong to the intended completed paired run.",
+  ].join("\n");
+}
+
+function refreshOutputInspectionReadiness() {
+  const required = {
+    baseline_summary: Boolean(el("baselineSummary").value.trim()),
+    variant_summary: Boolean(el("variantSummary").value.trim()),
+  };
+  const optional = {
+    baseline_tripinfo: Boolean(el("baselineTripinfo").value.trim()),
+    variant_tripinfo: Boolean(el("variantTripinfo").value.trim()),
+  };
+  const status = required.baseline_summary && required.variant_summary
+    ? "ready-to-inspect"
+    : "needs-required-summary-paths";
+  renderOutputInspectionReadiness(status, required, optional);
+  return { status, required, optional };
+}
+
+function renderOutputInspectionReadiness(status, required, optional) {
+  el("outputInspectionReadiness").textContent = [
+    `status: ${status}`,
+    "",
+    "required:",
+    `- baseline_summary: ${required.baseline_summary ? "filled" : "missing"}`,
+    `- variant_summary: ${required.variant_summary ? "filled" : "missing"}`,
+    "",
+    "optional:",
+    `- baseline_tripinfo: ${optional.baseline_tripinfo ? "filled" : "missing"}`,
+    `- variant_tripinfo: ${optional.variant_tripinfo ? "filled" : "missing"}`,
+    "",
+    "manual_gate:",
+    "- No files are opened or validated by this hint.",
+    "- Inspect Outputs still requires a separate user action.",
   ].join("\n");
 }
 
@@ -2035,7 +2071,12 @@ el("closeBtn").addEventListener("click", async () => {
   }
 });
 
+for (const inputId of outputPathInputIds) {
+  el(inputId).addEventListener("input", refreshOutputInspectionReadiness);
+}
+
 setControls(false);
+refreshOutputInspectionReadiness();
 loadScenarioTemplates().catch((error) => {
   log(`Scenario template load failed: ${error.message}`);
 });

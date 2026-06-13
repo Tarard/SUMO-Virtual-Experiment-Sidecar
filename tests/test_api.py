@@ -346,6 +346,32 @@ def test_homepage_exposes_manual_copy_for_suggested_output_paths(tmp_path: Path)
     assert "/outputs/inspect" not in script_response.text.split("function applySuggestedOutputPaths", 1)[1].split("function ", 1)[0]
 
 
+def test_homepage_exposes_frontend_output_inspection_readiness_hint(tmp_path: Path) -> None:
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+
+    index_response = client.get("/")
+    script_response = client.get("/static/app.js")
+
+    assert index_response.status_code == 200
+    assert script_response.status_code == 200
+    assert "outputInspectionReadiness" in index_response.text
+    assert "Output inspection readiness will appear here." in index_response.text
+    assert "refreshOutputInspectionReadiness" in script_response.text
+    assert "renderOutputInspectionReadiness" in script_response.text
+    assert "ready-to-inspect" in script_response.text
+    assert "needs-required-summary-paths" in script_response.text
+    assert "baseline_summary:" in script_response.text
+    assert "variant_summary:" in script_response.text
+    assert "filled" in script_response.text
+    assert "missing" in script_response.text
+    assert "No files are opened or validated by this hint." in script_response.text
+    assert "outputPathInputIds" in script_response.text
+    assert ".addEventListener(\"input\", refreshOutputInspectionReadiness)" in script_response.text
+    readiness_function = script_response.text.split("function refreshOutputInspectionReadiness", 1)[1].split("function ", 1)[0]
+    assert "/outputs/inspect" not in readiness_function
+
+
 def test_homepage_exposes_next_action_review_action(tmp_path: Path) -> None:
     app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
     client = TestClient(app)
