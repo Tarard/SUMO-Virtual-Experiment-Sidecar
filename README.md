@@ -28,6 +28,7 @@ MVP focus:
 - report comparison readiness for before/after Codex review;
 - export timeline presets for full, review, visual, output, or note-focused evidence review;
 - export a compact review summary that links changes, metric deltas, visual diff status, and claim boundaries;
+- export a copyable Codex/Claude review prompt for the active evidence bundle;
 - run a bundled full workflow demo that produces a review-ready evidence bundle;
 - write `manifest.json` and `comparison.md` for Codex to inspect.
 
@@ -106,7 +107,7 @@ Use `Launch Demo GUI` to open the same bundled baseline and variant as a paired 
 
 Use `Launch Guided GUI` to run the guided demo first, then open a paired GUI session with the output inspection report already written into the session evidence bundle.
 
-Use `Launch Full Workflow` to run the guided demo, open the paired GUI session, start a demo scenario plan, capture first and before/after checkpoints, add a timeline note, export visual diff, export metric comparison, export a metric chart, export full and review timelines, export a review summary, export a Codex packet, and return a review-ready workflow status. This is the shortest public demonstration of the full evidence loop.
+Use `Launch Full Workflow` to run the guided demo, open the paired GUI session, start a demo scenario plan, capture first and before/after checkpoints, add a timeline note, export visual diff, export metric comparison, export a metric chart, export full and review timelines, export a review summary, export a Codex packet, export an agent review prompt, and return a review-ready workflow status. This is the shortest public demonstration of the full evidence loop.
 
 Use `Load Template` in the Scenario Guide to prefill a common scenario such as signal timing, detector mapping, demand stress, controller weight, or output alignment. Templates only fill the scenario form. They do not edit SUMO files, launch runs, or prove that the planned change was applied.
 
@@ -132,6 +133,8 @@ Use `Export Metric Chart` after metric comparison. It writes `metric-delta-chart
 
 Use `Export Review Summary` when the evidence bundle is ready for agent review. It creates a compact dashboard over structured changes, output inspection, metric comparison, visual diff, timeline, packet status, and the current claim boundary.
 
+Use `Export Agent Prompt` when you want a copyable Codex/Claude instruction that points the agent to the session folder, readiness status, review artifacts, next actions, and claim boundary. This is the bridge for using the Sidecar from the standalone Codex app.
+
 Use `Export Visual Diff` after capturing at least one `before-change` and one `after-change` checkpoint. It builds a Baseline/Variant by Before/After/Diff matrix for direct visual inspection. When screenshots are valid raster images with matching dimensions, it also writes pixel-level diff PNGs and reports changed-pixel ratios for each row.
 
 Use `Refresh Workflow` to see which evidence steps are complete, which are missing, and what should happen next before asking Codex to review the session.
@@ -151,6 +154,7 @@ Codex can interact with the sidecar in two ways:
 5. A single Codex-readable packet written by `/api/session/{id}/packet/export`.
 6. A run timeline written by `/api/session/{id}/timeline/export`.
 7. A compact review dashboard written by `/api/session/{id}/review/summary`.
+8. A copyable agent prompt written by `/api/session/{id}/agent-review-prompt/export`.
 
 This is intentionally not a VS Code extension. The bridge is designed for the Codex app or any local agent that can call localhost APIs and read files from the same machine.
 
@@ -171,9 +175,10 @@ Typical workflow:
 13. Export a run timeline, optionally with a preset, to align scenario plan, checkpoints, change records, metric comparison, chart, notes, output inspection, and packet evidence.
 14. Export a review summary to create the compact review dashboard.
 15. Export a Codex packet when the session has enough screenshots and output evidence.
-16. Refresh scenario/workflow status, check comparison readiness, and follow remaining next actions.
-17. Ask Codex to inspect the evidence folder, scenario plan, review summary, metric chart, metric comparison, visual diff, packet, timeline, workflow status, or local API.
-18. Use the generated `scenario-plan.md`, `comparison.md`, `change-records.md`, `metric-comparison.md`, `metric-delta-chart.md`, `visual-diff.md`, `timeline.md`, `review-summary.md`, and `codex-packet.md` as diagnostic evidence indexes, then pair them with SUMO output files before making formal claims.
+16. Export an agent review prompt and paste it into Codex or Claude.
+17. Refresh scenario/workflow status, check comparison readiness, and follow remaining next actions.
+18. Ask Codex to inspect the evidence folder, scenario plan, review summary, metric chart, metric comparison, visual diff, packet, timeline, workflow status, agent prompt, or local API.
+19. Use the generated `scenario-plan.md`, `comparison.md`, `change-records.md`, `metric-comparison.md`, `metric-delta-chart.md`, `visual-diff.md`, `timeline.md`, `review-summary.md`, `codex-packet.md`, and `agent-review-prompt.md` as diagnostic evidence indexes, then pair them with SUMO output files before making formal claims.
 
 See [docs/codex-bridge.md](docs/codex-bridge.md) for exact prompts and API examples.
 
@@ -212,6 +217,7 @@ POST /api/session/{id}/change/record
 POST /api/session/{id}/metrics/compare
 POST /api/session/{id}/metrics/chart
 POST /api/session/{id}/review/summary
+POST /api/session/{id}/agent-review-prompt/export
 POST /api/session/{id}/visual-diff/export
 POST /api/session/{id}/close
 ```
@@ -235,6 +241,8 @@ runs/<session_id>/
   metric-delta-chart.md
   review-summary.json
   review-summary.md
+  agent-review-prompt.json
+  agent-review-prompt.md
   timeline.json
   timeline.md
   visual-diff.json
@@ -264,6 +272,8 @@ Scenario templates prefill `scenario-plan.md` inputs for common workflows. They 
 `metric-delta-chart.svg` visualizes the numeric deltas from `metric-comparison.json`. The chart uses `variant - baseline`, shows the actual delta values, and scales bars only within the artifact. It is a visual index, not a claim that a larger bar is better.
 
 `review-summary.md` is the compact dashboard for agent review. It links structured changes, output inspection, completion-first metric highlights, metric chart status, visual diff status, timeline status, packet status, and the current claim boundary. It does not re-run SUMO or certify causality.
+
+`agent-review-prompt.md` is the copy-paste bridge into Codex or Claude. It tells the agent which artifacts to open, what readiness and claim status apply, what next actions are suggested, and what claims are prohibited. It is a prompt wrapper over existing evidence, not new evidence.
 
 `comparison/readiness` is a status gate, not an artifact. It reports `needs-evidence`, `ready-to-compare`, or `ready-for-agent-review` based on the current session evidence. `ready-to-compare` means diagnostic before/after review is possible; it does not certify causality, controller performance, or publishable validity.
 

@@ -29,6 +29,7 @@ function setControls(enabled) {
     "compareReadinessBtn",
     "evidenceBtn",
     "exportPacketBtn",
+    "exportAgentPromptBtn",
     "exportTimelineBtn",
     "compareMetricsBtn",
     "exportMetricChartBtn",
@@ -966,6 +967,22 @@ el("exportPacketBtn").addEventListener("click", async () => {
     log(`Packet export failed: ${error.message}`);
   }
 });
+
+el("exportAgentPromptBtn").addEventListener("click", async () => {
+  try {
+    const body = await api(`/api/session/${state.sessionId}/agent-review-prompt/export`, { method: "POST" });
+    renderAgentReviewPrompt(body);
+    await refreshWorkflow();
+    log("Exported agent review prompt", { agent_prompt_markdown_path: body.agent_prompt_markdown_path });
+  } catch (error) {
+    log(`Agent prompt export failed: ${error.message}`);
+  }
+});
+
+function renderAgentReviewPrompt(body) {
+  renderEvidence(body.evidence);
+  el("agentPromptPreview").textContent = body.agent_prompt_markdown || "No agent prompt exported.";
+}
 
 el("exportTimelineBtn").addEventListener("click", async () => {
   try {

@@ -36,7 +36,7 @@ It does not embed Codex inside SUMO, and it does not require VS Code. The user k
 6. Ask Codex to inspect the session folder:
 
    ```text
-   Read runs/<session_id>/manifest.json, scenario-plan.md, comparison.md, change-records.md, metric-comparison.md, metric-delta-chart.md, review-summary.md, timeline.md, visual-diff.md, output-inspection.md, and codex-packet.md if present.
+   Read runs/<session_id>/agent-review-prompt.md if present. If it is missing, read manifest.json, scenario-plan.md, comparison.md, change-records.md, metric-comparison.md, metric-delta-chart.md, review-summary.md, timeline.md, visual-diff.md, output-inspection.md, and codex-packet.md if present.
    Tell me what visual differences are supported by the evidence, what output evidence exists, and what claims remain unsupported.
    ```
 
@@ -46,7 +46,7 @@ For the bundled public demo, the shortest end-to-end path is:
 Invoke-RestMethod -Uri http://127.0.0.1:8765/api/examples/minimal-paired/launch-full-workflow-gui -Method Post
 ```
 
-This runs the guided demo, launches a paired GUI session, starts a demo scenario plan, captures first and before/after checkpoints, adds a timeline note, exports visual diff, exports metric comparison, exports a metric chart, exports full and review timelines, exports a review summary, exports a Codex packet, and returns workflow status. It is a diagnostic workflow demonstration, not a controller-performance claim.
+This runs the guided demo, launches a paired GUI session, starts a demo scenario plan, captures first and before/after checkpoints, adds a timeline note, exports visual diff, exports metric comparison, exports a metric chart, exports full and review timelines, exports a review summary, exports a Codex packet, exports an agent review prompt, and returns workflow status. It is a diagnostic workflow demonstration, not a controller-performance claim.
 
 Before creating a session, Codex can also inspect the paired `.sumocfg` files:
 
@@ -269,6 +269,7 @@ Invoke-RestMethod -Uri http://127.0.0.1:8765/api/session/<session_id>/timeline/e
 Invoke-RestMethod -Uri "http://127.0.0.1:8765/api/session/<session_id>/timeline/export?preset=visual" -Method Post
 Invoke-RestMethod -Uri http://127.0.0.1:8765/api/session/<session_id>/review/summary -Method Post
 Invoke-RestMethod -Uri http://127.0.0.1:8765/api/session/<session_id>/packet/export -Method Post
+Invoke-RestMethod -Uri http://127.0.0.1:8765/api/session/<session_id>/agent-review-prompt/export -Method Post
 ```
 
 The visual-diff response includes a `matrix` for each before/after pair. Each matrix has one Baseline row and one Variant row, with Before, After, and Pixel diff artifacts plus changed-pixel counts and ratios. Use it for quick visual screening before asking Codex to inspect the full evidence bundle.
@@ -290,6 +291,14 @@ Invoke-RestMethod -Uri http://127.0.0.1:8765/api/session/<session_id>/review/sum
 ```
 
 This writes `review-summary.json` and `review-summary.md`. The summary links structured change records, output inspection, completion-first metric highlights, metric chart status, visual diff status, timeline status, packet status, next actions, and the current claim boundary. It is a dashboard over existing evidence, not a new validity proof.
+
+Export a copyable agent review prompt for the standalone Codex or Claude app:
+
+```powershell
+Invoke-RestMethod -Uri http://127.0.0.1:8765/api/session/<session_id>/agent-review-prompt/export -Method Post
+```
+
+This writes `agent-review-prompt.json` and `agent-review-prompt.md`. Paste the Markdown prompt into Codex or Claude when you want the agent to inspect the current Sidecar evidence folder. The prompt includes the session folder, artifacts to open, readiness status, next actions, and the claim boundary.
 
 Check workflow status before asking Codex for review:
 

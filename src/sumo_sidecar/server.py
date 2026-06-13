@@ -195,6 +195,7 @@ def create_app(
             packet = manager.export_packet(session.id)
             timeline = manager.export_timeline(session.id, preset="full")
             review_timeline = manager.export_timeline(session.id, preset="review")
+            agent_prompt = manager.export_agent_review_prompt(session.id)
             workflow = manager.workflow_status(session.id)
             evidence = manager.evidence(session.id)
 
@@ -245,6 +246,12 @@ def create_app(
                 "packet": {
                     "packet_path": str(packet["packet_path"]),
                     "packet_markdown": packet["packet_markdown"],
+                },
+                "agent_prompt": {
+                    "agent_prompt_json_path": str(agent_prompt["agent_prompt_json_path"]),
+                    "agent_prompt_markdown_path": str(agent_prompt["agent_prompt_markdown_path"]),
+                    "agent_prompt_markdown": agent_prompt["agent_prompt_markdown"],
+                    "agent_prompt": agent_prompt["agent_prompt"],
                 },
                 "timeline": {
                     "timeline": timeline["timeline"],
@@ -414,6 +421,20 @@ def create_app(
                 "packet_path": str(packet["packet_path"]),
                 "packet_markdown": packet["packet_markdown"],
                 "evidence": packet["evidence"].model_dump(mode="json"),
+            }
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    @app.post("/api/session/{session_id}/agent-review-prompt/export")
+    def export_agent_review_prompt(session_id: str) -> dict[str, Any]:
+        try:
+            prompt = manager.export_agent_review_prompt(session_id)
+            return {
+                "agent_prompt": prompt["agent_prompt"],
+                "agent_prompt_json_path": str(prompt["agent_prompt_json_path"]),
+                "agent_prompt_markdown_path": str(prompt["agent_prompt_markdown_path"]),
+                "agent_prompt_markdown": prompt["agent_prompt_markdown"],
+                "evidence": prompt["evidence"].model_dump(mode="json"),
             }
         except KeyError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc

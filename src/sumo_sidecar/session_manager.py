@@ -329,6 +329,31 @@ class SessionManager:
             "evidence": self.evidence(session_id),
         }
 
+    def export_agent_review_prompt(self, session_id: str) -> dict[str, Any]:
+        session = self.get(session_id)
+        readiness = self.comparison_readiness(session_id)
+        workflow = self.workflow_status(session_id)
+        prompt = self._build_agent_review_prompt(session, readiness, workflow)
+        prompt_markdown = self._render_agent_review_prompt_markdown(prompt)
+        json_path = session.session_dir / "agent-review-prompt.json"
+        markdown_path = session.session_dir / "agent-review-prompt.md"
+        json_path.write_text(json.dumps(prompt, indent=2), encoding="utf-8")
+        markdown_path.write_text(prompt_markdown, encoding="utf-8")
+        session.manifest["agent_review_prompt"] = {
+            "status": prompt["readiness_status"],
+            "json": str(json_path),
+            "markdown": str(markdown_path),
+            "updated_at": _utc_now(),
+        }
+        self._write_manifest(session)
+        return {
+            "agent_prompt": prompt,
+            "agent_prompt_json_path": json_path,
+            "agent_prompt_markdown_path": markdown_path,
+            "agent_prompt_markdown": prompt_markdown,
+            "evidence": self.evidence(session_id),
+        }
+
     def export_timeline(self, session_id: str, preset: str = "full") -> dict[str, Any]:
         session = self.get(session_id)
         clean_preset = _safe_label(preset)
@@ -1625,6 +1650,7 @@ class SessionManager:
 
     def _review_artifacts_to_review(self, session: PairedSession) -> list[str]:
         candidates = [
+            "agent-review-prompt.md",
             "codex-packet.md",
             "review-summary.md",
             "scenario-plan.md",
@@ -1639,6 +1665,126 @@ class SessionManager:
             "comparison.md",
         ]
         return [path for path in candidates if (session.session_dir / path).exists()]
+
+    def _build_agent_review_prompt(
+        self,
+        session: PairedSession,
+        readiness: dict[str, Any],
+        workflow: dict[str, Any],
+    ) -> dict[str, Any]:
+        artifacts_to_open = self._agent_prompt_artifacts_to_open(session)
+        next_actions = []
+        for action in readiness.get("next_actions", []) + workflow.get("next_actions", []):
+            if action not in next_actions:
+                next_actions.append(action)
+        return {
+            "session_id": session.id,
+            "session_name": session.name,
+            "session_dir": str(session.session_dir),
+            "baseline_config": session.manifest["baseline_config"],
+            "variant_config": session.manifest["variant_config"],
+            "readiness_status": readiness["status"],
+            "workflow_status": workflow["status"],
+            "claim_status": readiness["claim_status"],
+            "artifacts_to_open": artifacts_to_open,
+            "next_actions": next_actions,
+            "readiness_checklist": readiness["checklist"],
+            "claim_boundary": readiness["claim_boundary"],
+            "copyable_prompt": self._copyable_agent_prompt(session, readiness, workflow, artifacts_to_open, next_actions),
+        }
+
+    def _agent_prompt_artifacts_to_open(self, session: PairedSession) -> list[str]:
+        candidates = [
+            "review-summary.md",
+            "codex-packet.md",
+            "scenario-plan.md",
+            "change-records.md",
+            "visual-diff.md",
+            "metric-comparison.md",
+            "metric-delta-chart.md",
+            "metric-delta-chart.svg",
+            "output-inspection.md",
+            "timeline.md",
+            "timeline-review.md",
+            "comparison.md",
+            "manifest.json",
+        ]
+        return [path for path in candidates if (session.session_dir / path).exists()]
+
+    def _copyable_agent_prompt(
+        self,
+        session: PairedSession,
+        readiness: dict[str, Any],
+        workflow: dict[str, Any],
+        artifacts_to_open: list[str],
+        next_actions: list[str],
+    ) -> str:
+        artifact_lines = "\n".join(f"- {artifact}" for artifact in artifacts_to_open) or "- No review artifacts exported yet."
+        action_lines = "\n".join(f"- {action}" for action in next_actions) or "- Inspect the listed artifacts and propose the next evidence step."
+        return "\n".join(
+            [
+                "Use Simulation Helper Skill for Eclipse SUMO (`simulation-helper-skill-for-eclipse-sumo`) or an equivalent SUMO/TraCI audit workflow to review this Sidecar evidence bundle.",
+                "",
+                f"Session folder: {session.session_dir}",
+                f"Session id: {session.id}",
+                f"Baseline config: {session.manifest['baseline_config']}",
+                f"Variant config: {session.manifest['variant_config']}",
+                f"Comparison readiness: {readiness['status']}",
+                f"Workflow status: {workflow['status']}",
+                f"Claim status: {readiness['claim_status']}",
+                "",
+                "Open these artifacts first:",
+                artifact_lines,
+                "",
+                "Task:",
+                "1. Report only supported visual and metric differences from the listed artifacts.",
+                "2. Start with completion, unfinished vehicles, teleports, and output warnings before interpreting tripinfo means.",
+                "3. Connect visual changes to change records only when the evidence supports the connection.",
+                "4. Identify missing evidence, unpaired assumptions, or claim overreach.",
+                "5. Give the next concrete Sidecar action to run.",
+                "",
+                "Next actions currently suggested by the Sidecar:",
+                action_lines,
+                "",
+                "Do not claim causality, performance improvement, or publishable validity from this prompt alone.",
+            ]
+        )
+
+    def _render_agent_review_prompt_markdown(self, prompt: dict[str, Any]) -> str:
+        artifact_lines = [f"- `{artifact}`" for artifact in prompt["artifacts_to_open"]] or ["- none"]
+        action_lines = [f"- {action}" for action in prompt["next_actions"]] or ["- none"]
+        return "\n".join(
+            [
+                f"# Agent Review Prompt: {prompt['session_name']}",
+                "",
+                "Use this prompt in Codex or Claude. It is a bridge from the local Sidecar evidence bundle to an agent review turn.",
+                "",
+                "## Status",
+                "",
+                f"- Comparison readiness: `{prompt['readiness_status']}`",
+                f"- Workflow status: `{prompt['workflow_status']}`",
+                f"- Claim status: `{prompt['claim_status']}`",
+                f"- Session folder: `{prompt['session_dir']}`",
+                "",
+                "## Artifacts to open",
+                "",
+                *artifact_lines,
+                "",
+                "## Current next actions",
+                "",
+                *action_lines,
+                "",
+                "## Copyable prompt",
+                "",
+                "```text",
+                prompt["copyable_prompt"],
+                "```",
+                "",
+                "## Claim boundary",
+                "",
+                prompt["claim_boundary"],
+            ]
+        )
 
     def _render_review_summary_markdown(self, summary: dict[str, Any]) -> str:
         lines = [

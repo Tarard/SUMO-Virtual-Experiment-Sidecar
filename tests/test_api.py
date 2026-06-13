@@ -129,6 +129,22 @@ def test_homepage_exposes_comparison_readiness_action(tmp_path: Path) -> None:
     assert "renderComparisonReadiness" in script_response.text
 
 
+def test_homepage_exposes_agent_review_prompt_action(tmp_path: Path) -> None:
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+
+    index_response = client.get("/")
+    script_response = client.get("/static/app.js")
+
+    assert index_response.status_code == 200
+    assert script_response.status_code == 200
+    assert "exportAgentPromptBtn" in index_response.text
+    assert "Export Agent Prompt" in index_response.text
+    assert "agentPromptPreview" in index_response.text
+    assert "/agent-review-prompt/export" in script_response.text
+    assert "renderAgentReviewPrompt" in script_response.text
+
+
 def test_homepage_exposes_visual_diff_matrix_renderer(tmp_path: Path) -> None:
     app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
     client = TestClient(app)
@@ -435,6 +451,7 @@ def test_minimal_demo_full_workflow_gui_api_exports_review_ready_bundle(tmp_path
     assert body["review_timeline"]["timeline"]["preset"] == "review"
     assert Path(body["scenario_plan"]["scenario_plan_markdown_path"]).name == "scenario-plan.md"
     assert Path(body["packet"]["packet_path"]).name == "codex-packet.md"
+    assert Path(body["agent_prompt"]["agent_prompt_markdown_path"]).name == "agent-review-prompt.md"
     assert Path(body["metric_chart"]["metric_chart_svg_path"]).name == "metric-delta-chart.svg"
     assert Path(body["review_summary"]["review_summary_markdown_path"]).name == "review-summary.md"
     assert "Output Inspection" in body["packet"]["packet_markdown"]
@@ -459,6 +476,8 @@ def test_minimal_demo_full_workflow_gui_api_exports_review_ready_bundle(tmp_path
     assert "metric-delta-chart.md" in artifact_paths
     assert "review-summary.json" in artifact_paths
     assert "review-summary.md" in artifact_paths
+    assert "agent-review-prompt.json" in artifact_paths
+    assert "agent-review-prompt.md" in artifact_paths
     assert "timeline.json" in artifact_paths
     assert "timeline-review.json" in artifact_paths
     assert "codex-packet.md" in artifact_paths
@@ -1505,6 +1524,92 @@ def test_comparison_readiness_reports_core_before_after_gate(tmp_path: Path) -> 
     assert checks["visual_diff"]["status"] == "pass"
     assert checks["review_summary"]["status"] == "recommended"
     assert any("Export Review Summary" in action for action in ready["next_actions"])
+
+
+def test_agent_review_prompt_export_writes_copyable_codex_prompt(tmp_path: Path) -> None:
+    baseline = tmp_path / "baseline.sumocfg"
+    variant = tmp_path / "variant.sumocfg"
+    baseline.write_text("<configuration/>", encoding="utf-8")
+    variant.write_text("<configuration/>", encoding="utf-8")
+    baseline_summary = tmp_path / "baseline-summary.xml"
+    variant_summary = tmp_path / "variant-summary.xml"
+    baseline_summary.write_text(
+        '<summary><step time="10" loaded="2" inserted="2" running="0" waiting="0" arrived="2" teleports="0"/></summary>',
+        encoding="utf-8",
+    )
+    variant_summary.write_text(
+        '<summary><step time="10" loaded="2" inserted="2" running="1" waiting="0" arrived="1" teleports="0"/></summary>',
+        encoding="utf-8",
+    )
+
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+    create_response = client.post(
+        "/api/session/create",
+        json={
+            "name": "agent-prompt-demo",
+            "baseline_config": str(baseline),
+            "variant_config": str(variant),
+        },
+    )
+    session_id = create_response.json()["id"]
+    client.post(
+        f"/api/session/{session_id}/scenario/plan",
+        json={
+            "label": "agent-prompt-scenario",
+            "parameter": "max_green",
+            "before_value": "30",
+            "after_value": "45",
+            "hypothesis": "A longer max_green may change queues.",
+            "expected_metrics": ["completion_ratio", "mean_duration"],
+            "note": "Prompt bridge test.",
+        },
+    )
+    client.post(f"/api/session/{session_id}/checkpoint/first")
+    client.post(f"/api/session/{session_id}/checkpoint/template", json={"template": "before-change"})
+    client.post(
+        f"/api/session/{session_id}/change/record",
+        json={
+            "label": "max-green-change",
+            "parameter": "max_green",
+            "before_value": "30",
+            "after_value": "45",
+            "rationale": "Expose the planned before/after change to Codex.",
+        },
+    )
+    client.post(f"/api/session/{session_id}/step", json={"count": 2})
+    client.post(f"/api/session/{session_id}/checkpoint/template", json={"template": "after-change"})
+    client.post(
+        f"/api/session/{session_id}/outputs/inspect",
+        json={
+            "baseline_summary": str(baseline_summary),
+            "variant_summary": str(variant_summary),
+        },
+    )
+    client.post(f"/api/session/{session_id}/metrics/compare")
+    client.post(f"/api/session/{session_id}/visual-diff/export")
+    client.post(f"/api/session/{session_id}/review/summary")
+    client.post(f"/api/session/{session_id}/packet/export")
+
+    response = client.post(f"/api/session/{session_id}/agent-review-prompt/export")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert Path(body["agent_prompt_json_path"]).exists()
+    assert Path(body["agent_prompt_markdown_path"]).exists()
+    prompt = body["agent_prompt"]
+    assert prompt["readiness_status"] == "ready-to-compare"
+    assert prompt["claim_status"] == "diagnostic-comparison-ready"
+    assert "review-summary.md" in prompt["artifacts_to_open"]
+    assert "codex-packet.md" in prompt["artifacts_to_open"]
+    assert "metric-comparison.md" in prompt["artifacts_to_open"]
+    assert "visual-diff.md" in prompt["artifacts_to_open"]
+    assert "Use this prompt in Codex or Claude" in body["agent_prompt_markdown"]
+    assert "Report only supported visual and metric differences" in body["agent_prompt_markdown"]
+    assert "Do not claim causality, performance improvement, or publishable validity" in body["agent_prompt_markdown"]
+    artifact_paths = {item["relative_path"] for item in body["evidence"]["artifacts"]}
+    assert "agent-review-prompt.json" in artifact_paths
+    assert "agent-review-prompt.md" in artifact_paths
 
 
 def test_workflow_status_guides_incomplete_session_next_actions(tmp_path: Path) -> None:
