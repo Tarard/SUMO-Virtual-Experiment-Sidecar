@@ -321,6 +321,28 @@ def test_homepage_exposes_source_evidence_guide(tmp_path: Path) -> None:
     assert "candidate source" in script_response.text
 
 
+def test_homepage_exposes_manual_copy_for_suggested_output_paths(tmp_path: Path) -> None:
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+
+    index_response = client.get("/")
+    script_response = client.get("/static/app.js")
+
+    assert index_response.status_code == 200
+    assert script_response.status_code == 200
+    assert "applySuggestedOutputPathsBtn" in index_response.text
+    assert "Use Suggested Output Paths" in index_response.text
+    assert '"applySuggestedOutputPathsBtn"' in script_response.text
+    assert "applySuggestedOutputPaths" in script_response.text
+    assert "setSuggestedOutputPath" in script_response.text
+    assert '"baseline_summary", "baselineSummary"' in script_response.text
+    assert '"baseline_tripinfo", "baselineTripinfo"' in script_response.text
+    assert '"variant_summary", "variantSummary"' in script_response.text
+    assert '"variant_tripinfo", "variantTripinfo"' in script_response.text
+    assert "Suggested output paths applied" in script_response.text
+    assert "/outputs/inspect" not in script_response.text.split("function applySuggestedOutputPaths", 1)[1].split("function ", 1)[0]
+
+
 def test_homepage_exposes_next_action_review_action(tmp_path: Path) -> None:
     app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
     client = TestClient(app)

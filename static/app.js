@@ -33,6 +33,7 @@ function setControls(enabled) {
     "enableLiveExperimentStateBoardBtn",
     "checkEvidenceLoopBtn",
     "guideSourceEvidenceBtn",
+    "applySuggestedOutputPathsBtn",
     "runEvidenceLoopBtn",
     "evidenceBtn",
     "exportPacketBtn",
@@ -935,6 +936,44 @@ async function refreshSourceEvidenceGuide() {
   return body;
 }
 
+async function applySuggestedOutputPaths() {
+  const body = await refreshSourceEvidenceGuide();
+  const inspectStep = (body.steps || []).find((step) => step.id === "inspect_outputs");
+  const suggestedInputs = inspectStep ? inspectStep.suggested_inputs || {} : {};
+  const applied = [];
+  const skipped = [];
+  for (const [sourceKey, inputId] of [
+    ["baseline_summary", "baselineSummary"],
+    ["baseline_tripinfo", "baselineTripinfo"],
+    ["variant_summary", "variantSummary"],
+    ["variant_tripinfo", "variantTripinfo"],
+  ]) {
+    const result = setSuggestedOutputPath(sourceKey, inputId, suggestedInputs[sourceKey]);
+    if (result === "applied") {
+      applied.push(sourceKey);
+    } else {
+      skipped.push(`${sourceKey}:${result}`);
+    }
+  }
+  log("Suggested output paths applied", {
+    applied,
+    skipped,
+    manual_gate: "Suggested paths fill text inputs only. Inspect Outputs still requires a separate user action.",
+  });
+  return { applied, skipped };
+}
+
+function setSuggestedOutputPath(sourceKey, inputId, suggestion) {
+  if (!suggestion || !suggestion.path) {
+    return "missing";
+  }
+  if (el(inputId).value.trim()) {
+    return "kept-existing";
+  }
+  el(inputId).value = suggestion.path;
+  return "applied";
+}
+
 async function refreshScenario() {
   const body = await api(`/api/session/${state.sessionId}/scenario/status`);
   renderScenarioStatus(body);
@@ -1153,6 +1192,14 @@ el("guideSourceEvidenceBtn").addEventListener("click", async () => {
     await refreshSourceEvidenceGuide();
   } catch (error) {
     log(`Source evidence guide failed: ${error.message}`);
+  }
+});
+
+el("applySuggestedOutputPathsBtn").addEventListener("click", async () => {
+  try {
+    await applySuggestedOutputPaths();
+  } catch (error) {
+    log(`Suggested output path copy failed: ${error.message}`);
   }
 });
 
