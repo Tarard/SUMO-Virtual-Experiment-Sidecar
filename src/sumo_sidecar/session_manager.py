@@ -72,7 +72,7 @@ CHECKPOINT_TEMPLATES = {
 
 TIMELINE_PRESETS = {
     "full": None,
-    "review": {"session-created", "scenario-plan", "user-note", "change-record", "visual-observation", "screenshot-checkpoint", "output-inspection", "metric-comparison", "metric-chart", "visual-diff", "codex-packet", "review-summary"},
+    "review": {"session-created", "scenario-plan", "user-note", "change-record", "visual-observation", "screenshot-checkpoint", "output-inspection", "metric-comparison", "metric-chart", "visual-diff", "codex-packet", "review-summary", "next-action-review"},
     "visual": {"session-created", "screenshot-checkpoint", "visual-observation", "visual-diff"},
     "outputs": {"session-created", "output-inspection", "metric-comparison", "metric-chart"},
     "notes": {"session-created", "scenario-plan", "user-note", "change-record"},
@@ -353,6 +353,31 @@ class SessionManager:
             "agent_prompt_json_path": json_path,
             "agent_prompt_markdown_path": markdown_path,
             "agent_prompt_markdown": prompt_markdown,
+            "evidence": self.evidence(session_id),
+        }
+
+    def export_next_action_review(self, session_id: str) -> dict[str, Any]:
+        session = self.get(session_id)
+        readiness = self.comparison_readiness(session_id)
+        workflow = self.workflow_status(session_id)
+        review = self._build_next_action_review(session, readiness, workflow)
+        review_markdown = self._render_next_action_review_markdown(review)
+        json_path = session.session_dir / "next-action-review.json"
+        markdown_path = session.session_dir / "next-action-review.md"
+        json_path.write_text(json.dumps(review, indent=2), encoding="utf-8")
+        markdown_path.write_text(review_markdown, encoding="utf-8")
+        session.manifest["next_action_review"] = {
+            "status": review["status"],
+            "json": str(json_path),
+            "markdown": str(markdown_path),
+            "updated_at": _utc_now(),
+        }
+        self._write_manifest(session)
+        return {
+            "next_action_review": review,
+            "next_action_review_json_path": json_path,
+            "next_action_review_markdown_path": markdown_path,
+            "next_action_review_markdown": review_markdown,
             "evidence": self.evidence(session_id),
         }
 
@@ -1201,6 +1226,24 @@ class SessionManager:
                     ],
                 }
             )
+        if "next_action_review" in session.manifest:
+            review = session.manifest["next_action_review"]
+            events.append(
+                {
+                    "sequence": len(events) + 1,
+                    "kind": "next-action-review",
+                    "label": "Next action review",
+                    "simulation_time": None,
+                    "wall_time": review.get("updated_at"),
+                    "status": review.get("status", "unknown"),
+                    "template": None,
+                    "note": "diagnostic control screen for the next Sidecar action",
+                    "artifacts": [
+                        self._relative_artifact(session, review.get("json", "")),
+                        self._relative_artifact(session, review.get("markdown", "")),
+                    ],
+                }
+            )
         return {
             "session_id": session.id,
             "session_name": session.name,
@@ -1699,6 +1742,7 @@ class SessionManager:
 
     def _review_artifacts_to_review(self, session: PairedSession) -> list[str]:
         candidates = [
+            "next-action-review.md",
             "agent-review-prompt.md",
             "codex-packet.md",
             "review-summary.md",
@@ -1745,6 +1789,7 @@ class SessionManager:
 
     def _agent_prompt_artifacts_to_open(self, session: PairedSession) -> list[str]:
         candidates = [
+            "next-action-review.md",
             "review-summary.md",
             "codex-packet.md",
             "scenario-plan.md",
@@ -1761,6 +1806,156 @@ class SessionManager:
             "manifest.json",
         ]
         return [path for path in candidates if (session.session_dir / path).exists()]
+
+    def _build_next_action_review(
+        self,
+        session: PairedSession,
+        readiness: dict[str, Any],
+        workflow: dict[str, Any],
+    ) -> dict[str, Any]:
+        relative_paths = {item.relative_path for item in self._list_artifacts(session)}
+        visual_observations = session.manifest.get("visual_observations", [])
+        has_visual_diff = "visual-diff.md" in relative_paths
+        has_visual_observations = bool(visual_observations)
+        has_output_inspection = "output-inspection.md" in relative_paths
+        has_metric_comparison = "metric-comparison.md" in relative_paths
+        has_metric_chart = "metric-delta-chart.md" in relative_paths
+        has_review_summary = "review-summary.md" in relative_paths
+        has_codex_packet = "codex-packet.md" in relative_paths
+        has_agent_prompt = "agent-review-prompt.md" in relative_paths
+
+        recommended_actions: list[dict[str, str]] = []
+        if not has_visual_diff:
+            recommended_actions.append(
+                self._next_action(
+                    1,
+                    "Export Visual Diff",
+                    "Before/after visual evidence has not been indexed yet.",
+                    "visual-diff.md",
+                )
+            )
+        elif not has_visual_observations:
+            recommended_actions.append(
+                self._next_action(
+                    1,
+                    "Record Visual Observation",
+                    "The visual diff exists, but the human-visible queue, phase, or density pattern has not been described.",
+                    "visual-observations.md",
+                )
+            )
+        elif not has_output_inspection:
+            recommended_actions.append(
+                self._next_action(
+                    1,
+                    "Inspect Outputs",
+                    "Visual observations need completion, unfinished-vehicle, teleport, and output-warning evidence before interpretation.",
+                    "output-inspection.md",
+                )
+            )
+        elif not has_metric_comparison:
+            recommended_actions.append(
+                self._next_action(
+                    1,
+                    "Compare Metrics",
+                    "Output inspection exists, but completion-first baseline/variant deltas have not been exported.",
+                    "metric-comparison.md",
+                )
+            )
+        elif not has_metric_chart:
+            recommended_actions.append(
+                self._next_action(
+                    1,
+                    "Export Metric Chart",
+                    "Metric deltas exist, but there is no visual metric artifact for quick paired inspection.",
+                    "metric-delta-chart.md",
+                )
+            )
+        elif not has_review_summary:
+            recommended_actions.append(
+                self._next_action(
+                    1,
+                    "Export Review Summary",
+                    "Core visual and metric artifacts exist, but the compact claim-boundary dashboard has not been exported.",
+                    "review-summary.md",
+                )
+            )
+        elif not has_codex_packet:
+            recommended_actions.append(
+                self._next_action(
+                    1,
+                    "Export Codex Packet",
+                    "The review summary exists, but Codex still needs a single evidence bundle index.",
+                    "codex-packet.md",
+                )
+            )
+        elif not has_agent_prompt:
+            recommended_actions.append(
+                self._next_action(
+                    1,
+                    "Export Agent Prompt",
+                    "The evidence bundle is ready, but the copyable Codex/Claude prompt has not been exported.",
+                    "agent-review-prompt.md",
+                )
+            )
+        else:
+            recommended_actions.append(
+                self._next_action(
+                    1,
+                    "Ask Codex or Claude to review agent-review-prompt.md",
+                    "Core diagnostic review artifacts exist; the next step is agent-assisted review of supported claims and gaps.",
+                    "agent-review-prompt.md",
+                )
+            )
+
+        known_actions = {item["action"] for item in recommended_actions}
+        for action in readiness.get("next_actions", []) + workflow.get("next_actions", []):
+            clean_action = action.rstrip(".")
+            if clean_action not in known_actions:
+                recommended_actions.append(
+                    self._next_action(
+                        len(recommended_actions) + 1,
+                        clean_action,
+                        "Sidecar status check still reports this as a remaining workflow gap.",
+                        "workflow-status",
+                    )
+                )
+                known_actions.add(clean_action)
+
+        missing_or_warn_checks = [
+            {
+                "source": source,
+                "id": item["id"],
+                "label": item["label"],
+                "status": item["status"],
+                "evidence": item["evidence"],
+            }
+            for source, checklist in (("comparison_readiness", readiness.get("checklist", [])), ("workflow_status", workflow.get("checklist", [])))
+            for item in checklist
+            if item.get("status") != "pass"
+        ]
+        status = "ready-for-agent-review" if recommended_actions[0]["action"].startswith("Ask Codex") else "needs-action"
+        return {
+            "session_id": session.id,
+            "session_name": session.name,
+            "session_dir": str(session.session_dir),
+            "status": status,
+            "readiness_status": readiness["status"],
+            "workflow_status": workflow["status"],
+            "claim_status": "diagnostic-control-screen",
+            "visual_observations": visual_observations,
+            "missing_or_warn_checks": missing_or_warn_checks,
+            "recommended_actions": recommended_actions,
+            "artifacts_to_open": self._agent_prompt_artifacts_to_open(session),
+            "claim_boundary": "Next-action review is a diagnostic control screen. It does not prove causality, performance improvement, or publishable validity.",
+        }
+
+    def _next_action(self, priority: int, action: str, reason: str, evidence: str) -> dict[str, str]:
+        return {
+            "priority": str(priority),
+            "action": action,
+            "reason": reason,
+            "evidence": evidence,
+        }
 
     def _copyable_agent_prompt(
         self,
@@ -1834,6 +2029,60 @@ class SessionManager:
                 "## Claim boundary",
                 "",
                 prompt["claim_boundary"],
+            ]
+        )
+
+    def _render_next_action_review_markdown(self, review: dict[str, Any]) -> str:
+        action_lines = [
+            f"| {action['priority']} | {self._markdown_table_cell(action['action'])} | {self._markdown_table_cell(action['reason'])} | `{action['evidence']}` |"
+            for action in review["recommended_actions"]
+        ]
+        observation_lines = [
+            f"- `{item.get('label', 'visual-observation')}` / `{item.get('observation_type', 'unknown')}` / `{item.get('confidence', 'diagnostic')}`: {item.get('note', '')} (artifact: `{item.get('evidence_artifact') or 'not specified'}`)"
+            for item in review["visual_observations"]
+        ] or ["- none"]
+        gap_lines = [
+            f"- `{item['source']}` `{item['id']}`: `{item['status']}` - {item['evidence']}"
+            for item in review["missing_or_warn_checks"]
+        ] or ["- none"]
+        artifact_lines = [f"- `{artifact}`" for artifact in review["artifacts_to_open"]] or ["- none"]
+        return "\n".join(
+            [
+                f"# Next Action Review: {review['session_name']}",
+                "",
+                "A diagnostic control screen for choosing the next Sidecar action from current visual, output, and review artifacts.",
+                "",
+                "## Status",
+                "",
+                f"- Next-action status: `{review['status']}`",
+                f"- Comparison readiness: `{review['readiness_status']}`",
+                f"- Workflow status: `{review['workflow_status']}`",
+                f"- Claim status: `{review['claim_status']}`",
+                f"- Session folder: `{review['session_dir']}`",
+                "",
+                "## Recommended actions",
+                "",
+                "| Priority | Action | Reason | Evidence target |",
+                "|---|---|---|---|",
+                *action_lines,
+                "",
+                "## Visual observations",
+                "",
+                *observation_lines,
+                "",
+                "Primary observation artifact: `visual-observations.md`.",
+                "",
+                "## Remaining gaps",
+                "",
+                *gap_lines,
+                "",
+                "## Artifacts to open",
+                "",
+                *artifact_lines,
+                "",
+                "## Claim boundary",
+                "",
+                review["claim_boundary"],
             ]
         )
 

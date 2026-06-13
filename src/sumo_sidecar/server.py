@@ -196,6 +196,9 @@ def create_app(
             packet = manager.export_packet(session.id)
             timeline = manager.export_timeline(session.id, preset="full")
             review_timeline = manager.export_timeline(session.id, preset="review")
+            next_action_review = manager.export_next_action_review(session.id)
+            timeline = manager.export_timeline(session.id, preset="full")
+            review_timeline = manager.export_timeline(session.id, preset="review")
             agent_prompt = manager.export_agent_review_prompt(session.id)
             workflow = manager.workflow_status(session.id)
             evidence = manager.evidence(session.id)
@@ -253,6 +256,12 @@ def create_app(
                     "agent_prompt_markdown_path": str(agent_prompt["agent_prompt_markdown_path"]),
                     "agent_prompt_markdown": agent_prompt["agent_prompt_markdown"],
                     "agent_prompt": agent_prompt["agent_prompt"],
+                },
+                "next_action_review": {
+                    "next_action_review": next_action_review["next_action_review"],
+                    "next_action_review_json_path": str(next_action_review["next_action_review_json_path"]),
+                    "next_action_review_markdown_path": str(next_action_review["next_action_review_markdown_path"]),
+                    "next_action_review_markdown": next_action_review["next_action_review_markdown"],
                 },
                 "timeline": {
                     "timeline": timeline["timeline"],
@@ -436,6 +445,20 @@ def create_app(
                 "agent_prompt_markdown_path": str(prompt["agent_prompt_markdown_path"]),
                 "agent_prompt_markdown": prompt["agent_prompt_markdown"],
                 "evidence": prompt["evidence"].model_dump(mode="json"),
+            }
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    @app.post("/api/session/{session_id}/next-action-review/export")
+    def export_next_action_review(session_id: str) -> dict[str, Any]:
+        try:
+            review = manager.export_next_action_review(session_id)
+            return {
+                "next_action_review": review["next_action_review"],
+                "next_action_review_json_path": str(review["next_action_review_json_path"]),
+                "next_action_review_markdown_path": str(review["next_action_review_markdown_path"]),
+                "next_action_review_markdown": review["next_action_review_markdown"],
+                "evidence": review["evidence"].model_dump(mode="json"),
             }
         except KeyError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc

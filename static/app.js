@@ -30,6 +30,7 @@ function setControls(enabled) {
     "evidenceBtn",
     "exportPacketBtn",
     "exportAgentPromptBtn",
+    "exportNextActionReviewBtn",
     "exportTimelineBtn",
     "compareMetricsBtn",
     "exportMetricChartBtn",
@@ -993,6 +994,22 @@ el("exportAgentPromptBtn").addEventListener("click", async () => {
 function renderAgentReviewPrompt(body) {
   renderEvidence(body.evidence);
   el("agentPromptPreview").textContent = body.agent_prompt_markdown || "No agent prompt exported.";
+}
+
+el("exportNextActionReviewBtn").addEventListener("click", async () => {
+  try {
+    const body = await api(`/api/session/${state.sessionId}/next-action-review/export`, { method: "POST" });
+    renderNextActionReview(body);
+    await refreshWorkflow();
+    log("Exported next action review", { next_action_review_markdown_path: body.next_action_review_markdown_path });
+  } catch (error) {
+    log(`Next action review export failed: ${error.message}`);
+  }
+});
+
+function renderNextActionReview(body) {
+  renderEvidence(body.evidence);
+  el("nextActionReviewPreview").textContent = body.next_action_review_markdown || "No next action review exported.";
 }
 
 el("exportTimelineBtn").addEventListener("click", async () => {

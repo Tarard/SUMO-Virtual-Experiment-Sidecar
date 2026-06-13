@@ -30,6 +30,7 @@ MVP focus:
 - export timeline presets for full, review, visual, output, or note-focused evidence review;
 - export a compact review summary that links changes, metric deltas, visual diff status, and claim boundaries;
 - export a copyable Codex/Claude review prompt for the active evidence bundle;
+- export a next-action review that turns current evidence gaps into the next Sidecar operation;
 - run a bundled full workflow demo that produces a review-ready evidence bundle;
 - write `manifest.json` and `comparison.md` for Codex to inspect.
 
@@ -108,7 +109,7 @@ Use `Launch Demo GUI` to open the same bundled baseline and variant as a paired 
 
 Use `Launch Guided GUI` to run the guided demo first, then open a paired GUI session with the output inspection report already written into the session evidence bundle.
 
-Use `Launch Full Workflow` to run the guided demo, open the paired GUI session, start a demo scenario plan, capture first and before/after checkpoints, add a timeline note, export visual diff, export metric comparison, export a metric chart, export full and review timelines, export a review summary, export a Codex packet, export an agent review prompt, and return a review-ready workflow status. This is the shortest public demonstration of the full evidence loop.
+Use `Launch Full Workflow` to run the guided demo, open the paired GUI session, start a demo scenario plan, capture first and before/after checkpoints, add a timeline note, export visual diff, export metric comparison, export a metric chart, export full and review timelines, export a review summary, export a Codex packet, export a next-action review, export an agent review prompt, and return a review-ready workflow status. This is the shortest public demonstration of the full evidence loop.
 
 Use `Load Template` in the Scenario Guide to prefill a common scenario such as signal timing, detector mapping, demand stress, controller weight, or output alignment. Templates only fill the scenario form. They do not edit SUMO files, launch runs, or prove that the planned change was applied.
 
@@ -138,6 +139,8 @@ Use `Export Review Summary` when the evidence bundle is ready for agent review. 
 
 Use `Export Agent Prompt` when you want a copyable Codex/Claude instruction that points the agent to the session folder, readiness status, review artifacts, next actions, and claim boundary. This is the bridge for using the Sidecar from the standalone Codex app.
 
+Use `Export Next Action Review` when you want the Sidecar to convert the current evidence gaps into a concrete next operation. It writes `next-action-review.json` and `next-action-review.md`. It is a diagnostic control screen, not a claim generator.
+
 Use `Export Visual Diff` after capturing at least one `before-change` and one `after-change` checkpoint. It builds a Baseline/Variant by Before/After/Diff matrix for direct visual inspection. When screenshots are valid raster images with matching dimensions, it also writes pixel-level diff PNGs and reports changed-pixel ratios for each row.
 
 Use `Refresh Workflow` to see which evidence steps are complete, which are missing, and what should happen next before asking Codex to review the session.
@@ -158,6 +161,7 @@ Codex can interact with the sidecar in two ways:
 6. A run timeline written by `/api/session/{id}/timeline/export`.
 7. A compact review dashboard written by `/api/session/{id}/review/summary`.
 8. A copyable agent prompt written by `/api/session/{id}/agent-review-prompt/export`.
+9. A next-action control screen written by `/api/session/{id}/next-action-review/export`.
 
 This is intentionally not a VS Code extension. The bridge is designed for the Codex app or any local agent that can call localhost APIs and read files from the same machine.
 

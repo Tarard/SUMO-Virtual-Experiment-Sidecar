@@ -46,7 +46,7 @@ For the bundled public demo, the shortest end-to-end path is:
 Invoke-RestMethod -Uri http://127.0.0.1:8765/api/examples/minimal-paired/launch-full-workflow-gui -Method Post
 ```
 
-This runs the guided demo, launches a paired GUI session, starts a demo scenario plan, captures first and before/after checkpoints, adds a timeline note, exports visual diff, exports metric comparison, exports a metric chart, exports full and review timelines, exports a review summary, exports a Codex packet, exports an agent review prompt, and returns workflow status. It is a diagnostic workflow demonstration, not a controller-performance claim.
+This runs the guided demo, launches a paired GUI session, starts a demo scenario plan, captures first and before/after checkpoints, adds a timeline note, exports visual diff, exports metric comparison, exports a metric chart, exports full and review timelines, exports a review summary, exports a Codex packet, exports a next-action review, exports an agent review prompt, and returns workflow status. It is a diagnostic workflow demonstration, not a controller-performance claim.
 
 Before creating a session, Codex can also inspect the paired `.sumocfg` files:
 
@@ -88,6 +88,16 @@ Invoke-RestMethod `
 ```
 
 This writes `visual-observations.json` and `visual-observations.md`. Treat these observations as human annotations over visual evidence, not as formal output evidence.
+
+After evidence has accumulated, export the next-action review:
+
+```powershell
+Invoke-RestMethod `
+  -Uri http://127.0.0.1:8765/api/session/<session_id>/next-action-review/export `
+  -Method Post
+```
+
+This writes `next-action-review.json` and `next-action-review.md`. It reads comparison readiness, workflow status, visual observations, and exported artifacts, then suggests the next Sidecar operation. Treat it as a diagnostic control screen, not as an experiment conclusion.
 
 ```powershell
 Invoke-RestMethod `

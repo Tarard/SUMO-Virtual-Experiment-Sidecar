@@ -145,6 +145,22 @@ def test_homepage_exposes_agent_review_prompt_action(tmp_path: Path) -> None:
     assert "renderAgentReviewPrompt" in script_response.text
 
 
+def test_homepage_exposes_next_action_review_action(tmp_path: Path) -> None:
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+
+    index_response = client.get("/")
+    script_response = client.get("/static/app.js")
+
+    assert index_response.status_code == 200
+    assert script_response.status_code == 200
+    assert "exportNextActionReviewBtn" in index_response.text
+    assert "Export Next Action Review" in index_response.text
+    assert "nextActionReviewPreview" in index_response.text
+    assert "/next-action-review/export" in script_response.text
+    assert "renderNextActionReview" in script_response.text
+
+
 def test_homepage_exposes_visual_observation_controls(tmp_path: Path) -> None:
     app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
     client = TestClient(app)
@@ -472,12 +488,16 @@ def test_minimal_demo_full_workflow_gui_api_exports_review_ready_bundle(tmp_path
     assert Path(body["scenario_plan"]["scenario_plan_markdown_path"]).name == "scenario-plan.md"
     assert Path(body["packet"]["packet_path"]).name == "codex-packet.md"
     assert Path(body["agent_prompt"]["agent_prompt_markdown_path"]).name == "agent-review-prompt.md"
+    assert Path(body["next_action_review"]["next_action_review_markdown_path"]).name == "next-action-review.md"
     assert Path(body["metric_chart"]["metric_chart_svg_path"]).name == "metric-delta-chart.svg"
     assert Path(body["review_summary"]["review_summary_markdown_path"]).name == "review-summary.md"
     assert "Output Inspection" in body["packet"]["packet_markdown"]
     assert "Scenario Plan" in body["packet"]["packet_markdown"]
     assert "Metric Delta Chart" in body["packet"]["packet_markdown"]
     assert "Review Summary" in body["packet"]["packet_markdown"]
+    assert "Record Visual Observation" in body["next_action_review"]["next_action_review_markdown"]
+    assert "next-action-review.md" in body["agent_prompt"]["agent_prompt"]["artifacts_to_open"]
+    assert "next-action-review" in {event["kind"] for event in body["review_timeline"]["timeline"]["events"]}
     assert "Claim boundary" in body["review_summary"]["review_summary_markdown"]
     assert "metric-delta-chart.md" in body["review_summary"]["review_summary_markdown"]
     assert body["workflow"]["status"] == "review-ready"
@@ -496,6 +516,8 @@ def test_minimal_demo_full_workflow_gui_api_exports_review_ready_bundle(tmp_path
     assert "metric-delta-chart.md" in artifact_paths
     assert "review-summary.json" in artifact_paths
     assert "review-summary.md" in artifact_paths
+    assert "next-action-review.json" in artifact_paths
+    assert "next-action-review.md" in artifact_paths
     assert "agent-review-prompt.json" in artifact_paths
     assert "agent-review-prompt.md" in artifact_paths
     assert "timeline.json" in artifact_paths
@@ -987,6 +1009,82 @@ def test_visual_observation_record_enters_evidence_review_and_prompt(tmp_path: P
     prompt = prompt_response.json()
     assert "visual-observations.md" in prompt["agent_prompt"]["artifacts_to_open"]
     assert "visual-observations.md" in prompt["agent_prompt_markdown"]
+
+
+def test_next_action_review_turns_visual_observations_into_next_actions(tmp_path: Path) -> None:
+    baseline = tmp_path / "baseline.sumocfg"
+    variant = tmp_path / "variant.sumocfg"
+    baseline.write_text("<configuration/>", encoding="utf-8")
+    variant.write_text("<configuration/>", encoding="utf-8")
+
+    app = create_app(adapter_factory=FakeAdapterFactory(), default_output_root=tmp_path / "runs")
+    client = TestClient(app)
+    create_response = client.post(
+        "/api/session/create",
+        json={
+            "name": "next-action-review-demo",
+            "baseline_config": str(baseline),
+            "variant_config": str(variant),
+        },
+    )
+    session_id = create_response.json()["id"]
+    client.post(
+        f"/api/session/{session_id}/scenario/plan",
+        json={
+            "label": "max-green-scenario",
+            "parameter": "max_green",
+            "before_value": "30",
+            "after_value": "45",
+            "hypothesis": "Longer green may reduce queues if completion remains paired.",
+            "expected_metrics": ["completion_ratio", "mean_duration"],
+        },
+    )
+    client.post(f"/api/session/{session_id}/checkpoint/first")
+    client.post(f"/api/session/{session_id}/checkpoint/template", json={"template": "before-change"})
+    client.post(
+        f"/api/session/{session_id}/change/record",
+        json={
+            "label": "max-green-change",
+            "parameter": "max_green",
+            "before_value": "30",
+            "after_value": "45",
+            "rationale": "Check the queue response before claiming improvement.",
+        },
+    )
+    client.post(f"/api/session/{session_id}/step", json={"count": 4})
+    client.post(f"/api/session/{session_id}/checkpoint/template", json={"template": "after-change"})
+    client.post(f"/api/session/{session_id}/visual-diff/export")
+    client.post(
+        f"/api/session/{session_id}/visual-observation/record",
+        json={
+            "label": "queue-growth-eastbound",
+            "observation_type": "queue-growth",
+            "evidence_artifact": "visual-diff.md",
+            "confidence": "diagnostic",
+            "note": "Variant appears to keep a longer eastbound queue after the change.",
+        },
+    )
+
+    response = client.post(f"/api/session/{session_id}/next-action-review/export")
+
+    assert response.status_code == 200
+    body = response.json()
+    review = body["next_action_review"]
+    assert review["status"] == "needs-action"
+    assert review["claim_status"] == "diagnostic-control-screen"
+    assert review["visual_observations"][0]["observation_type"] == "queue-growth"
+    assert review["recommended_actions"][0]["action"] == "Inspect Outputs"
+    assert "completion" in review["recommended_actions"][0]["reason"]
+    assert review["recommended_actions"][0]["evidence"] == "output-inspection.md"
+    assert "does not prove causality" in review["claim_boundary"]
+    assert Path(body["next_action_review_json_path"]).exists()
+    assert Path(body["next_action_review_markdown_path"]).exists()
+    assert "Inspect Outputs" in body["next_action_review_markdown"]
+    assert "visual-observations.md" in body["next_action_review_markdown"]
+
+    artifact_paths = {item["relative_path"] for item in body["evidence"]["artifacts"]}
+    assert "next-action-review.json" in artifact_paths
+    assert "next-action-review.md" in artifact_paths
 
 
 def test_timeline_note_api_records_user_event_without_screenshot(tmp_path: Path) -> None:
