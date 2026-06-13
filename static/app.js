@@ -21,6 +21,7 @@ function setControls(enabled) {
     "addTimelineNoteBtn",
     "recordChangeBtn",
     "startScenarioBtn",
+    "recordScenarioChangeBtn",
     "scenarioStatusBtn",
     "firstCheckpointBtn",
     "stateBtn",
@@ -346,6 +347,23 @@ function scenarioPlanPayload() {
     expected_metrics: metrics,
     note: note || null,
   };
+}
+
+function changeRecordPayload() {
+  const note = el("changeNote").value.trim();
+  return {
+    label: el("changeLabel").value,
+    parameter: el("changeParameter").value,
+    before_value: el("changeBefore").value,
+    after_value: el("changeAfter").value,
+    rationale: el("changeRationale").value,
+    note: note || null,
+  };
+}
+
+function scenarioChangeRecordPayload() {
+  syncChangeFieldsFromScenario();
+  return changeRecordPayload();
 }
 
 function syncChangeFieldsFromScenario() {
@@ -716,17 +734,9 @@ el("addTimelineNoteBtn").addEventListener("click", async () => {
 
 el("recordChangeBtn").addEventListener("click", async () => {
   try {
-    const note = el("changeNote").value.trim();
     const body = await api(`/api/session/${state.sessionId}/change/record`, {
       method: "POST",
-      body: JSON.stringify({
-        label: el("changeLabel").value,
-        parameter: el("changeParameter").value,
-        before_value: el("changeBefore").value,
-        after_value: el("changeAfter").value,
-        rationale: el("changeRationale").value,
-        note: note || null,
-      }),
+      body: JSON.stringify(changeRecordPayload()),
     });
     renderEvidence(body.evidence);
     const timeline = await exportTimelineWithPreset();
@@ -736,6 +746,35 @@ el("recordChangeBtn").addEventListener("click", async () => {
     log("Recorded structured change", body.change);
   } catch (error) {
     log(`Change record failed: ${error.message}`);
+  }
+});
+
+async function recordScenarioChange() {
+  const body = await api(`/api/session/${state.sessionId}/change/record`, {
+    method: "POST",
+    body: JSON.stringify(scenarioChangeRecordPayload()),
+  });
+  renderEvidence(body.evidence);
+  const timeline = await exportTimelineWithPreset();
+  renderEvidence(timeline.evidence);
+  el("timelinePreview").textContent = timeline.timeline_markdown;
+  await refreshWorkflow();
+  await refreshScenario();
+  el("scenarioOutput").textContent += [
+    "",
+    "change_record: recorded",
+    `change_label: ${body.change.label}`,
+    `parameter: ${body.change.parameter}`,
+  ].join("\n");
+  return body;
+}
+
+el("recordScenarioChangeBtn").addEventListener("click", async () => {
+  try {
+    const body = await recordScenarioChange();
+    log("Recorded scenario change", body.change);
+  } catch (error) {
+    log(`Scenario change record failed: ${error.message}`);
   }
 });
 

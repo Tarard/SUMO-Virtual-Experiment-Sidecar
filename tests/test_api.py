@@ -206,8 +206,13 @@ def test_homepage_exposes_patch_from_scenario_action(tmp_path: Path) -> None:
     assert "syncConfigPatchFieldsFromScenario" in script_response.text
     assert "patchConfigFromScenario" in script_response.text
     assert "preflightPatchedScenarioConfig" in script_response.text
+    assert "recordScenarioChangeBtn" in index_response.text
+    assert "Record Scenario Change" in index_response.text
+    assert "scenarioChangeRecordPayload" in script_response.text
+    assert "recordScenarioChange" in script_response.text
     assert "/api/config/patch" in script_response.text
     assert "/api/config/preflight" in script_response.text
+    assert "/change/record" in script_response.text
 
 
 def test_config_patch_api_writes_variant_config_copy(tmp_path: Path) -> None:

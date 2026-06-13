@@ -111,6 +111,8 @@ Use `Load Template` in the Scenario Guide to prefill a common scenario such as s
 
 Use `Patch Config From Scenario` to turn the current scenario parameter and after-value into a safe config-copy request. It uses the source config from the Construction Preflight panel, or the baseline config if no source patch config is set, then runs config-pair preflight on the baseline/generated variant pair.
 
+Use `Record Scenario Change` after a paired session exists to write the Scenario Guide parameter, before value, after value, and hypothesis into `change-records.md`.
+
 Use `Start Scenario` before a manual before/after comparison. It writes `scenario-plan.json` and `scenario-plan.md`, records the planned parameter, before value, after value, hypothesis, expected metrics, and then tells you the next evidence step.
 
 Use `Refresh Scenario` during the run to see the current guided step. The scenario guide advances as first checkpoint, before-change checkpoint, change record, after-change checkpoint, output inspection, metric comparison, metric chart, visual diff, timeline, review summary, and Codex packet become available.
@@ -158,7 +160,7 @@ Typical workflow:
 5. Optionally load a scenario template, then start a scenario plan before the manual before/after comparison.
 6. Capture the first paired checkpoint, then capture named before/after checkpoints while watching the SUMO GUI windows.
 7. Add timeline notes when you change parameters, observe a behavior, or record an assumption.
-8. Record structured changes so Codex can connect what changed to visual checkpoints and output metrics.
+8. Record structured changes, or use Record Scenario Change, so Codex can connect what changed to visual checkpoints and output metrics.
 9. Inspect `summary.xml` and `tripinfo.xml` output evidence before interpreting performance metrics.
 10. Export metric comparison so completion status and tripinfo deltas are visible together.
 11. Export a metric chart so the metric deltas are visible as an artifact.
@@ -272,6 +274,8 @@ When possible, the sidecar also writes pixel-level diff artifacts under `visual-
 `Create Config Patch` can generate a variant `.sumocfg` copy before session creation. It updates one existing SUMO option, writes an output config, and refuses to overwrite the source config or an explicitly named existing output file. It is useful for quick checks such as `step-length`, `begin`, `end`, or other existing `.sumocfg` options.
 
 `Patch Config From Scenario` uses the Scenario Guide fields as the patch request: `parameter` becomes the SUMO option and `after value` becomes the new value. It also synchronizes the structured change fields and immediately runs config-pair preflight so the generated variant config is checked before a paired GUI session is created.
+
+`Record Scenario Change` writes the same Scenario Guide fields into the active session's structured change records. It is still metadata about the intended/applied construction change, not proof that the simulation outcome is valid.
 
 This helper does not edit controller scripts, route files, TLS logic, or detector definitions. It is a construction helper only. After creating the copy, run config-pair preflight and keep the run at diagnostic status until paired output and completion evidence exist.
 
